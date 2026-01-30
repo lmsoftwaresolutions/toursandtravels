@@ -61,6 +61,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+API_PREFIX = "/api"
+
+def include_router(router, prefix: str = "", tags=None):
+    app.include_router(router, prefix=prefix, tags=tags)
+    app.include_router(router, prefix=f"{API_PREFIX}{prefix}", tags=tags)
+
 # ===============================
 # CORS CONFIG (React Frontend)
 # ===============================
@@ -70,6 +76,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost",
         "http://localhost:80",
+        "https://nathkrupa.lmsoftwaresolutions.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -128,21 +135,21 @@ create_default_users()
 # ===============================
 # Register API Routers
 # ===============================
-app.include_router(vehicle_router, prefix="/vehicles", tags=["Vehicles"])
-app.include_router(trip_router)
-app.include_router(fuel_router)
-app.include_router(maintenance_router, prefix="/maintenance", tags=["Maintenance"])
-app.include_router(customer_router)
-app.include_router(driver_router)
-app.include_router(spare_part_router)
-app.include_router(payment_router)
-app.include_router(dashboard_router)
-app.include_router(vendor_router)
-app.include_router(vendor_payment_router)
-app.include_router(driver_expense_router, prefix="/driver-expenses", tags=["Driver Expenses"])
-app.include_router(driver_salary_router)
-app.include_router(auth_router)
-app.include_router(vehicle_notes_router)
+include_router(vehicle_router, prefix="/vehicles", tags=["Vehicles"])
+include_router(trip_router)
+include_router(fuel_router)
+include_router(maintenance_router, prefix="/maintenance", tags=["Maintenance"])
+include_router(customer_router)
+include_router(driver_router)
+include_router(spare_part_router)
+include_router(payment_router)
+include_router(dashboard_router)
+include_router(vendor_router)
+include_router(vendor_payment_router)
+include_router(driver_expense_router, prefix="/driver-expenses", tags=["Driver Expenses"])
+include_router(driver_salary_router)
+include_router(auth_router)
+include_router(vehicle_notes_router)
 
 
 
