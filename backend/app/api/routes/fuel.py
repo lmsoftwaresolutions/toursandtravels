@@ -19,7 +19,7 @@ def get_db():
 def create_fuel(data: FuelCreate, db: Session = Depends(get_db)):
     return add_fuel(db, data)
 
-@router.get("/vehicle/{vehicle_number}", response_model=list[FuelResponse])
+@router.get("/vehicle/{vehicle_number}/", response_model=list[FuelResponse])
 def fuel_history(vehicle_number: str, db: Session = Depends(get_db)):
     return fuel_history_by_vehicle(db, vehicle_number)
 

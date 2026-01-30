@@ -1,4 +1,13 @@
-# Logs
+# ========================
+# ENV / SECRETS (CRITICAL)
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# LOGS
+# ========================
 logs
 *.log
 npm-debug.log*
@@ -7,18 +16,67 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ========================
+# NODE / FRONTEND
+# ========================
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# ========================
+# PYTHON / BACKEND
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# ========================
+# DATABASE / DOCKER
+# ========================
+postgres_data/
+*.sqlite3
+*.db
+
+# ========================
+# DOCKER
+# ========================
+.dockerignore
+docker-compose.override.yml
+
+# ========================
+# BUILD / CACHE
+# ========================
+.cache/
+.coverage
+htmlcov/
+
+# ========================
+# EDITORS / OS
+# ========================
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ========================
+# MISC
+# ========================
+*.pem
+*.key
+*.crt
+*.csr
+==

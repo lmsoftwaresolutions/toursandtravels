@@ -33,7 +33,7 @@ def list_drivers(db: Session = Depends(get_db)):
     return get_drivers(db)
 
 
-@router.get("/{driver_id}", response_model=DriverResponse)
+@router.get("/{driver_id}/", response_model=DriverResponse)
 def get_driver(driver_id: int, db: Session = Depends(get_db)):
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:

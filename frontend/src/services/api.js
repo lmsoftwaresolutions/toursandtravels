@@ -2,16 +2,16 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Normalize trailing slash for GET requests to avoid 307 redirects
+// force trailing slash
 api.interceptors.request.use((config) => {
-  if (config.method === "get") {
-    const url = config.url || "";
-    // Skip if already has query string or trailing slash
-    if (url && !url.endsWith("/") && !url.includes("?")) {
-      config.url = `${url}/`;
-    }
+  const url = config.url || "";
+  if (!url.startsWith("http") && !url.endsWith("/") && !url.includes("?")) {
+    config.url = `${url}/`;
   }
   return config;
 });

@@ -21,7 +21,14 @@ export default function CustomerForm() {
 
     try {
       setLoading(true);
-      await api.post("/customers", { name, phone, email });
+
+      // ✅ TRAILING SLASH IS REQUIRED
+      await api.post("/customers/", {
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim() || null,
+      });
+
       navigate("/customers");
     } catch (err) {
       console.error(err);
@@ -45,7 +52,7 @@ export default function CustomerForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        
+
         <input
           className="border p-2 rounded w-full mb-3"
           placeholder="Contact Number"
@@ -53,7 +60,7 @@ export default function CustomerForm() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
-        
+
         <input
           className="border p-2 rounded w-full mb-3"
           placeholder="Email (optional)"

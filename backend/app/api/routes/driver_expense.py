@@ -19,17 +19,17 @@ def create_expense(expense: DriverExpenseCreate, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     return service.create_expense(expense)
 
-@router.get("/trip/{trip_id}", response_model=List[DriverExpenseResponse])
+@router.get("/trip/{trip_id}/", response_model=List[DriverExpenseResponse])
 def get_expenses_by_trip(trip_id: int, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     return service.get_expenses_by_trip(trip_id)
 
-@router.get("/driver/{driver_id}", response_model=List[DriverExpenseResponse])
+@router.get("/driver/{driver_id}/", response_model=List[DriverExpenseResponse])
 def get_expenses_by_driver(driver_id: int, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     return service.get_expenses_by_driver(driver_id)
 
-@router.get("/{expense_id}", response_model=DriverExpenseResponse)
+@router.get("/{expense_id}/", response_model=DriverExpenseResponse)
 def get_expense(expense_id: int, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     expense = service.get_expense(expense_id)
@@ -37,7 +37,7 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Expense not found")
     return expense
 
-@router.put("/{expense_id}", response_model=DriverExpenseResponse)
+@router.put("/{expense_id}/", response_model=DriverExpenseResponse)
 def update_expense(expense_id: int, expense_update: DriverExpenseUpdate, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     expense = service.update_expense(expense_id, expense_update)
@@ -45,7 +45,7 @@ def update_expense(expense_id: int, expense_update: DriverExpenseUpdate, db: Ses
         raise HTTPException(status_code=404, detail="Expense not found")
     return expense
 
-@router.delete("/{expense_id}")
+@router.delete("/{expense_id}/")
 def delete_expense(expense_id: int, db: Session = Depends(get_db)):
     service = DriverExpenseService(db)
     if not service.delete_expense(expense_id):

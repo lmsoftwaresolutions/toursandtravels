@@ -1,12 +1,21 @@
 from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
+
+# ===============================
+# ENUMS
+# ===============================
 class MaintenanceType(str, Enum):
     EMI = "emi"
     INSURANCE = "insurance"
     TAX = "tax"
 
+
+# ===============================
+# CREATE SCHEMA
+# ===============================
 class MaintenanceCreate(BaseModel):
     vehicle_number: str
     maintenance_type: MaintenanceType
@@ -14,16 +23,26 @@ class MaintenanceCreate(BaseModel):
     amount: float
     start_date: datetime
 
-class MaintenanceUpdate(BaseModel):
-    maintenance_type: MaintenanceType = None
-    description: str = None
-    amount: float = None
-    start_date: datetime = None
 
+# ===============================
+# UPDATE SCHEMA
+# ===============================
+class MaintenanceUpdate(BaseModel):
+    maintenance_type: Optional[MaintenanceType] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    start_date: Optional[datetime] = None
+
+
+# ===============================
+# RESPONSE SCHEMA
+# ===============================
 class MaintenanceResponse(MaintenanceCreate):
     id: int
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None  # ✅ FIXED (allows NULL)
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2 config
+    model_config = {
+        "from_attributes": True
+    }

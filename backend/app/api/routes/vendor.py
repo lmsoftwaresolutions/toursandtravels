@@ -27,7 +27,7 @@ def get_vendors(category: str | None = Query(None), db: Session = Depends(get_db
     return list_vendors(db, category)
 
 
-@router.get("/{vendor_id}/summary")
+@router.get("/{vendor_id}/summary/")
 def get_vendor_summary(vendor_id: int, db: Session = Depends(get_db)):
     summary = vendor_summary(db, vendor_id)
     return summary or {"error": "Vendor not found"}

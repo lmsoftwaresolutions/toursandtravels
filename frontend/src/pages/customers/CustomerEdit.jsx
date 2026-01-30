@@ -10,7 +10,7 @@ export default function CustomerEdit() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get(`/customers/${id}`)
+    api.get(`/customers/${id}/`)
       .then(res => setName(res.data.name))
       .catch(() => setError("Failed to load customer"));
   }, [id]);
@@ -26,7 +26,10 @@ export default function CustomerEdit() {
 
     try {
       setLoading(true);
-      await api.put(`/customers/${id}`, { name: name.trim() });
+
+      // ✅ FIX: trailing slash added
+      await api.put(`/customers/${id}/`, { name: name.trim() });
+
       navigate(`/customers/${id}`);
     } catch (err) {
       console.error(err);

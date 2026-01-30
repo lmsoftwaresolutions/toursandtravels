@@ -7,7 +7,13 @@ export default function CustomerList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get("/customers").then(res => setCustomers(res.data));
+    // ✅ TRAILING SLASH IS REQUIRED
+    api.get("/customers/")
+      .then(res => setCustomers(res.data))
+      .catch(err => {
+        console.error(err);
+        setCustomers([]);
+      });
   }, []);
 
   return (

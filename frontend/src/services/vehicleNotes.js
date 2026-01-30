@@ -1,12 +1,12 @@
-import axios from "./axios";
+import api from "./api";
 
 export const addVehicleNote = (data) =>
-  axios.post("/vehicle-notes/", data);
+  api.post("/vehicle-notes", data);
 
 export const getVehicleNotes = (vehicleId, month) =>
-  axios.get("/vehicle-notes/", {
+  api.get("/vehicle-notes", {
     params: {
       vehicle_id: vehicleId,
-      month: month   // "YYYY-MM"
+      month
     }
   });

@@ -1,16 +1,9 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   db:
     image: postgres:15-alpine
-    container_name: travel-db
-    environment:
-      POSTGRES_USER: travel_user
-      POSTGRES_PASSWORD: travel_password
-      POSTGRES_DB: travel_db
-    expose:
-      - "5432"
+    container_name: travel-db-prod
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,45 +13,45 @@ services:
       retries: 5
     networks:
       - web
+    restart: unless-stopped
 
-  # Backend API
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: travel-backend
+    image: toursandtravels-backend
+    container_name: travel-backend-prod
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://travel_user:travel_password@db:5432/travel_db
       PYTHONPATH: /app
     expose:
-      - "8000"
+      - "8000"                # ✅ internal only (nginx will access)
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
     networks:
       - web
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    command: >
+      gunicorn app.main:app
+      -k uvicorn.workers.UvicornWorker
+      --workers 2
+      --bind 0.0.0.0:8000
 
-  # Frontend
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: /api
-    container_name: travel-frontend
+    image: toursandtravels-frontend
+    container_name: travel-frontend-prod
     expose:
       - "80"
+                  
     depends_on:
-      - backend
+      backend:
+        condition: service_started
     networks:
       - web
+    restart: unless-stopped
 
 volumes:
   postgres_data:
 
 networks:
   web:
-    external: true
+    driver: bridge
