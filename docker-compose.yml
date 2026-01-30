@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - travel-network
+      - web
 
   # Backend API
   backend:
@@ -30,15 +30,15 @@ services:
     environment:
       DATABASE_URL: postgresql://travel_user:travel_password@db:5432/travel_db
       PYTHONPATH: /app
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./backend:/app
     networks:
-      - travel-network
+      - web
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Frontend
@@ -47,16 +47,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: travel-frontend
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - backend
     networks:
-      - travel-network
+      - web
 
 volumes:
   postgres_data:
 
 networks:
-  travel-network:
-    driver: bridge
+  web:
+    external: true
