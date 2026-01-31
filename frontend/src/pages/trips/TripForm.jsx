@@ -196,12 +196,12 @@ export default function TripForm() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg border-t-4 border-blue-600">
           {/* HEADER */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-lg">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-beflex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div>
                 <h1 className="text-3xl font-bold">TRAVEL INVOICE</h1>
                 <p className="text-blue-100 mt-1">Tour & Travel Management</p>
@@ -215,7 +215,7 @@ export default function TripForm() {
                   onChange={handleChange}
                   placeholder="Enter invoice number"
                   required
-                  className="text-2xl font-bold text-white bg-blue-700 border border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="w-full md:w-auto text-xl md:text-2xl font-bold text-white bg-blue-700 border border-blue-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white"
                 />
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function TripForm() {
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* INVOICE DATE & CUSTOMER */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Invoice Date <span className="text-red-500">*</span>
@@ -260,7 +260,7 @@ export default function TripForm() {
             {/* DEPARTURE & RETURN */}
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="font-semibold text-gray-800 mb-3">Journey Details</h3>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Departure Date & Time
@@ -290,7 +290,7 @@ export default function TripForm() {
             </div>
 
             {/* ROUTE DETAILS */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   From Location <span className="text-red-500">*</span>
@@ -335,7 +335,7 @@ export default function TripForm() {
             </div>
 
             {/* VEHICLE & DRIVER */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Vehicle <span className="text-red-500">*</span>
@@ -395,7 +395,7 @@ export default function TripForm() {
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-gray-800 mb-3">Pricing Details</h3>
 
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Pricing Type
@@ -461,7 +461,7 @@ export default function TripForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-6 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Advance Payment
@@ -512,7 +512,7 @@ export default function TripForm() {
             {/* EXPENSES */}
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="font-semibold text-gray-800 mb-3">Expense Details</h3>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Fuel Cost
@@ -597,8 +597,8 @@ export default function TripForm() {
               
               {/* Add New Expense */}
               <div className="bg-white p-3 rounded border border-gray-300 mb-3">
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-5">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                  <div className="md:col-span-5">
                     <input
                       type="text"
                       placeholder="Description (e.g., Police Fine)"
@@ -607,7 +607,7 @@ export default function TripForm() {
                       className="border border-gray-300 p-2 w-full rounded focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="md:col-span-2">
                     <input
                       type="number"
                       step="0.01"
@@ -617,7 +617,7 @@ export default function TripForm() {
                       className="border border-gray-300 p-2 w-full rounded focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
-                  <div className="col-span-4">
+                  <div className="md:col-span-4">
                     <input
                       type="text"
                       placeholder="Notes (optional)"
@@ -626,7 +626,7 @@ export default function TripForm() {
                       className="border border-gray-300 p-2 w-full rounded focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
-                  <div className="col-span-1">
+                  <div className="md:col-span-1">
                     <button
                       type="button"
                       onClick={addDriverExpense}
@@ -673,7 +673,7 @@ export default function TripForm() {
               <p className="text-xs text-gray-600 mb-3">
                 Note: Toll & parking paid on spot are not included in total bill
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-white p-4 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Total Bill</p>
                   <p className="text-2xl font-bold text-blue-600">₹ {totalBill}</p>
@@ -692,7 +692,7 @@ export default function TripForm() {
             </div>
 
             {/* SUBMIT BUTTON */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-col md:flex-row gap-4 pt-4">
               <button
                 type="button"
                 onClick={() => navigate("/trips")}

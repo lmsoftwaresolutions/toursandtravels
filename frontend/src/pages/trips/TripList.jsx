@@ -12,22 +12,20 @@ export default function Trips() {
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [customers, setCustomers] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [activeTab, setActiveTab] = useState("upcoming"); // upcoming, past, all
+  const [activeTab, setActiveTab] = useState("upcoming");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  /* ---------------- LOAD VEHICLES & CHECK URL PARAMS ---------------- */
+  /* ---------------- LOAD DATA ---------------- */
   useEffect(() => {
     api.get("/vehicles").then(res => setVehicles(res.data));
     api.get("/customers").then(res => setCustomers(res.data));
     api.get("/drivers").then(res => setDrivers(res.data));
-    
-    // Check if vehicle filter is in URL
+
     const vehicleParam = searchParams.get("vehicle");
     if (vehicleParam) {
       setSelectedVehicle(vehicleParam);
-      setActiveTab("all"); // Set to "all" tab when filtering by vehicle
+      setActiveTab("all");
     } else {
-      // Only load all trips if no vehicle filter in URL
       fetchAllTrips();
     }
     setInitialLoadDone(true);
@@ -40,15 +38,13 @@ export default function Trips() {
 
   const searchByVehicle = useCallback(async () => {
     if (!selectedVehicle) {
-      const res = await api.get("/trips");
-      setTrips(res.data);
+      fetchAllTrips();
       return;
     }
     const res = await api.get(`/trips/vehicle/${selectedVehicle}`);
     setTrips(res.data);
   }, [selectedVehicle]);
 
-  /* ---------------- AUTO-FILTER WHEN VEHICLE SELECTED ---------------- */
   useEffect(() => {
     if (initialLoadDone && selectedVehicle) {
       searchByVehicle();
@@ -57,36 +53,29 @@ export default function Trips() {
 
   /* ---------------- FILTER BY TAB ---------------- */
   useEffect(() => {
-    filterTripsByTab();
-  }, [trips, activeTab]);
+    const today = new Date().toISOString().split("T")[0];
 
-  const filterTripsByTab = () => {
-    const today = new Date().toISOString().split('T')[0];
-    
     let filtered = trips;
     if (activeTab === "upcoming") {
       filtered = trips.filter(t => t.trip_date >= today);
     } else if (activeTab === "past") {
       filtered = trips.filter(t => t.trip_date < today);
     }
-    
     setFilteredTrips(filtered);
-  };
+  }, [trips, activeTab]);
 
-  /* ---------------- DELETE TRIP ---------------- */
+  /* ---------------- DELETE ---------------- */
   const handleDelete = async (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this trip?"
-    );
-    if (!confirmDelete) return;
-
+    if (!window.confirm("Are you sure you want to delete this trip?")) return;
     await api.delete(`/trips/${id}`);
     fetchAllTrips();
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="p-4 md:p-6">
+
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
         <h1 className="text-2xl font-bold">Trips</h1>
         <button
           onClick={() => navigate("/trips/add")}
@@ -96,44 +85,27 @@ export default function Trips() {
         </button>
       </div>
 
-      {/* TABS */}
-      <div className="flex gap-2 mb-4 border-b">
-        <button
-          onClick={() => setActiveTab("upcoming")}
-          className={`px-4 py-2 font-medium border-b-2 transition ${
-            activeTab === "upcoming"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-800"
-          }`}
-        >
-          Upcoming Trips
-        </button>
-        <button
-          onClick={() => setActiveTab("past")}
-          className={`px-4 py-2 font-medium border-b-2 transition ${
-            activeTab === "past"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-800"
-          }`}
-        >
-          Past Trips
-        </button>
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 font-medium border-b-2 transition ${
-            activeTab === "all"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-800"
-          }`}
-        >
-          All Trips
-        </button>
+      {/* ---------- TABS ---------- */}
+      <div className="flex flex-wrap gap-2 mb-4 border-b">
+        {["upcoming", "past", "all"].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 font-medium border-b-2 transition ${
+              activeTab === tab
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+            }`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)} Trips
+          </button>
+        ))}
       </div>
 
-      {/* FILTER */}
-      <div className="flex gap-2 mb-4">
+      {/* ---------- FILTER ---------- */}
+      <div className="flex flex-col md:flex-row gap-2 mb-4">
         <select
-          className="border p-2 rounded"
+          className="border p-2 rounded w-full md:w-auto"
           value={selectedVehicle}
           onChange={(e) => setSelectedVehicle(e.target.value)}
         >
@@ -153,70 +125,84 @@ export default function Trips() {
         </button>
       </div>
 
-      {/* TABLE */}
+      {/* ---------- TABLE ---------- */}
       <div className="bg-white rounded shadow">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 text-left">Invoice #</th>
-              <th className="p-2 text-left">Date</th>
-              <th className="p-2 text-left">Customer</th>
-              <th className="p-2 text-left">Driver</th>
-              <th className="p-2 text-left">Distance (KM)</th>
-              <th className="p-2 text-left">Total Charged</th>
-              <th className="p-2 text-left">Received</th>
-              <th className="p-2 text-left">Pending</th>
-              <th className="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTrips.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[900px] w-full border-collapse">
+            <thead className="bg-gray-200">
               <tr>
-                <td colSpan="9" className="p-4 text-center text-gray-500">
-                  No trips found
-                </td>
+                <th className="p-2 text-left">Invoice #</th>
+                <th className="p-2 text-left">Date</th>
+                <th className="p-2 text-left">Customer</th>
+                <th className="p-2 text-left">Driver</th>
+                <th className="p-2 text-left hidden md:table-cell">Distance (KM)</th>
+                <th className="p-2 text-left hidden md:table-cell">Total Charged</th>
+                <th className="p-2 text-left hidden md:table-cell">Received</th>
+                <th className="p-2 text-left hidden md:table-cell">Pending</th>
+                <th className="p-2 text-left">Actions</th>
               </tr>
-            ) : (
-              filteredTrips.map(trip => (
-                <tr key={trip.id} className="border-t">
-                  <td className="p-2 font-semibold text-blue-600">{trip.invoice_number || "N/A"}</td>
-                  <td className="p-2">{trip.trip_date}</td>
-                  <td className="p-2">
-                    {customers.find(c => c.id === trip.customer_id)?.name || trip.customer_id}
-                  </td>
-                  <td className="p-2">
-                    {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id}
-                  </td>
-                  <td className="p-2">{trip.distance_km}</td>
-                  <td className="p-2">₹{(trip.total_charged ?? 0).toFixed(2)}</td>
-                  <td className="p-2">₹{(trip.amount_received ?? 0).toFixed(2)}</td>
-                  <td className="p-2 text-red-700">₹{(trip.pending_amount ?? 0).toFixed(2)}</td>
-                  <td className="p-2 space-x-2">
-                    <button
-                      onClick={() => navigate(`/trips/${trip.id}`)}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => navigate(`/trips/edit/${trip.id}`)}
-                      className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(trip.id)}
-                      className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                    >
-                      Delete
-                    </button>
+            </thead>
+
+            <tbody>
+              {filteredTrips.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="p-4 text-center text-gray-500">
+                    No trips found
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filteredTrips.map(trip => (
+                  <tr key={trip.id} className="border-t hover:bg-gray-50">
+                    <td className="p-2 font-semibold text-blue-600">
+                      {trip.invoice_number || "N/A"}
+                    </td>
+                    <td className="p-2">{trip.trip_date}</td>
+                    <td className="p-2">
+                      {customers.find(c => c.id === trip.customer_id)?.name || trip.customer_id}
+                    </td>
+                    <td className="p-2">
+                      {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id}
+                    </td>
+
+                    <td className="p-2 hidden md:table-cell">{trip.distance_km}</td>
+                    <td className="p-2 hidden md:table-cell">
+                      ₹{(trip.total_charged ?? 0).toFixed(2)}
+                    </td>
+                    <td className="p-2 hidden md:table-cell">
+                      ₹{(trip.amount_received ?? 0).toFixed(2)}
+                    </td>
+                    <td className="p-2 hidden md:table-cell text-red-700">
+                      ₹{(trip.pending_amount ?? 0).toFixed(2)}
+                    </td>
+
+                    <td className="p-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => navigate(`/trips/${trip.id}`)}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => navigate(`/trips/edit/${trip.id}`)}
+                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(trip.id)}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
     </div>
   );
 }

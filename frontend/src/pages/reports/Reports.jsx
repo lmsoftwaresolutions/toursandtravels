@@ -146,12 +146,12 @@ export default function Reports() {
   };
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
       <h1 className="text-2xl font-bold">Reports & Analytics</h1>
 
       {/* FILTERS */}
       <div className="bg-white p-4 rounded shadow space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1">Vehicle:</label>
             <select
@@ -224,10 +224,10 @@ export default function Reports() {
       </div>
 
       {/* SUMMARY CARDS */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded shadow">
           <p className="text-xs text-gray-600">Total Trips</p>
-          <p className="text-2xl font-bold">{totalTrips}</p>
+          <p className="text-xl sm:text-2xl font-bold">{totalTrips}</p>
         </div>
         <div className="bg-white p-4 rounded shadow">
           <p className="text-xs text-gray-600">Total Distance</p>
@@ -244,7 +244,7 @@ export default function Reports() {
       </div>
 
       {/* SECOND ROW CARDS */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded shadow">
           <p className="text-xs text-gray-600">Net Profit</p>
           <p className="text-2xl font-bold" style={{ color: netProfit >= 0 ? "#16a34a" : "#dc2626" }}>
@@ -264,21 +264,21 @@ export default function Reports() {
       {/* EXPENSE BREAKDOWN */}
       <div className="bg-white p-4 rounded shadow">
         <h3 className="font-semibold mb-4">Expense Breakdown</h3>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-orange-50 rounded">
-            <p className="text-2xl font-bold text-orange-600">₹ {tripCharges.toFixed(2)}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="text-center p-3 sm:p-4 bg-orange-50 rounded min-h-[110px] flex flex-col justify-center">
+            <p className="text-lg sm:text-xl font-bold text-orange-600 whitespace-nowrap leading-tight">₹ {tripCharges.toFixed(2)}</p>
             <p className="text-xs text-gray-600 mt-1">Trip Charges<br/>(Toll, Parking)</p>
           </div>
-          <div className="text-center p-4 bg-blue-50 rounded">
-            <p className="text-2xl font-bold text-blue-600">₹ {fuelExpenses.toFixed(2)}</p>
+          <div className="text-center p-3 sm:p-4 bg-blue-50 rounded min-h-[110px] flex flex-col justify-center">
+            <p className="text-lg sm:text-xl font-bold text-blue-600 whitespace-nowrap leading-tight">₹ {fuelExpenses.toFixed(2)}</p>
             <p className="text-xs text-gray-600 mt-1">Fuel Expenses</p>
           </div>
-          <div className="text-center p-4 bg-purple-50 rounded">
-            <p className="text-2xl font-bold text-purple-600">₹ {spareExpenses.toFixed(2)}</p>
+          <div className="text-center p-3 sm:p-4 bg-purple-50 rounded min-h-[110px] flex flex-col justify-center">
+            <p className="text-lg sm:text-xl font-bold text-purple-600 whitespace-nowrap leading-tight">₹ {spareExpenses.toFixed(2)}</p>
             <p className="text-xs text-gray-600 mt-1">Spare Parts</p>
           </div>
-          <div className="text-center p-4 bg-red-50 rounded">
-            <p className="text-2xl font-bold text-red-600">₹ {totalExpenses.toFixed(2)}</p>
+          <div className="text-center p-3 sm:p-4 bg-red-50 rounded min-h-[110px] flex flex-col justify-center">
+            <p className="text-lg sm:text-xl font-bold text-red-600 whitespace-nowrap leading-tight">₹ {totalExpenses.toFixed(2)}</p>
             <p className="text-xs text-gray-600 mt-1">Total Expenses</p>
           </div>
         </div>
@@ -287,17 +287,17 @@ export default function Reports() {
       {/* PAYMENT STATUS */}
       <div className="bg-white p-4 rounded shadow">
         <h3 className="font-semibold mb-4">Payment Status</h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-green-50 rounded">
-            <p className="text-2xl font-bold text-green-600">{paymentStatus.paid}</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-600">{paymentStatus.paid}</p>
             <p className="text-sm text-gray-600">Fully Paid</p>
           </div>
           <div className="text-center p-4 bg-yellow-50 rounded">
-            <p className="text-2xl font-bold text-yellow-600">{paymentStatus.partial}</p>
+            <p className="text-lg sm:text-xl font-bold text-yellow-600">{paymentStatus.partial}</p>
             <p className="text-sm text-gray-600">Partial Payment</p>
           </div>
           <div className="text-center p-4 bg-red-50 rounded">
-            <p className="text-2xl font-bold text-red-600">{paymentStatus.pending}</p>
+            <p className="text-lg sm:text-xl font-bold text-red-600">{paymentStatus.pending}</p>
             <p className="text-sm text-gray-600">Pending</p>
           </div>
         </div>

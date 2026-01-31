@@ -24,7 +24,7 @@ export default function MaintenanceForm() {
     tax: "Tax",
   };
 
-  // ✅ FIX: keep maintenance_type in sync with URL
+  /* -------- keep type in sync -------- */
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
@@ -37,7 +37,7 @@ export default function MaintenanceForm() {
     if (id) fetchMaintenance();
   }, [id]);
 
-  // ---------------- FETCH VEHICLES ----------------
+  /* -------- fetch vehicles -------- */
   const fetchVehicles = async () => {
     try {
       const res = await api.get("/vehicles/");
@@ -55,7 +55,7 @@ export default function MaintenanceForm() {
     }
   };
 
-  // ---------------- FETCH MAINTENANCE ----------------
+  /* -------- fetch maintenance -------- */
   const fetchMaintenance = async () => {
     setLoading(true);
     try {
@@ -77,13 +77,12 @@ export default function MaintenanceForm() {
     }
   };
 
-  // ---------------- CHANGE HANDLER ----------------
+  /* -------- handlers -------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ---------------- SUBMIT ----------------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -104,102 +103,119 @@ export default function MaintenanceForm() {
     }
   };
 
-  if (loading && id) return <div className="p-6">Loading...</div>;
+  if (loading && id) {
+    return <div className="p-4 md:p-6">Loading...</div>;
+  }
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-3xl font-bold mb-2">
-        {id ? "Edit" : "Add"} {typeLabels[type]}
-      </h1>
+    <div className="p-4 md:p-6 w-full">
+      <div className="max-w-2xl mx-auto">
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
+        {/* ---------- HEADER ---------- */}
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">
+          {id ? "Edit" : "Add"} {typeLabels[type]}
+        </h1>
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-6 rounded shadow space-y-4"
-      >
-        {/* Vehicle */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Vehicle *</label>
-          <select
-            name="vehicle_number"
-            value={formData.vehicle_number}
-            onChange={handleChange}
-            required
-            className="w-full border px-3 py-2 rounded"
-          >
-            <option value="">Select Vehicle</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.vehicle_number}>
-                {v.vehicle_number}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* ---------- ERROR ---------- */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
-        {/* Amount */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Amount (₹) *</label>
-          <input
-            type="number"
-            name="amount"
-            value={formData.amount}
-            onChange={handleChange}
-            required
-            min="0"
-            step="0.01"
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
+        {/* ---------- FORM ---------- */}
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white p-4 md:p-6 rounded shadow space-y-4"
+        >
+          {/* Vehicle */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Vehicle *
+            </label>
+            <select
+              name="vehicle_number"
+              value={formData.vehicle_number}
+              onChange={handleChange}
+              required
+              className="w-full border px-3 py-2 rounded"
+            >
+              <option value="">Select Vehicle</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.vehicle_number}>
+                  {v.vehicle_number}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Start Date */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Start Date *</label>
-          <input
-            type="date"
-            name="start_date"
-            value={formData.start_date}
-            onChange={handleChange}
-            required
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
+          {/* Amount */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Amount (₹) *
+            </label>
+            <input
+              type="number"
+              name="amount"
+              value={formData.amount}
+              onChange={handleChange}
+              required
+              min="0"
+              step="0.01"
+              className="w-full border px-3 py-2 rounded"
+            />
+          </div>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows="3"
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
+          {/* Start Date */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Start Date *
+            </label>
+            <input
+              type="date"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleChange}
+              required
+              className="w-full border px-3 py-2 rounded"
+            />
+          </div>
 
-        {/* Buttons */}
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 text-white px-6 py-2 rounded"
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows="3"
+              className="w-full border px-3 py-2 rounded"
+            />
+          </div>
 
-          <button
-            type="button"
-            onClick={() => navigate(`/maintenance/${type}`)}
-            className="bg-gray-300 px-6 py-2 rounded"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-blue-600 text-white px-6 py-2 rounded"
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/maintenance/${type}`)}
+              className="bg-gray-300 px-6 py-2 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+
+      </div>
     </div>
   );
 }

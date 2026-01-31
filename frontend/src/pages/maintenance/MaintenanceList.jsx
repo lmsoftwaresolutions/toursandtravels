@@ -17,12 +17,12 @@ export default function MaintenanceList() {
     tax: "Tax",
   };
 
-  // ---------------- FETCH VEHICLES ----------------
+  /* ---------------- FETCH VEHICLES ---------------- */
   useEffect(() => {
     fetchVehicles();
   }, []);
 
-  // ---------------- FETCH MAINTENANCE WHEN VEHICLE / TYPE CHANGES ----------------
+  /* ---------------- FETCH MAINTENANCE ---------------- */
   useEffect(() => {
     if (selectedVehicle) {
       fetchMaintenances();
@@ -47,9 +47,7 @@ export default function MaintenanceList() {
     try {
       const res = await api.get(
         `/maintenance/vehicle/${selectedVehicle}/`,
-        {
-          params: { maintenance_type: type },
-        }
+        { params: { maintenance_type: type } }
       );
       setMaintenances(res.data);
     } catch (err) {
@@ -84,11 +82,12 @@ export default function MaintenanceList() {
   };
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-6">
+
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl md:text-3xl font-bold">
             {typeLabels[type]} Management
           </h1>
           <p className="text-gray-600 text-sm mt-1">
@@ -104,7 +103,7 @@ export default function MaintenanceList() {
         </button>
       </div>
 
-      {/* Vehicle Selector */}
+      {/* ---------- VEHICLE SELECT ---------- */}
       <div className="mb-6 bg-white p-4 rounded shadow">
         <label className="block text-sm font-medium mb-2">
           Select Vehicle
@@ -122,8 +121,8 @@ export default function MaintenanceList() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded shadow overflow-hidden">
+      {/* ---------- TABLE ---------- */}
+      <div className="bg-white rounded shadow">
         {loading ? (
           <div className="p-6 text-center text-gray-500">
             Loading...
@@ -133,66 +132,67 @@ export default function MaintenanceList() {
             No {typeLabels[type].toLowerCase()} records found
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium">
-                  Start Date
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {maintenances.map((m) => (
-                <tr key={m.id} className="border-b hover:bg-gray-50">
-                  <td className="px-6 py-3">
-                    ₹ {m.amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-3">
-                    {m.description || "-"}
-                  </td>
-                  <td className="px-6 py-3">
-                    {new Date(m.start_date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-3 text-sm text-gray-600">
-                    {new Date(m.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-3 flex gap-2">
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/maintenance/${type}/edit/${m.id}`
-                        )
-                      }
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(m.id)}
-                      className="text-red-600 hover:underline text-sm"
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-[700px] w-full border-collapse">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-medium">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-medium">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-medium">
+                    Start Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-medium hidden md:table-cell">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-medium">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {maintenances.map((m) => (
+                  <tr key={m.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-3">
+                      ₹ {m.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-3">
+                      {m.description || "-"}
+                    </td>
+                    <td className="px-6 py-3">
+                      {new Date(m.start_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-600 hidden md:table-cell">
+                      {new Date(m.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() =>
+                          navigate(`/maintenance/${type}/edit/${m.id}`)
+                        }
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(m.id)}
+                        className="text-red-600 hover:underline text-sm"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
     </div>
   );
 }

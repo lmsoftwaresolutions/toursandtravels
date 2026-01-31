@@ -20,18 +20,20 @@ export default function InvoiceView() {
       const tripRes = await api.get(`/trips/${id}`);
       setTrip(tripRes.data);
 
-      // Load related data
       const customerRes = await api.get("/customers");
-      const custData = customerRes.data.find(c => c.id === tripRes.data.customer_id);
-      setCustomer(custData);
+      setCustomer(
+        customerRes.data.find(c => c.id === tripRes.data.customer_id)
+      );
 
       const vehicleRes = await api.get("/vehicles");
-      const vehicleData = vehicleRes.data.find(v => v.vehicle_number === tripRes.data.vehicle_number);
-      setVehicle(vehicleData);
+      setVehicle(
+        vehicleRes.data.find(v => v.vehicle_number === tripRes.data.vehicle_number)
+      );
 
       const driverRes = await api.get("/drivers");
-      const driverData = driverRes.data.find(d => d.id === tripRes.data.driver_id);
-      setDriver(driverData);
+      setDriver(
+        driverRes.data.find(d => d.id === tripRes.data.driver_id)
+      );
     } catch (error) {
       console.error("Error loading invoice:", error);
     }
@@ -42,28 +44,31 @@ export default function InvoiceView() {
   };
 
   const InvoiceContent = () => (
-    <div className="bg-white p-8 rounded shadow" style={{ maxWidth: "900px", margin: "0 auto" }}>
+    <div className="bg-white p-4 md:p-8 rounded shadow max-w-4xl mx-auto">
+      
       {/* HEADER */}
-      <div className="flex justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">INVOICE</h1>
-          <p className="text-gray-600">INV-{String(trip.id).padStart(4, '0')}</p>
+          <h1 className="text-2xl md:text-3xl font-bold">INVOICE</h1>
+          <p className="text-gray-600">
+            INV-{String(trip.id).padStart(4, "0")}
+          </p>
         </div>
-        <div className="text-right">
+        <div className="md:text-right">
           <p className="text-sm text-gray-600">Invoice Date</p>
           <p className="font-semibold">{trip.trip_date}</p>
         </div>
       </div>
 
       {/* FROM & TO */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div>
-          <p className="text-sm text-gray-600 font-semibold">FROM</p>
+          <p className="text-xs text-gray-600 font-semibold">FROM</p>
           <p className="font-semibold">Nathkrupa Travels</p>
           <p className="text-sm text-gray-600">Pune, Maharashtra</p>
         </div>
         <div>
-          <p className="text-sm text-gray-600 font-semibold">BILL TO</p>
+          <p className="text-xs text-gray-600 font-semibold">BILL TO</p>
           <p className="font-semibold">{customer.name}</p>
           <p className="text-sm">{customer.email}</p>
           <p className="text-sm">{customer.phone}</p>
@@ -71,9 +76,9 @@ export default function InvoiceView() {
       </div>
 
       {/* TRIP DETAILS */}
-      <div className="mb-8 border p-4 rounded">
-        <h3 className="font-semibold mb-4">Trip Details</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="border p-4 rounded mb-6">
+        <h3 className="font-semibold mb-3">Trip Details</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-gray-600">From</p>
             <p className="font-semibold">{trip.from_location}</p>
@@ -102,57 +107,80 @@ export default function InvoiceView() {
       </div>
 
       {/* CHARGES TABLE */}
-      <table className="w-full mb-8 border-collapse">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="p-2 text-left">Description</th>
-            <th className="p-2 text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trip.pricing_type === "package" ? (
-            <tr className="border-t">
-              <td className="p-2">Package Fare</td>
-              <td className="p-2 text-right">₹ {(trip.package_amount || 0).toFixed(2)}</td>
+      <div className="overflow-x-auto mb-6">
+        <table className="min-w-[500px] w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="p-2 text-left">Description</th>
+              <th className="p-2 text-right">Amount</th>
             </tr>
-          ) : (
-            <tr className="border-t">
-              <td className="p-2">Base Fare ({trip.distance_km} km × ₹{trip.cost_per_km})</td>
-              <td className="p-2 text-right">₹ {(trip.distance_km * trip.cost_per_km).toFixed(2)}</td>
+          </thead>
+          <tbody>
+            {trip.pricing_type === "package" ? (
+              <tr className="border-t">
+                <td className="p-2">Package Fare</td>
+                <td className="p-2 text-right">
+                  ₹ {(trip.package_amount || 0).toFixed(2)}
+                </td>
+              </tr>
+            ) : (
+              <tr className="border-t">
+                <td className="p-2">
+                  Base Fare ({trip.distance_km} km × ₹{trip.cost_per_km})
+                </td>
+                <td className="p-2 text-right">
+                  ₹ {(trip.distance_km * trip.cost_per_km).toFixed(2)}
+                </td>
+              </tr>
+            )}
+
+            {trip.charged_toll_amount > 0 && (
+              <tr className="border-t">
+                <td className="p-2">Toll Charges</td>
+                <td className="p-2 text-right">
+                  ₹ {trip.charged_toll_amount.toFixed(2)}
+                </td>
+              </tr>
+            )}
+
+            {trip.charged_parking_amount > 0 && (
+              <tr className="border-t">
+                <td className="p-2">Parking Charges</td>
+                <td className="p-2 text-right">
+                  ₹ {trip.charged_parking_amount.toFixed(2)}
+                </td>
+              </tr>
+            )}
+
+            <tr className="border-t-2 font-semibold bg-gray-50">
+              <td className="p-2">Total Charged</td>
+              <td className="p-2 text-right">
+                ₹ {(trip.total_charged || 0).toFixed(2)}
+              </td>
             </tr>
-          )}
-          {trip.charged_toll_amount > 0 && (
-            <tr className="border-t">
-              <td className="p-2">Toll Charges</td>
-              <td className="p-2 text-right">₹ {trip.charged_toll_amount.toFixed(2)}</td>
-            </tr>
-          )}
-          {trip.charged_parking_amount > 0 && (
-            <tr className="border-t">
-              <td className="p-2">Parking Charges</td>
-              <td className="p-2 text-right">₹ {trip.charged_parking_amount.toFixed(2)}</td>
-            </tr>
-          )}
-          <tr className="border-t-2 border-b-2 font-semibold bg-gray-50">
-            <td className="p-2">Total Charged</td>
-            <td className="p-2 text-right">₹ {(trip.total_charged || 0).toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
 
       {/* PAYMENT SUMMARY */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 p-4 rounded">
           <p className="text-xs text-gray-600">Amount Charged</p>
-          <p className="text-lg font-bold">₹ {(trip.total_charged || 0).toFixed(2)}</p>
+          <p className="font-bold">
+            ₹ {(trip.total_charged || 0).toFixed(2)}
+          </p>
         </div>
         <div className="bg-green-50 p-4 rounded">
           <p className="text-xs text-gray-600">Amount Paid</p>
-          <p className="text-lg font-bold text-green-600">₹ {(trip.amount_received || 0).toFixed(2)}</p>
+          <p className="font-bold text-green-600">
+            ₹ {(trip.amount_received || 0).toFixed(2)}
+          </p>
         </div>
         <div className="bg-red-50 p-4 rounded">
           <p className="text-xs text-gray-600">Amount Due</p>
-          <p className="text-lg font-bold text-red-600">₹ {(trip.pending_amount || 0).toFixed(2)}</p>
+          <p className="font-bold text-red-600">
+            ₹ {(trip.pending_amount || 0).toFixed(2)}
+          </p>
         </div>
       </div>
 
@@ -165,16 +193,14 @@ export default function InvoiceView() {
   );
 
   if (!trip || !customer) {
-    return (
-      <div className="p-6">
-        <p>Loading invoice...</p>
-      </div>
-    );
+    return <div className="p-4 md:p-6">Loading invoice...</div>;
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-between items-center no-print">
+    <div className="p-4 md:p-6 space-y-4">
+
+      {/* TOP ACTIONS */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2 no-print">
         <button
           onClick={() => navigate("/invoices")}
           className="text-blue-600 text-sm"
@@ -189,22 +215,20 @@ export default function InvoiceView() {
         </button>
       </div>
 
-      {/* On-page view (non-print) */}
-      <div className="bg-white p-6 rounded shadow">
-        <InvoiceContent />
-      </div>
+      {/* INVOICE VIEW */}
+      <InvoiceContent />
 
-      {/* ACTIONS */}
-      <div className="flex gap-2 justify-center no-print">
+      {/* ACTION BUTTONS */}
+      <div className="flex flex-col sm:flex-row gap-2 justify-center no-print">
         <button
           onClick={() => setShowPrintModal(true)}
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-6 py-2 rounded"
         >
           🖨️ Print Invoice
         </button>
         <button
           onClick={() => navigate("/invoices")}
-          className="bg-gray-300 px-6 py-2 rounded hover:bg-gray-400"
+          className="bg-gray-300 px-6 py-2 rounded"
         >
           Back
         </button>
@@ -216,33 +240,22 @@ export default function InvoiceView() {
           <div className="bg-white w-[95vw] max-w-5xl max-h-[90vh] overflow-auto rounded-lg shadow-xl p-6 relative">
             <button
               onClick={() => setShowPrintModal(false)}
-              className="absolute top-3 right-3 text-gray-600 hover:text-black"
-              aria-label="Close"
+              className="absolute top-3 right-3 text-gray-600"
             >
               ✕
             </button>
 
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Invoice Preview</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={handlePrint}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Print
-                </button>
-                <button
-                  onClick={() => setShowPrintModal(false)}
-                  className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
-                >
-                  Close
-                </button>
-              </div>
+              <button
+                onClick={handlePrint}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Print
+              </button>
             </div>
 
-            <div className="invoice-print-area">
-              <InvoiceContent />
-            </div>
+            <InvoiceContent />
           </div>
         </div>
       )}

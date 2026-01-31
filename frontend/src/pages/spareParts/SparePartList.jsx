@@ -48,10 +48,10 @@ export default function SparePartList() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
 
       {/* ---------- HEADER ---------- */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
         <h1 className="text-2xl font-bold">Spare Parts</h1>
         <button
           onClick={() => navigate("/spare-parts/add")}
@@ -62,11 +62,11 @@ export default function SparePartList() {
       </div>
 
       {/* ---------- FILTER BAR ---------- */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-col md:flex-row gap-2 mb-4">
         <select
           value={selectedVehicle}
           onChange={e => setSelectedVehicle(e.target.value)}
-          className="border p-2 rounded"
+          className="border p-2 rounded w-full md:w-auto"
         >
           <option value="">All Vehicles</option>
           {vehicles.map(v => (
@@ -93,77 +93,74 @@ export default function SparePartList() {
 
       {/* ---------- TABLE ---------- */}
       <div className="bg-white rounded shadow">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 text-left">Date</th>
-              <th className="p-2 text-left">Vehicle</th>
-              <th className="p-2 text-left">Part</th>
-              <th className="p-2 text-left">Qty</th>
-              <th className="p-2 text-left">Cost</th>
-              <th className="p-2 text-left">Vendor</th>
-              <th className="p-2 text-left">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {spareParts.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[800px] w-full border-collapse">
+            <thead className="bg-gray-200">
               <tr>
-                <td colSpan="7" className="p-4 text-center text-gray-500">
-                  No spare parts found
-                </td>
+                <th className="p-2 text-left">Date</th>
+                <th className="p-2 text-left">Vehicle</th>
+                <th className="p-2 text-left">Part</th>
+                <th className="p-2 text-left">Qty</th>
+                <th className="p-2 text-left">Cost</th>
+                <th className="p-2 text-left hidden md:table-cell">Vendor</th>
+                <th className="p-2 text-left">Actions</th>
               </tr>
-            ) : (
-              spareParts.map(sp => (
-                <tr key={sp.id} className="border-t">
-                  <td className="p-2">
-                    {sp.replaced_date}
-                  </td>
-                  <td className="p-2">
-                    {sp.vehicle_number}
-                  </td>
-                  <td className="p-2">
-                    {sp.part_name}
-                  </td>
-                  <td className="p-2">
-                    {sp.quantity}
-                  </td>
-                  <td className="p-2">
-                    ₹ {sp.cost}
-                  </td>
-                  <td className="p-2">
-                    {sp.vendor || "-"}
-                  </td>
-                  <td className="p-2 space-x-2">
-                    <button
-                      onClick={() =>
-                        navigate(`/spare-parts/${sp.id}`)
-                      }
-                      className="bg-blue-600 text-white px-3 py-1 rounded mr-2"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() =>
-                        navigate(`/spare-parts/edit/${sp.id}`)
-                      }
-                      className="bg-yellow-500 text-white px-3 py-1 rounded mr-2"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => remove(sp.id)}
-                      className="bg-red-600 text-white px-3 py-1 rounded"
-                    >
-                      Delete
-                    </button>
+            </thead>
+
+            <tbody>
+              {spareParts.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="p-4 text-center text-gray-500">
+                    No spare parts found
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-
-        </table>
+              ) : (
+                spareParts.map(sp => (
+                  <tr key={sp.id} className="border-t hover:bg-gray-50">
+                    <td className="p-2">
+                      {sp.replaced_date}
+                    </td>
+                    <td className="p-2">
+                      {sp.vehicle_number}
+                    </td>
+                    <td className="p-2">
+                      {sp.part_name}
+                    </td>
+                    <td className="p-2">
+                      {sp.quantity}
+                    </td>
+                    <td className="p-2">
+                      ₹ {sp.cost}
+                    </td>
+                    <td className="p-2 hidden md:table-cell">
+                      {sp.vendor || "-"}
+                    </td>
+                    <td className="p-2 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => navigate(`/spare-parts/${sp.id}`)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => navigate(`/spare-parts/edit/${sp.id}`)}
+                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => remove(sp.id)}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
