@@ -87,7 +87,7 @@ export default function Login() {
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
+          {/* <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-600 font-semibold mb-3">Demo Credentials:</p>
             <div className="space-y-2 text-sm">
               <div className="bg-blue-50 p-3 rounded">
@@ -102,8 +102,8 @@ export default function Login() {
                 <p className="font-mono font-semibold text-gray-800">Nathkrupa_3 / Nathkrupa_3</p>
                 <p className="text-xs text-gray-600 mt-1">Limited - Restricted Access</p>
               </div>
-            </div>
-          </div>
+            </div> */}
+          {/* </div> */}
         </div>
       </div>
     </div>
