@@ -7,6 +7,7 @@ import VehicleList from "../pages/vehicles/VehicleList";
 import VehicleForm from "../pages/vehicles/VehicleForm";
 import VehicleDetails from "../pages/vehicles/VehicleDetails";
 import VehicleEfficiency from "../pages/vehicles/VehicleEfficiency";
+import VehicleEdit from "../pages/vehicles/VehicleEdit";
 
 import TripList from "../pages/trips/TripList";
 import TripForm from "../pages/trips/TripForm";
@@ -83,6 +84,7 @@ export default function AppRoutes() {
           <RequireAdmin><VehicleEfficiency /></RequireAdmin>
         } />
         <Route path="/vehicles/:vehicle_number" element={<VehicleDetails />} />
+        <Route path="/vehicles/:vehicle_number/edit" element={<VehicleEdit />} />
 
         {/* Trips */}
         <Route path="/trips" element={<TripList />} />

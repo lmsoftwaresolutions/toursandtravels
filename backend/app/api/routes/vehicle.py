@@ -52,3 +52,24 @@ def get_vehicle_summary(vehicle_number: str, db: Session = Depends(get_db)):
 @router.delete("/{vehicle_id}/")
 def remove_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
     return soft_delete_vehicle(db, vehicle_id)
+
+
+
+@router.put("/{vehicle_number}/")
+def update_vehicle(
+    vehicle_number: str,
+    _: VehicleCreate,  # payload required but unused for now
+    db: Session = Depends(get_db),
+):
+    vehicle = db.query(Vehicle).filter(
+        Vehicle.vehicle_number == vehicle_number
+    ).first()
+
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    # vehicle_number intentionally NOT editable
+
+    db.commit()
+    db.refresh(vehicle)
+    return vehicle
