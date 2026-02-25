@@ -16,7 +16,9 @@ export default function Sidebar() {
         <button onClick={() => setIsOpen(true)} className="text-sm border border-gray-600 px-2 py-1 rounded">
           Menu
         </button>
-        <img src={NathkrupaLogo} alt="Nathkrupa" className="h-7" />
+        <div className="bg-white rounded px-2 py-1">
+          <img src={NathkrupaLogo} alt="Nathkrupa" className="h-6 w-auto" />
+        </div>
       </div>
 
       {isOpen && (
@@ -37,7 +39,9 @@ export default function Sidebar() {
         `}
       >
         <div className="p-4 border-b border-gray-700">
-          <img src={NathkrupaLogo} alt="Nathkrupa" className="h-8" />
+          <div className="bg-white rounded px-2 py-2 inline-block">
+            <img src={NathkrupaLogo} alt="Nathkrupa" className="h-7 w-auto" />
+          </div>
         </div>
 
         <nav className="flex flex-col gap-1 p-2 overflow-y-auto">

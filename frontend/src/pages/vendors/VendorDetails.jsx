@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 export default function VendorDetails() {
   const { id } = useParams();
@@ -231,6 +232,9 @@ export default function VendorDetails() {
 
   return (
     <div className="p-6 space-y-4">
+      <div className="bg-white rounded-lg shadow border p-3">
+        <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <button

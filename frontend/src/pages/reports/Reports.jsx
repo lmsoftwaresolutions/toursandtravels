@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 const getMonthKey = (dateStr) => {
   if (!dateStr) return "";
@@ -227,6 +228,9 @@ export default function Reports() {
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
+      <div className="bg-white p-3 rounded shadow">
+        <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
+      </div>
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Reports & Analytics</h1>
         <button onClick={handlePrint} className="px-4 py-2 bg-gray-800 text-white rounded no-print">

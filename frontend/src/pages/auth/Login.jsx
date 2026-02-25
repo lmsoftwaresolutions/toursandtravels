@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -36,7 +37,7 @@ export default function Login() {
         <div className="bg-white rounded-xl shadow-2xl p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Travel Management</h1>
+            <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-14 mx-auto mb-3" />
             <p className="text-gray-600">Login to your account</p>
           </div>
 
@@ -85,25 +86,6 @@ export default function Login() {
               {loading ? "Logging in..." : "Login"}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          {/* <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 font-semibold mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-sm">
-              <div className="bg-blue-50 p-3 rounded">
-                <p className="font-mono font-semibold text-gray-800">Nathkrupa_1 / Nathkrupa_1</p>
-                <p className="text-xs text-gray-600 mt-1">Admin - Full Access</p>
-              </div>
-              <div className="bg-blue-50 p-3 rounded">
-                <p className="font-mono font-semibold text-gray-800">Nathkrupa_2 / Nathkrupa_2</p>
-                <p className="text-xs text-gray-600 mt-1">Admin - Full Access</p>
-              </div>
-              <div className="bg-orange-50 p-3 rounded">
-                <p className="font-mono font-semibold text-gray-800">Nathkrupa_3 / Nathkrupa_3</p>
-                <p className="text-xs text-gray-600 mt-1">Limited - Restricted Access</p>
-              </div>
-            </div> */}
-          {/* </div> */}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 const TYPE_TABS = [
   { key: "all", label: "All" },
@@ -83,6 +84,9 @@ export default function MaintenanceList() {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
+      <div className="bg-white p-3 rounded shadow">
+        <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
+      </div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <h1 className="text-2xl md:text-3xl font-bold">Maintenance</h1>
         <div className="flex gap-2 items-center">

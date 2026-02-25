@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 export default function DriverDetails() {
   const { id } = useParams();
@@ -107,6 +108,9 @@ export default function DriverDetails() {
   return (
     <div className="p-6">
       <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-lg shadow border p-3 mb-4">
+          <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
+        </div>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
