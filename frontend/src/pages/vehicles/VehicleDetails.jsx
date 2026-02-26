@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 export default function VehicleDetails() {
@@ -20,7 +21,9 @@ export default function VehicleDetails() {
     return <LoadingSpinner fullScreen message="Loading vehicle details..." />;
   }
 
-  return (
+    const formatMoney = (value) => Number(value || 0).toFixed(2);
+
+return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -94,7 +97,7 @@ export default function VehicleDetails() {
                   </svg>
                 </div>
                 <p className="text-sm opacity-90 mb-1">Trip Revenue</p>
-                <p className="text-3xl font-bold">₹ {summary.trip_cost}</p>
+                <p className="text-3xl font-bold">₹ {formatMoney(summary.trip_cost)}</p>
                 <p className="text-xs opacity-75 mt-2">Earnings</p>
               </div>
 
@@ -105,7 +108,7 @@ export default function VehicleDetails() {
                   </svg>
                 </div>
                 <p className="text-sm opacity-90 mb-1">Fuel Cost</p>
-                <p className="text-3xl font-bold">₹ {summary.total_fuel_cost}</p>
+                <p className="text-3xl font-bold">₹ {formatMoney(summary.total_fuel_cost)}</p>
                 <p className="text-xs opacity-75 mt-2">Consumed</p>
               </div>
 
@@ -117,7 +120,7 @@ export default function VehicleDetails() {
                   </svg>
                 </div>
                 <p className="text-sm opacity-90 mb-1">Maintenance Cost</p>
-                <p className="text-3xl font-bold">₹ {summary.maintenance_cost}</p>
+                <p className="text-3xl font-bold">₹ {formatMoney(summary.maintenance_cost)}</p>
                 <p className="text-xs opacity-75 mt-2">Repairs</p>
               </div>
 
@@ -128,7 +131,7 @@ export default function VehicleDetails() {
                   </svg>
                 </div>
                 <p className="text-sm opacity-90 mb-1">Total Vehicle Cost</p>
-                <p className="text-3xl font-bold">₹ {summary.total_vehicle_cost}</p>
+                <p className="text-3xl font-bold">₹ {formatMoney(summary.total_vehicle_cost)}</p>
                 <p className="text-xs opacity-75 mt-2">Overall</p>
               </div>
             </div>
@@ -179,7 +182,7 @@ export default function VehicleDetails() {
                     {Object.entries(summary.fuel_costs).map(([type, cost]) => (
                       <tr key={type} className="border-t hover:bg-gray-50">
                         <td className="p-3 text-sm text-gray-700 capitalize">{type}</td>
-                        <td className="p-3 text-sm text-right font-bold text-orange-600">₹ {cost}</td>
+                        <td className="p-3 text-sm text-right font-bold text-orange-600">₹ {formatMoney(cost)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -212,11 +215,11 @@ export default function VehicleDetails() {
                   <tbody>
                     {summary.spare_parts.map(sp => (
                       <tr key={sp.id} className="border-t hover:bg-gray-50">
-                        <td className="p-3 text-sm text-gray-700">{sp.replaced_date}</td>
+                        <td className="p-3 text-sm text-gray-700">{formatDateDDMMYYYY(sp.replaced_date)}</td>
                         <td className="p-3 text-sm font-semibold text-gray-800">{sp.part_name}</td>
                         <td className="p-3 text-sm text-gray-700">{sp.quantity}</td>
                         <td className="p-3 text-sm text-gray-700">{sp.vendor}</td>
-                        <td className="p-3 text-sm text-right font-bold text-red-600">₹ {sp.cost}</td>
+                        <td className="p-3 text-sm text-right font-bold text-red-600">₹ {formatMoney(sp.cost)}</td>
                       </tr>
                     ))}
                   </tbody>

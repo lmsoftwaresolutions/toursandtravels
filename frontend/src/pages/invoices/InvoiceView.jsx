@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_NAME } from "../../constants/company";
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -48,15 +51,18 @@ export default function InvoiceView() {
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">INVOICE</h1>
-          <p className="text-gray-600">
-            INV-{String(trip.id).padStart(4, "0")}
-          </p>
+        <div className="flex items-center gap-3">
+          <img src={NathkrupaLogo} alt="Nathkrupa Logo" className="h-10" />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">INVOICE</h1>
+            <p className="text-gray-600">
+              {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}
+            </p>
+          </div>
         </div>
         <div className="md:text-right">
           <p className="text-sm text-gray-600">Invoice Date</p>
-          <p className="font-semibold">{trip.trip_date}</p>
+          <p className="font-semibold">{formatDateDDMMYYYY(trip.trip_date)}</p>
         </div>
       </div>
 
@@ -64,8 +70,9 @@ export default function InvoiceView() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div>
           <p className="text-xs text-gray-600 font-semibold">FROM</p>
-          <p className="font-semibold">Nathkrupa Travels</p>
-          <p className="text-sm text-gray-600">Pune, Maharashtra</p>
+          <p className="font-semibold">{COMPANY_NAME}</p>
+          <p className="text-sm text-gray-600">{COMPANY_ADDRESS}</p>
+          <p className="text-sm text-gray-600">{COMPANY_CONTACT}</p>
         </div>
         <div>
           <p className="text-xs text-gray-600 font-semibold">BILL TO</p>
@@ -101,7 +108,7 @@ export default function InvoiceView() {
           </div>
           <div>
             <p className="text-xs text-gray-600">Date</p>
-            <p className="font-semibold">{trip.trip_date}</p>
+            <p className="font-semibold">{formatDateDDMMYYYY(trip.trip_date)}</p>
           </div>
         </div>
       </div>

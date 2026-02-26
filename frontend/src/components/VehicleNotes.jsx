@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { formatDateDDMMYYYY } from "../utils/date";
 
 export default function VehicleNotes({ vehicleNumber }) {
   const [month, setMonth] = useState(
@@ -46,7 +47,7 @@ export default function VehicleNotes({ vehicleNumber }) {
       <div className="space-y-3">
         {notes.map((n) => (
           <div key={n.id} className="border-b pb-2">
-            <p className="text-sm text-gray-600">{n.note_date}</p>
+            <p className="text-sm text-gray-600">{formatDateDDMMYYYY(n.note_date)}</p>
             <p className="text-gray-800">{n.note}</p>
           </div>
         ))}

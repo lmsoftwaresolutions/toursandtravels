@@ -9,8 +9,10 @@ class PaymentCreate(BaseModel):
     amount: float
     notes: Optional[str] = None
 
+
 class PaymentResponse(BaseModel):
     id: int
+    invoice_number: str        
     trip_id: int
     payment_date: datetime
     payment_mode: str

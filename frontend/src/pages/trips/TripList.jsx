@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function Trips() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export default function Trips() {
   const [drivers, setDrivers] = useState([]);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
 
   /* ---------------- LOAD DATA ---------------- */
   useEffect(() => {
@@ -61,8 +64,24 @@ export default function Trips() {
     } else if (activeTab === "past") {
       filtered = trips.filter(t => t.trip_date < today);
     }
+
+    if (searchInvoice.trim()) {
+      const invoiceQuery = searchInvoice.trim().toLowerCase();
+      filtered = filtered.filter(t =>
+        String(t.invoice_number || "").toLowerCase().includes(invoiceQuery)
+      );
+    }
+
+    if (searchCustomer.trim()) {
+      const customerQuery = searchCustomer.trim().toLowerCase();
+      filtered = filtered.filter(t => {
+        const name = customers.find(c => c.id === t.customer_id)?.name || "";
+        return name.toLowerCase().includes(customerQuery);
+      });
+    }
+
     setFilteredTrips(filtered);
-  }, [trips, activeTab]);
+  }, [trips, activeTab, searchInvoice, searchCustomer, customers]);
 
   /* ---------------- DELETE ---------------- */
   const handleDelete = async (id) => {
@@ -125,6 +144,21 @@ export default function Trips() {
         </button>
       </div>
 
+      <div className="flex flex-col md:flex-row gap-2 mb-4">
+        <input
+          className="border p-2 rounded w-full md:w-auto"
+          placeholder="Search by Customer Name"
+          value={searchCustomer}
+          onChange={(e) => setSearchCustomer(e.target.value)}
+        />
+        <input
+          className="border p-2 rounded w-full md:w-auto"
+          placeholder="Search by Invoice Number"
+          value={searchInvoice}
+          onChange={(e) => setSearchInvoice(e.target.value)}
+        />
+      </div>
+
       {/* ---------- TABLE ---------- */}
       <div className="bg-white rounded shadow">
         <div className="overflow-x-auto">
@@ -156,7 +190,7 @@ export default function Trips() {
                     <td className="p-2 font-semibold text-blue-600">
                       {trip.invoice_number || "N/A"}
                     </td>
-                    <td className="p-2">{trip.trip_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(trip.trip_date)}</td>
                     <td className="p-2">
                       {customers.find(c => c.id === trip.customer_id)?.name || trip.customer_id}
                     </td>

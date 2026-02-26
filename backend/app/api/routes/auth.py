@@ -16,6 +16,6 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/login/", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     return login_user(db, login_data)

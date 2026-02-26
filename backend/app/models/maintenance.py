@@ -18,5 +18,6 @@ class Maintenance(Base):
     description = Column(String)
     amount = Column(Float, nullable=False)
     start_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

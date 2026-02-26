@@ -13,7 +13,11 @@ from app.services.vehicle_service import (
 
 from app.services.vehicle_stats_service import vehicle_summary
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/vehicles",
+    tags=["Vehicles"]
+)
+
 
 def get_db():
     db = SessionLocal()
@@ -23,7 +27,7 @@ def get_db():
         db.close()
 
 
-@router.post("/", response_model=VehicleResponse)
+@router.post("", response_model=VehicleResponse)
 def add_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db)):
     result = create_vehicle(db, vehicle)
     if not result:
@@ -31,12 +35,12 @@ def add_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/", response_model=list[VehicleResponse])
+@router.get("", response_model=list[VehicleResponse])
 def list_vehicles(db: Session = Depends(get_db)):
     return get_all_vehicles(db)
 
 
-@router.get("/{vehicle_number}/", response_model=VehicleResponse)
+@router.get("/{vehicle_number}", response_model=VehicleResponse)
 def vehicle_details(vehicle_number: str, db: Session = Depends(get_db)):
     vehicle = get_vehicle_by_number(db, vehicle_number)
     if not vehicle:
@@ -45,18 +49,18 @@ def vehicle_details(vehicle_number: str, db: Session = Depends(get_db)):
 
 
 # ✅ FIXED: trailing slash added
-@router.get("/{vehicle_number}/summary/")
+@router.get("/{vehicle_number}/summary")
 def get_vehicle_summary(vehicle_number: str, db: Session = Depends(get_db)):
     return vehicle_summary(db, vehicle_number)
 
 
-@router.delete("/{vehicle_id}/")
+@router.delete("/{vehicle_id}")
 def remove_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
     return soft_delete_vehicle(db, vehicle_id)
 
 
 
-@router.put("/{vehicle_number}/", response_model=VehicleResponse)
+@router.put("/{vehicle_number}", response_model=VehicleResponse)
 def update_vehicle(
     vehicle_number: str,
     db: Session = Depends(get_db),

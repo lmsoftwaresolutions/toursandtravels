@@ -19,17 +19,17 @@ def get_db():
         db.close()
 
 
-@router.get("/vendor/{vendor_id}/", response_model=list[VendorPaymentResponse])
+@router.get("/vendor/{vendor_id}", response_model=list[VendorPaymentResponse])
 def get_vendor_payments(vendor_id: int, db: Session = Depends(get_db)):
     return list_payments_by_vendor(db, vendor_id)
 
 
-@router.post("/", response_model=VendorPaymentResponse)
+@router.post("", response_model=VendorPaymentResponse)
 def add_vendor_payment(data: VendorPaymentCreate, db: Session = Depends(get_db)):
     return create_vendor_payment(db, data)
 
 
-@router.delete("/{payment_id}/")
+@router.delete("/{payment_id}")
 def remove_vendor_payment(payment_id: int, db: Session = Depends(get_db)):
     deleted = delete_vendor_payment(db, payment_id)
     if not deleted:

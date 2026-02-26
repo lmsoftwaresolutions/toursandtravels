@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Date, Float
 from app.database.base import Base
 
 class Driver(Base):
@@ -8,3 +8,5 @@ class Driver(Base):
     name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
     license_number = Column(String, nullable=True)
+    joining_date = Column(Date, nullable=True)
+    monthly_salary = Column(Float, nullable=True)

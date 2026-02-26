@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function TripForm() {
   const navigate = useNavigate();
@@ -14,6 +15,14 @@ export default function TripForm() {
   const [showOtherVendor, setShowOtherVendor] = useState(false);
   const [driverExpenses, setDriverExpenses] = useState([]);
   const [newExpense, setNewExpense] = useState({ description: "", amount: "", notes: "" });
+  const [pricingItems, setPricingItems] = useState([]);
+  const [newPricingItem, setNewPricingItem] = useState({ description: "", amount: "" });
+  const [chargeItems, setChargeItems] = useState([]);
+  const [newChargeItem, setNewChargeItem] = useState({ description: "", amount: "" });
+  const [driverChanges, setDriverChanges] = useState([]);
+  const [newDriverChange, setNewDriverChange] = useState({ driver_id: "", start_time: "", end_time: "", notes: "" });
+  const [advancePayments, setAdvancePayments] = useState([]);
+  const [newAdvance, setNewAdvance] = useState({ payment_date: "", payment_mode: "Cash", amount: "", notes: "" });
 
   const [form, setForm] = useState({
     trip_date: "",
@@ -25,15 +34,20 @@ export default function TripForm() {
     vehicle_number: "",
     driver_id: "",
     customer_id: "",
+    start_km: "",
+    end_km: "",
     distance_km: "",
+    fuel_rate: "",
     fuel_cost: "",
+    fuel_litres: "",
     toll_amount: "",
     parking_amount: "",
     other_expenses: "",
+    driver_bhatta: "",
     cost_per_km: "",
     charged_toll_amount: "",
     charged_parking_amount: "",
-    advance_payment: "",
+    discount_amount: "",
     amount_received: "",
     pricing_type: "per_km",
     package_amount: "",
@@ -65,21 +79,33 @@ export default function TripForm() {
           vehicle_number: data.vehicle_number,
           driver_id: String(data.driver_id),
           customer_id: String(data.customer_id),
+          start_km: data.start_km ?? "",
+          end_km: data.end_km ?? "",
           distance_km: data.distance_km,
+          fuel_rate: data.fuel_litres
+            ? ((data.diesel_used || data.petrol_used || 0) / data.fuel_litres).toFixed(2)
+            : "",
           fuel_cost: (data.diesel_used || data.petrol_used || ""),
+          fuel_litres: data.fuel_litres || "",
           toll_amount: data.toll_amount || "",
           parking_amount: data.parking_amount || "",
           other_expenses: data.other_expenses || "",
+          driver_bhatta: data.driver_bhatta || "",
           cost_per_km: data.cost_per_km || "",
           charged_toll_amount: data.charged_toll_amount || "",
           charged_parking_amount: data.charged_parking_amount || "",
-          advance_payment: data.advance_payment || "",
+          discount_amount: data.discount_amount || "",
           amount_received: data.amount_received || "",
           pricing_type: data.pricing_type || "per_km",
           package_amount: data.package_amount || "",
           vendor: data.vendor || "",
           invoice_number: data.invoice_number || "",
         });
+
+        const allItems = data.pricing_items || [];
+        setPricingItems(allItems.filter(i => i.item_type !== "charge"));
+        setChargeItems(allItems.filter(i => i.item_type === "charge"));
+        setDriverChanges(data.driver_changes || []);
 
         if (data.vendor && !vendors.find(v => v.name === data.vendor)) {
           setShowOtherVendor(true);
@@ -124,9 +150,95 @@ export default function TripForm() {
 
   const totalDriverExpenses = driverExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
 
+  /* ---------------- PRICING ITEMS ---------------- */
+  const addPricingItem = () => {
+    if (!newPricingItem.description) {
+      alert("Please enter pricing description");
+      return;
+    }
+    setPricingItems([...pricingItems, { ...newPricingItem, id: Date.now() }]);
+    setNewPricingItem({ description: "", amount: "" });
+  };
+
+  const removePricingItem = (index) => {
+    setPricingItems(pricingItems.filter((_, i) => i !== index));
+  };
+
+  const addChargeItem = () => {
+    if (!newChargeItem.description) {
+      alert("Please enter charge description");
+      return;
+    }
+    setChargeItems([...chargeItems, { ...newChargeItem, id: Date.now() }]);
+    setNewChargeItem({ description: "", amount: "" });
+  };
+
+  const removeChargeItem = (index) => {
+    setChargeItems(chargeItems.filter((_, i) => i !== index));
+  };
+
+  /* ---------------- DRIVER CHANGES ---------------- */
+  const addDriverChange = () => {
+    if (!newDriverChange.driver_id) {
+      alert("Please select driver");
+      return;
+    }
+    setDriverChanges([...driverChanges, { ...newDriverChange, id: Date.now() }]);
+    setNewDriverChange({ driver_id: "", start_time: "", end_time: "", notes: "" });
+  };
+
+  const removeDriverChange = (index) => {
+    setDriverChanges(driverChanges.filter((_, i) => i !== index));
+  };
+
+  /* ---------------- ADVANCE PAYMENTS ---------------- */
+  const addAdvancePayment = () => {
+    if (!newAdvance.amount) {
+      alert("Please enter amount");
+      return;
+    }
+    setAdvancePayments([...advancePayments, { ...newAdvance, id: Date.now() }]);
+    setNewAdvance({ payment_date: "", payment_mode: "Cash", amount: "", notes: "" });
+  };
+
+  const removeAdvancePayment = (index) => {
+    setAdvancePayments(advancePayments.filter((_, i) => i !== index));
+  };
+
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    let vendorName = form.vendor ? String(form.vendor).trim() : "";
+
+    if (showOtherVendor && vendorName) {
+      const existing = vendors.find(
+        v => String(v.name || "").trim().toLowerCase() === vendorName.toLowerCase()
+      );
+
+      if (!existing) {
+        try {
+          const createRes = await api.post("/vendors", {
+            name: vendorName,
+            category: "fuel",
+          });
+          vendorName = createRes.data?.name || vendorName;
+          setVendors(prev => [...prev, createRes.data].filter(Boolean));
+        } catch (err) {
+          const detail = err.response?.data?.detail || err.message;
+          alert("Error creating vendor: " + detail);
+          return;
+        }
+      }
+    }
+
+    const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
+    const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
+    const startKm = Number(form.start_km || 0);
+    const endKm = Number(form.end_km || 0);
+    const derivedDistance = startKm && endKm ? Math.max(endKm - startKm, 0) : null;
+    const distanceKmValue =
+      form.distance_km !== "" ? Number(form.distance_km) : derivedDistance;
 
     const payload = {
       trip_date: form.trip_date,
@@ -138,21 +250,45 @@ export default function TripForm() {
       vehicle_number: form.vehicle_number,
       driver_id: Number(form.driver_id),
       customer_id: Number(form.customer_id),
-      distance_km: form.distance_km ? Number(form.distance_km) : null,
-      diesel_used: Number(form.fuel_cost || 0),
+      start_km: form.start_km !== "" ? Number(form.start_km) : null,
+      end_km: form.end_km !== "" ? Number(form.end_km) : null,
+      distance_km: distanceKmValue ?? null,
+      diesel_used: fuelCostTotal,
       petrol_used: 0,
+      fuel_litres: Number(form.fuel_litres || 0),
       toll_amount: Number(form.toll_amount || 0),
       parking_amount: Number(form.parking_amount || 0),
       other_expenses: Number(form.other_expenses || 0),
+      driver_bhatta: Number(form.driver_bhatta || 0),
       pricing_type: form.pricing_type,
       package_amount: Number(form.package_amount || 0),
       cost_per_km: Number(form.cost_per_km || 0),
       charged_toll_amount: Number(form.charged_toll_amount || 0),
       charged_parking_amount: Number(form.charged_parking_amount || 0),
-      advance_payment: Number(form.advance_payment || 0),
-      amount_received: Number(form.amount_received || 0),
-      vendor: form.vendor || null,
+      discount_amount: Number(form.discount_amount || 0),
+      amount_received: totalReceived,
+      vendor: vendorName || null,
       invoice_number: form.invoice_number || null,
+      pricing_items: pricingItems.map(i => ({
+        description: i.description,
+        quantity: 1,
+        rate: 0,
+        amount: Number(i.amount || 0),
+        item_type: "pricing"
+      })),
+      charge_items: chargeItems.map(i => ({
+        description: i.description,
+        quantity: 1,
+        rate: 0,
+        amount: Number(i.amount || 0),
+        item_type: "charge"
+      })),
+      driver_changes: driverChanges.map(dc => ({
+        driver_id: Number(dc.driver_id),
+        start_time: dc.start_time || null,
+        end_time: dc.end_time || null,
+        notes: dc.notes || null
+      }))
     };
 
     try {
@@ -180,19 +316,63 @@ export default function TripForm() {
         }
       }
 
+      // Save advance payments (multiple)
+      for (const payment of advancePayments) {
+        await api.post("/payments", {
+          trip_id: Number(tripId),
+          payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString() : new Date().toISOString(),
+          payment_mode: payment.payment_mode || "Cash",
+          amount: Number(payment.amount),
+          notes: payment.notes || null,
+        });
+      }
+
       navigate("/trips");
     } catch (error) {
       alert("Error saving trip: " + (error.response?.data?.detail || error.message));
     }
   };
 
-  const totalBillValue =
-    form.pricing_type === "package"
-      ? Number(form.package_amount || 0)
-      : Number(form.distance_km || 0) * Number(form.cost_per_km || 0);
+  const pricingItemsTotal = pricingItems.reduce(
+    (sum, i) => sum + Number(i.amount || 0),
+    0
+  );
+  const chargeItemsTotal = chargeItems.reduce(
+    (sum, i) => sum + Number(i.amount || 0),
+    0
+  );
 
-  const totalBill = totalBillValue.toFixed(2);
-  const pending = Math.max(totalBillValue - Number(form.amount_received || 0), 0).toFixed(2);
+  const basePricing =
+    pricingItems.length > 0
+      ? pricingItemsTotal
+      : (form.pricing_type === "package"
+          ? Number(form.package_amount || 0)
+          : Number(form.distance_km || 0) * Number(form.cost_per_km || 0));
+
+  const totalChargedValue =
+    basePricing +
+    Number(form.charged_toll_amount || 0) +
+    Number(form.charged_parking_amount || 0) +
+    chargeItemsTotal +
+    Number(form.other_expenses || 0) -
+    Number(form.discount_amount || 0);
+
+  const totalAdvancePayments = advancePayments.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0
+  );
+
+  const totalReceived = Number(form.amount_received || 0) + totalAdvancePayments;
+
+  const displayedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
+  const startKmValue = Number(form.start_km || 0);
+  const endKmValue = Number(form.end_km || 0);
+  const derivedDistanceKm = startKmValue && endKmValue ? Math.max(endKmValue - startKmValue, 0) : null;
+  const distanceInputValue = form.distance_km !== "" ? form.distance_km : (derivedDistanceKm ?? "");
+  const stopWheel = (e) => e.currentTarget.blur();
+
+  const totalBill = totalChargedValue.toFixed(2);
+  const pending = Math.max(totalChargedValue - totalReceived, 0).toFixed(2);
 
   /* ---------------- UI ---------------- */
   return (
@@ -382,11 +562,62 @@ export default function TripForm() {
                 <input
                   type="number"
                   name="distance_km"
-                  value={form.distance_km}
+                  value={distanceInputValue}
                   onChange={handleChange}
+                  onWheel={stopWheel}
                   className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required={form.pricing_type === "per_km"}
                   placeholder={form.pricing_type === "package" ? "Approx. distance for efficiency tracking" : "0"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Start KM
+                </label>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  step="0.1"
+                  name="start_km"
+                  value={form.start_km}
+                  onChange={handleChange}
+                  className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  End KM
+                </label>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  step="0.1"
+                  name="end_km"
+                  value={form.end_km}
+                  onChange={handleChange}
+                  className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Driver Bhatta
+                </label>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  step="0.01"
+                  name="driver_bhatta"
+                  value={form.driver_bhatta}
+                  onChange={handleChange}
+                  className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="??? 0.00"
                 />
               </div>
             </div>
@@ -418,6 +649,7 @@ export default function TripForm() {
                     </label>
                     <input
                       type="number"
+                      onWheel={stopWheel}
                       step="0.01"
                       name="cost_per_km"
                       value={form.cost_per_km}
@@ -434,6 +666,7 @@ export default function TripForm() {
                     </label>
                     <input
                       type="number"
+                      onWheel={stopWheel}
                       step="0.01"
                       name="package_amount"
                       value={form.package_amount}
@@ -451,6 +684,7 @@ export default function TripForm() {
                   </label>
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
                     name="amount_received"
                     value={form.amount_received}
@@ -461,28 +695,116 @@ export default function TripForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Advance Payment
-                  </label>
+              {/* PRICING ITEMS */}
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-700 mb-2">Pricing Entries</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    className="border border-gray-300 p-2 rounded"
+                    placeholder="Description"
+                    value={newPricingItem.description}
+                    onChange={e => setNewPricingItem({ ...newPricingItem, description: e.target.value })}
+                  />
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
-                    name="advance_payment"
-                    value={form.advance_payment}
-                    onChange={handleChange}
-                    className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-yellow-50"
-                    placeholder="₹ 0.00"
+                    className="border border-gray-300 p-2 rounded"
+                    placeholder="Amount"
+                    value={newPricingItem.amount}
+                    onChange={e => setNewPricingItem({ ...newPricingItem, amount: e.target.value })}
                   />
+                  <button
+                    type="button"
+                    onClick={addPricingItem}
+                    className="px-3 rounded bg-blue-600 text-white"
+                  >
+                    Add
+                  </button>
                 </div>
 
+                {pricingItems.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {pricingItems.map((item, idx) => (
+                      <div key={item.id || idx} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                        <div>
+                          <span className="font-medium">{item.description}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold">â‚¹ {Number(item.amount || 0).toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removePricingItem(idx)}
+                            className="text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* TRIP CHARGES */}
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-700 mb-2">Trip Charges</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    className="border border-gray-300 p-2 rounded"
+                    placeholder="Description"
+                    value={newChargeItem.description}
+                    onChange={e => setNewChargeItem({ ...newChargeItem, description: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    className="border border-gray-300 p-2 rounded"
+                    placeholder="Amount"
+                    value={newChargeItem.amount}
+                    onChange={e => setNewChargeItem({ ...newChargeItem, amount: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={addChargeItem}
+                    className="px-3 rounded bg-blue-600 text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {chargeItems.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {chargeItems.map((item, idx) => (
+                      <div key={item.id || idx} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                        <div>
+                          <span className="font-medium">{item.description}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold">??? {Number(item.amount || 0).toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeChargeItem(idx)}
+                            className="text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Charged Toll
                   </label>
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
                     name="charged_toll_amount"
                     value={form.charged_toll_amount}
@@ -498,6 +820,7 @@ export default function TripForm() {
                   </label>
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
                     name="charged_parking_amount"
                     value={form.charged_parking_amount}
@@ -506,7 +829,96 @@ export default function TripForm() {
                     placeholder="₹ 0.00"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Discount Amount (₹500–₹1000)
+                  </label>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    name="discount_amount"
+                    value={form.discount_amount}
+                    onChange={handleChange}
+                    className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="₹ 0.00"
+                  />
+                </div>
               </div>
+            </div>
+
+            {/* ADVANCE PAYMENTS */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-gray-800 mb-3">Advance Payments (Multiple)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  type="datetime-local"
+                  className="border border-gray-300 p-2 rounded"
+                  value={newAdvance.payment_date}
+                  onChange={e => setNewAdvance({ ...newAdvance, payment_date: e.target.value })}
+                />
+                <select
+                  className="border border-gray-300 p-2 rounded"
+                  value={newAdvance.payment_mode}
+                  onChange={e => setNewAdvance({ ...newAdvance, payment_mode: e.target.value })}
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Bank">Bank</option>
+                  <option value="Card">Card</option>
+                </select>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  step="0.01"
+                  className="border border-gray-300 p-2 rounded"
+                  placeholder="Amount"
+                  value={newAdvance.amount}
+                  onChange={e => setNewAdvance({ ...newAdvance, amount: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <input
+                    className="border border-gray-300 p-2 rounded w-full"
+                    placeholder="Notes"
+                    value={newAdvance.notes}
+                    onChange={e => setNewAdvance({ ...newAdvance, notes: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={addAdvancePayment}
+                    className="px-3 rounded bg-blue-600 text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {advancePayments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {advancePayments.map((p, idx) => (
+                    <div key={p.id || idx} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                      <div>
+                        <span className="font-medium">{p.payment_mode}</span>
+                        <span className="text-gray-500 ml-2">
+                          {p.payment_date ? formatDateDDMMYYYY(p.payment_date) : "Now"}
+                        </span>
+                        {p.notes && <span className="text-gray-500 ml-2">{p.notes}</span>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold">₹ {Number(p.amount || 0).toFixed(2)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAdvancePayment(idx)}
+                          className="text-red-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* EXPENSES */}
@@ -515,16 +927,33 @@ export default function TripForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Fuel Cost
+                    Fuel Rate (per L)
                   </label>
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
-                    name="fuel_cost"
-                    value={form.fuel_cost}
+                    name="fuel_rate"
+                    value={form.fuel_rate}
                     onChange={handleChange}
                     className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="₹ 0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Fuel Litres
+                  </label>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    name="fuel_litres"
+                    value={form.fuel_litres}
+                    onChange={handleChange}
+                    className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
                   />
                 </div>
 
@@ -550,7 +979,7 @@ export default function TripForm() {
                         }}
                         className="bg-gray-300 hover:bg-gray-400 px-3 rounded-lg text-sm"
                       >
-                        ✕
+                        add
                       </button>
                     </div>
                   ) : (
@@ -566,9 +995,23 @@ export default function TripForm() {
                           {v.name}
                         </option>
                       ))}
-                      <option value="other">Other (Enter manually)</option>
+                      <option value="other">Other Vendor</option>
                     </select>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Fuel Cost (Total)
+                  </label>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    value={Number(displayedFuelCost || 0).toFixed(2)}
+                    readOnly
+                    className="border border-gray-300 p-3 w-full rounded-lg bg-gray-100 text-gray-700"
+                  />
                 </div>
 
                 <div>
@@ -577,6 +1020,7 @@ export default function TripForm() {
                   </label>
                   <input
                     type="number"
+                    onWheel={stopWheel}
                     step="0.01"
                     name="other_expenses"
                     value={form.other_expenses}
@@ -586,6 +1030,73 @@ export default function TripForm() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* DRIVER CHANGES */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <h3 className="font-semibold text-gray-800 mb-3">Driver Changes During Trip</h3>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <select
+                  className="border border-gray-300 p-2 rounded"
+                  value={newDriverChange.driver_id}
+                  onChange={e => setNewDriverChange({ ...newDriverChange, driver_id: e.target.value })}
+                >
+                  <option value="">Select Driver</option>
+                  {drivers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="datetime-local"
+                  className="border border-gray-300 p-2 rounded"
+                  value={newDriverChange.start_time}
+                  onChange={e => setNewDriverChange({ ...newDriverChange, start_time: e.target.value })}
+                />
+                <input
+                  type="datetime-local"
+                  className="border border-gray-300 p-2 rounded"
+                  value={newDriverChange.end_time}
+                  onChange={e => setNewDriverChange({ ...newDriverChange, end_time: e.target.value })}
+                />
+                <input
+                  className="border border-gray-300 p-2 rounded"
+                  placeholder="Notes"
+                  value={newDriverChange.notes}
+                  onChange={e => setNewDriverChange({ ...newDriverChange, notes: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={addDriverChange}
+                  className="bg-blue-600 text-white rounded"
+                >
+                  Add
+                </button>
+              </div>
+
+              {driverChanges.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {driverChanges.map((dc, idx) => (
+                    <div key={dc.id || idx} className="flex items-center justify-between text-sm bg-white p-2 rounded border">
+                      <div>
+                        <span className="font-medium">
+                          {drivers.find(d => String(d.id) === String(dc.driver_id))?.name || dc.driver_id}
+                        </span>
+                        <span className="text-gray-500 ml-2">
+                          {dc.start_time || "Start"} → {dc.end_time || "End"}
+                        </span>
+                        {dc.notes && <span className="text-gray-500 ml-2">{dc.notes}</span>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDriverChange(idx)}
+                        className="text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* DRIVER EXPENSES */}
@@ -610,6 +1121,7 @@ export default function TripForm() {
                   <div className="md:col-span-2">
                     <input
                       type="number"
+                      onWheel={stopWheel}
                       step="0.01"
                       placeholder="Amount"
                       value={newExpense.amount}
@@ -671,7 +1183,7 @@ export default function TripForm() {
             <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border-2 border-green-300">
               <h3 className="font-bold text-lg text-gray-800 mb-4">Billing Summary</h3>
               <p className="text-xs text-gray-600 mb-3">
-                Note: Toll & parking paid on spot are not included in total bill
+                Note: Toll, parking, trip charges, and other expenses are included in total bill
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="bg-white p-4 rounded-lg shadow">
@@ -681,7 +1193,7 @@ export default function TripForm() {
                 <div className="bg-white p-4 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Advance Payment</p>
                   <p className="text-2xl font-bold text-yellow-600">
-                    ₹ {Number(form.advance_payment || 0).toFixed(2)}
+                    ₹ {totalAdvancePayments.toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow">

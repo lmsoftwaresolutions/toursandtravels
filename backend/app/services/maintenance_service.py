@@ -52,6 +52,9 @@ def add_maintenance(db: Session, data):
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
+    if data.end_date and data.end_date < data.start_date:
+        raise HTTPException(status_code=400, detail="End date cannot be before start date")
+
     maintenance = Maintenance(**data.dict())
     db.add(maintenance)
     db.commit()
@@ -76,6 +79,16 @@ def get_maintenance_by_vehicle(
     return query.order_by(Maintenance.start_date.desc()).all()
 
 
+def get_all_maintenance(
+    db: Session,
+    maintenance_type: MaintenanceType = None
+):
+    query = db.query(Maintenance)
+    if maintenance_type:
+        query = query.filter(Maintenance.maintenance_type == maintenance_type.value)
+    return query.order_by(Maintenance.start_date.desc()).all()
+
+
 def get_maintenance_by_id(db: Session, maintenance_id: int):
     return db.query(Maintenance).filter(
         Maintenance.id == maintenance_id
@@ -87,6 +100,11 @@ def update_maintenance(db: Session, maintenance_id: int, data):
 
     if not maintenance:
         raise HTTPException(status_code=404, detail="Maintenance record not found")
+
+    start_date = data.start_date if data.start_date is not None else maintenance.start_date
+    end_date = data.end_date if data.end_date is not None else maintenance.end_date
+    if end_date and start_date and end_date < start_date:
+        raise HTTPException(status_code=400, detail="End date cannot be before start date")
 
     for field, value in data.dict(exclude_unset=True).items():
         setattr(maintenance, field, value)

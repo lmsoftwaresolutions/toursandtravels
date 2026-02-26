@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_NAME } from "../../constants/company";
 
 export default function PaymentHistory() {
   const [trips, setTrips] = useState([]);
@@ -81,6 +84,193 @@ export default function PaymentHistory() {
       alert("Error recording payment: " + (error.response?.data?.detail || error.message));
     }
   };
+  const formatDate = (dateStr) => formatDateDDMMYYYY(dateStr);
+
+
+  const handlePrint = (payment, trip, customer) => {
+    if (!payment || !trip) return;
+
+    const invoiceLabel =
+      trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`;
+
+    const printWindow = window.open("", "_blank", "width=900,height=650");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Payment Receipt ${invoiceLabel}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              color: #111827;
+              background: #f3f4f6;
+            }
+            .card {
+              background: #fff;
+              max-width: 860px;
+              margin: 0 auto;
+              padding: 28px;
+              border-radius: 10px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 20px;
+            }
+            .brand {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo {
+              height: 42px;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: bold;
+            }
+            .subtle {
+              color: #6b7280;
+              font-size: 12px;
+            }
+            .section {
+              margin-bottom: 18px;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 16px;
+            }
+            .box {
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 14px;
+            }
+            .label {
+              font-size: 12px;
+              color: #6b7280;
+            }
+            .value {
+              font-weight: 600;
+              margin-top: 4px;
+            }
+            .summary {
+              display: grid;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 12px;
+            }
+            .summary .item {
+              padding: 12px;
+              border-radius: 8px;
+            }
+            .bg-blue { background: #eff6ff; }
+            .bg-green { background: #ecfdf3; }
+            .bg-red { background: #fef2f2; }
+            .footer {
+              border-top: 1px solid #e5e7eb;
+              padding-top: 12px;
+              text-align: center;
+              font-size: 12px;
+              color: #6b7280;
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="card">
+            <div class="header">
+              <div class="brand">
+                <img src="${NathkrupaLogo}" class="logo" alt="Nathkrupa Logo" />
+                <div>
+                  <div class="title">PAYMENT RECEIPT</div>
+                  <div class="subtle">Invoice Number: ${invoiceLabel}</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <div class="subtle">Payment Date</div>
+                <div class="value">${formatDate(payment.payment_date)}</div>
+              </div>
+            </div>
+
+            <div class="section grid">
+              <div>
+                <div class="label">FROM</div>
+                <div class="value">${COMPANY_NAME}</div>
+                <div class="subtle">${COMPANY_ADDRESS}</div>
+                <div class="subtle">${COMPANY_CONTACT}</div>
+              </div>
+              <div>
+                <div class="label">BILL TO</div>
+                <div class="value">${customer?.name || "N/A"}</div>
+                <div class="subtle">${customer?.email || ""}</div>
+                <div class="subtle">${customer?.phone || ""}</div>
+              </div>
+            </div>
+
+            <div class="section box">
+              <div class="grid">
+                <div>
+                  <div class="label">Route</div>
+                  <div class="value">${trip.from_location} →  ${trip.to_location}</div>
+                </div>
+                <div>
+                  <div class="label">Vehicle</div>
+                  <div class="value">${trip.vehicle_number}</div>
+                </div>
+                <div>
+                  <div class="label">Trip Date</div>
+                  <div class="value">${formatDate(trip.trip_date)}</div>
+                </div>
+                <div>
+                  <div class="label">Payment Mode</div>
+                  <div class="value">${payment.payment_mode}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section summary">
+              <div class="item bg-blue">
+                <div class="label">Amount Charged</div>
+                <div class="value">₹  ${(trip.total_charged || 0).toFixed(2)}</div>
+              </div>
+              <div class="item bg-green">
+                <div class="label">Amount Paid (This Receipt)</div>
+                <div class="value">₹  ${payment.amount.toFixed(2)}</div>
+              </div>
+              <div class="item bg-red">
+                <div class="label">Remaining Balance</div>
+                <div class="value">₹  ${(trip?.pending_amount || 0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            ${payment.notes ? `
+              <div class="section">
+                <div class="label">Notes</div>
+                <div class="value">${payment.notes}</div>
+              </div>
+            ` : ""}
+
+            <div class="footer">
+              Thank you for your business! This is a computer-generated document.
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
+
 
   const filteredTrips = filterCustomer
     ? trips.filter(t => t.customer_id === Number(filterCustomer))
@@ -109,21 +299,22 @@ export default function PaymentHistory() {
             <h2 className="text-lg font-semibold mb-4">Record Payment</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Select Trip:</label>
+                <label className="block text-sm font-medium mb-1">Select Invoice:</label>
+
                 <select
                   value={form.trip_id}
                   onChange={e => handleTripChange(e.target.value)}
                   required
                   className="w-full border p-2 rounded text-sm"
                 >
-                  <option value="">-- Select Trip --</option>
+                  <option value="">-- Select Invoice --</option>
                   {trips
                     .filter(t => (t.pending_amount || 0) > 0)
                     .map(trip => {
                       const customer = customers.find(c => c.id === trip.customer_id);
                       return (
                         <option key={trip.id} value={trip.id}>
-                          #{trip.id} - {customer?.name || "N/A"} - Pending: ₹{(trip.pending_amount || 0).toFixed(2)}
+                          {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`} - {customer?.name || "N/A"} - Pending: ₹{(trip.pending_amount || 0).toFixed(2)}
                         </option>
                       );
                     })}
@@ -171,6 +362,7 @@ export default function PaymentHistory() {
 
               <input
                 type="number"
+                onWheel={(e) => e.currentTarget.blur()}
                 name="amount"
                 placeholder="Payment Amount"
                 value={form.amount}
@@ -261,13 +453,14 @@ export default function PaymentHistory() {
         <table className="w-full border-collapse">
           <thead className="bg-gray-200">
             <tr>
-              <th className="p-2 text-left">Payment ID</th>
-              <th className="p-2 text-left">Trip ID</th>
+              <th className="p-2 text-left">Invoice Number </th>
               <th className="p-2 text-left">Customer</th>
               <th className="p-2 text-left">Payment Date</th>
               <th className="p-2 text-left">Mode</th>
               <th className="p-2 text-left">Amount</th>
               <th className="p-2 text-left">Remaining</th>
+              <th className="p-2 text-left">Action</th>
+
             </tr>
           </thead>
           <tbody>
@@ -290,10 +483,9 @@ export default function PaymentHistory() {
                   const customer = customers.find(c => c.id === trip?.customer_id);
                   return (
                     <tr key={payment.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 font-semibold">PAY-{String(payment.id).padStart(4, '0')}</td>
-                      <td className="p-2">#{payment.trip_id}</td>
+                      <td className="p-2 font-semibold">{payment.invoice_number || trip?.invoice_number || `INV-${String(trip?.id || payment.trip_id).padStart(4, "0")}`}</td>
                       <td className="p-2">{customer?.name || "N/A"}</td>
-                      <td className="p-2">{payment.payment_date}</td>
+                      <td className="p-2">{formatDate(payment.payment_date)}</td>
                       <td className="p-2 capitalize">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
                           {payment.payment_mode}
@@ -303,6 +495,15 @@ export default function PaymentHistory() {
                       <td className="p-2 text-red-600">
                         ₹ {(trip?.pending_amount || 0).toFixed(2)}
                       </td>
+                      <td className="p-2">
+                        <button
+                          onClick={() => handlePrint(payment, trip, customer)}
+                          className="px-3 py-1 bg-gray-800 text-white rounded text-xs hover:bg-black"
+                        >
+                          Print
+                        </button>
+                      </td>
+
                     </tr>
                   );
                 })
@@ -316,7 +517,7 @@ export default function PaymentHistory() {
         <table className="w-full border-collapse">
           <thead className="bg-gray-200">
             <tr>
-              <th className="p-2 text-left">Trip ID</th>
+              <th className="p-2 text-left">Invoice Number</th>
               <th className="p-2 text-left">Customer</th>
               <th className="p-2 text-left">Date</th>
               <th className="p-2 text-left">Route</th>
@@ -337,9 +538,9 @@ export default function PaymentHistory() {
                 const customer = customers.find(c => c.id === trip.customer_id);
                 return (
                   <tr key={trip.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2">#{trip.id}</td>
+                    <td className="p-2">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</td>
                     <td className="p-2">{customer?.name || "N/A"}</td>
-                    <td className="p-2">{trip.trip_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(trip.trip_date)}</td>
                     <td className="p-2 text-sm">{trip.from_location} → {trip.to_location}</td>
                     <td className="p-2">₹ {(trip.total_charged || 0).toFixed(2)}</td>
                     <td className="p-2 text-green-600">₹ {(trip.amount_received || 0).toFixed(2)}</td>

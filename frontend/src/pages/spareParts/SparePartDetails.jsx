@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function SparePartDetails() {
   const { id } = useParams();
@@ -224,7 +225,7 @@ export default function SparePartDetails() {
             ) : (
               allSpareParts.map(sp => (
                 <tr key={sp.id} className="border-t">
-                  <td className="p-2">{sp.replaced_date}</td>
+                  <td className="p-2">{formatDateDDMMYYYY(sp.replaced_date)}</td>
                   <td className="p-2">{sp.vehicle_number}</td>
                   <td className="p-2">₹ {sp.cost.toFixed(2)}</td>
                   <td className="p-2">{sp.quantity}</td>

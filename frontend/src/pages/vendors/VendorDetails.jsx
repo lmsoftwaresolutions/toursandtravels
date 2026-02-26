@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 export default function VendorDetails() {
   const { id } = useParams();
@@ -70,17 +72,23 @@ export default function VendorDetails() {
         const tripRes = await api.get("/trips");
         const tripFuelEntries = tripRes.data
           .filter(t => t.vendor === vendorData.name && (t.diesel_used > 0 || t.petrol_used > 0))
-          .map(t => ({
-            id: `trip-${t.id}`,
-            filled_date: t.trip_date,
-            vehicle_number: t.vehicle_number,
-            fuel_type: t.diesel_used > 0 ? "diesel" : "petrol",
-            quantity: t.diesel_used > 0 ? t.diesel_used : t.petrol_used,
-            rate_per_litre: 0,
-            total_cost: t.diesel_used > 0 ? t.diesel_used : t.petrol_used,
-            vendor: vendorData.name,
-            trip_id: t.id
-          }));
+          .map(t => {
+            const totalCost = t.diesel_used > 0 ? t.diesel_used : t.petrol_used;
+            const litres = Number(t.fuel_litres || 0);
+            const rate = litres > 0 ? totalCost / litres : 0;
+
+            return {
+              id: `trip-${t.id}`,
+              filled_date: t.trip_date,
+              vehicle_number: t.vehicle_number,
+              fuel_type: t.diesel_used > 0 ? "diesel" : "petrol",
+              quantity: litres,
+              rate_per_litre: Number(rate.toFixed(2)),
+              total_cost: totalCost,
+              vendor: vendorData.name,
+              trip_id: t.id
+            };
+          });
 
         // Combine both fuel entries
         setFuelHistory([...fuelEntries, ...tripFuelEntries]);
@@ -224,6 +232,9 @@ export default function VendorDetails() {
 
   return (
     <div className="p-6 space-y-4">
+      <div className="bg-white rounded-lg shadow border p-3">
+        <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <button
@@ -235,20 +246,28 @@ export default function VendorDetails() {
           <h1 className="text-2xl font-bold">{vendor.name}</h1>
           <p className="text-gray-600 capitalize">{vendor.category || "N/A"}</p>
         </div>
-        <button
-          onClick={() => {
-            if (vendor.category === "fuel") {
-              handleOpenModal("fuel");
-            } else if (vendor.category === "spare") {
-              handleOpenModal("spare");
-            } else if (vendor.category === "both") {
-              setShowAddModal(true);
-            }
-          }}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          + Add Entry
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.print()}
+            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-black"
+          >
+            Print
+          </button>
+          <button
+            onClick={() => {
+              if (vendor.category === "fuel") {
+                handleOpenModal("fuel");
+              } else if (vendor.category === "spare") {
+                handleOpenModal("spare");
+              } else if (vendor.category === "both") {
+                setShowAddModal(true);
+              }
+            }}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            + Add Entry
+          </button>
+        </div>
       </div>
 
       {/* ADD ENTRY MODAL */}
@@ -606,7 +625,7 @@ export default function VendorDetails() {
               ) : (
                 fuelHistory.map(f => (
                   <tr key={f.id} className="border-t">
-                    <td className="p-2">{f.filled_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(f.filled_date)}</td>
                     <td className="p-2">{f.vehicle_number}</td>
                     <td className="p-2 capitalize">{f.fuel_type}</td>
                     <td className="p-2">{f.quantity}</td>
@@ -644,7 +663,7 @@ export default function VendorDetails() {
               ) : (
                 spareHistory.map(s => (
                   <tr key={s.id} className="border-t">
-                    <td className="p-2">{s.replaced_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(s.replaced_date)}</td>
                     <td className="p-2">{s.vehicle_number}</td>
                     <td className="p-2">{s.part_name}</td>
                     <td className="p-2">{s.quantity}</td>
@@ -681,7 +700,7 @@ export default function VendorDetails() {
               ) : (
                 tripHistory.map(t => (
                   <tr key={t.id} className="border-t">
-                    <td className="p-2">{t.trip_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(t.trip_date)}</td>
                     <td className="p-2">{t.vehicle_number}</td>
                     <td className="p-2">
                       {t.from_location} → {t.to_location}

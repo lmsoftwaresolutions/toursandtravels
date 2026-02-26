@@ -17,17 +17,17 @@ def get_db():
         db.close()
 
 
-@router.post("/", response_model=VendorResponse)
+@router.post("", response_model=VendorResponse)
 def create_vendor(data: VendorCreate, db: Session = Depends(get_db)):
     return add_vendor(db, data)
 
 
-@router.get("/", response_model=list[VendorResponse])
+@router.get("", response_model=list[VendorResponse])
 def get_vendors(category: str | None = Query(None), db: Session = Depends(get_db)):
     return list_vendors(db, category)
 
 
-@router.get("/{vendor_id}/summary/")
+@router.get("/{vendor_id}/summary")
 def get_vendor_summary(vendor_id: int, db: Session = Depends(get_db)):
     summary = vendor_summary(db, vendor_id)
     return summary or {"error": "Vendor not found"}

@@ -12,7 +12,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - web
+      - travel-network
     restart: unless-stopped
 
   backend:
@@ -31,7 +31,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - web
+      - travel-network
     restart: unless-stopped
     command: >
       gunicorn app.main:app
@@ -51,12 +51,12 @@ services:
       backend:
         condition: service_started
     networks:
-      - web
+      - travel-network
     restart: unless-stopped
 
 volumes:
   postgres_data:
 
 networks:
-  web:
-    external: true
+  travel-network:
+    driver: bridge

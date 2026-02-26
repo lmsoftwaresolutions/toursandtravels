@@ -18,22 +18,24 @@ def get_db():
         db.close()
 
 
-@router.post("/", response_model=DriverResponse)
+@router.post("", response_model=DriverResponse)
 def add_driver(data: DriverCreate, db: Session = Depends(get_db)):
     return create_driver(
         db,
         name=data.name,
         phone=data.phone,
-        license_number=data.license_number
+        license_number=data.license_number,
+        joining_date=data.joining_date,
+        monthly_salary=data.monthly_salary
     )
 
 
-@router.get("/", response_model=list[DriverResponse])
+@router.get("", response_model=list[DriverResponse])
 def list_drivers(db: Session = Depends(get_db)):
     return get_drivers(db)
 
 
-@router.get("/{driver_id}/", response_model=DriverResponse)
+@router.get("/{driver_id}", response_model=DriverResponse)
 def get_driver(driver_id: int, db: Session = Depends(get_db)):
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:

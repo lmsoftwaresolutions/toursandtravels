@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function TripDetails() {
   const { id } = useParams();
@@ -57,6 +58,10 @@ export default function TripDetails() {
   const totalDriverExpenses = driverExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const pricingLabel = trip.pricing_type === "package" ? "Package" : "Per KM";
+  const pricingItems = (trip.pricing_items || []).filter(i => i.item_type !== "charge");
+  const chargeItems = (trip.pricing_items || []).filter(i => i.item_type === "charge");
+  const fuelTotal = (trip.diesel_used ?? 0) + (trip.petrol_used ?? 0);
+  const fuelRate = trip.fuel_litres ? fuelTotal / trip.fuel_litres : 0;
 
   return (
     <div className="p-6 space-y-4">
@@ -83,13 +88,18 @@ export default function TripDetails() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Trip Info">
-          <Row label="Date" value={trip.trip_date} />
+          <Row label="Date" value={formatDateDDMMYYYY(trip.trip_date)} />
           <Row label="From" value={trip.from_location} />
           <Row label="To" value={trip.to_location} />
           <Row label="Vehicle" value={trip.vehicle_number} />
           <Row label="Driver" value={driverName || trip.driver_id} />
           <Row label="Customer" value={customerName || trip.customer_id} />
           <Row label="Distance" value={`${trip.distance_km} km`} />
+          <Row label="Start KM" value={trip.start_km ?? "-"} />
+          <Row label="End KM" value={trip.end_km ?? "-"} />
+          <Row label="Fuel Litres" value={trip.fuel_litres ?? "-"} />
+          <Row label="Fuel Rate / L" value={`₹${fuelRate.toFixed(2)}`} />
+          <Row label="Vendor" value={trip.vendor || "-"} />
         </Card>
 
         <Card title="Charges to Customer">
@@ -100,11 +110,42 @@ export default function TripDetails() {
           <Row label="Cost / km" value={`₹${(trip.cost_per_km ?? 0).toFixed(2)}`} />
           <Row label="Charged Toll" value={`₹${(trip.charged_toll_amount ?? 0).toFixed(2)}`} />
           <Row label="Charged Parking" value={`₹${(trip.charged_parking_amount ?? 0).toFixed(2)}`} />
+          <Row label="Discount" value={`₹${(trip.discount_amount ?? 0).toFixed(2)}`} />
           <Row label="Total Charged" value={`₹${totalCharged.toFixed(2)}`} bold />
           <Row label="Received" value={`₹${received.toFixed(2)}`} />
           <Row label="Pending" value={`₹${pending.toFixed(2)}`} bold highlight={pending > 0} />
         </Card>
       </div>
+
+      {pricingItems.length > 0 && (
+        <Card title="Pricing Entries">
+          <div className="space-y-2">
+            {pricingItems.map((i) => (
+              <div key={i.id} className="flex justify-between items-center border-b pb-2">
+                <div>
+                  <p className="font-semibold text-gray-800">{i.description}</p>
+                </div>
+                <p className="font-bold text-gray-800">₹ {Number(i.amount).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {chargeItems.length > 0 && (
+        <Card title="Trip Charges">
+          <div className="space-y-2">
+            {chargeItems.map((i) => (
+              <div key={i.id} className="flex justify-between items-center border-b pb-2">
+                <div>
+                  <p className="font-semibold text-gray-800">{i.description}</p>
+                </div>
+                <p className="font-bold text-gray-800">₹ {Number(i.amount).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card title="Payments">
         {payments.length === 0 ? (
@@ -115,7 +156,7 @@ export default function TripDetails() {
               <div key={p.id} className="flex justify-between items-center border-b pb-2">
                 <div>
                   <p className="font-semibold text-gray-800">{p.payment_mode}</p>
-                  <p className="text-xs text-gray-500">{p.payment_date}</p>
+                  <p className="text-xs text-gray-500">{formatDateDDMMYYYY(p.payment_date)}</p>
                   {p.notes && <p className="text-xs text-gray-500">{p.notes}</p>}
                 </div>
                 <p className="font-bold text-green-700">₹ {Number(p.amount).toFixed(2)}</p>
@@ -131,13 +172,32 @@ export default function TripDetails() {
 
       <Card title="Internal Costs">
         <div className="grid md:grid-cols-3 gap-3">
-          <Row label="Fuel Cost" value={`₹${(trip.diesel_used ?? 0).toFixed(2)}`} />
+          <Row label="Fuel Cost (Total)" value={`₹${fuelTotal.toFixed(2)}`} />
           <Row label="Toll (expense)" value={`₹${(trip.toll_amount ?? 0).toFixed(2)}`} />
           <Row label="Parking (expense)" value={`₹${(trip.parking_amount ?? 0).toFixed(2)}`} />
           <Row label="Other Expenses" value={`₹${(trip.other_expenses ?? 0).toFixed(2)}`} />
+          <Row label="Driver Bhatta" value={`₹${(trip.driver_bhatta ?? 0).toFixed(2)}`} />
           <Row label="Total Cost" value={`₹${(trip.total_cost ?? 0).toFixed(2)}`} bold />
         </div>
       </Card>
+
+      {trip.driver_changes && trip.driver_changes.length > 0 && (
+        <Card title="Driver Changes">
+          <div className="space-y-2">
+            {trip.driver_changes.map((dc) => (
+              <div key={dc.id} className="flex justify-between items-center border-b pb-2">
+                <div>
+                  <p className="font-semibold text-gray-800">Driver #{dc.driver_id}</p>
+                  <p className="text-xs text-gray-500">
+                    {dc.start_time || "Start"} → {dc.end_time || "End"}
+                  </p>
+                  {dc.notes && <p className="text-xs text-gray-500">{dc.notes}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Driver Expenses Section */}
       {driverExpenses.length > 0 && (
@@ -180,3 +240,4 @@ function Row({ label, value, bold, highlight }) {
     </div>
   );
 }
+

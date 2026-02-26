@@ -19,17 +19,17 @@ def get_db():
         db.close()
 
 
-@router.get("/driver/{driver_id}/", response_model=list[DriverSalaryResponse])
+@router.get("/driver/{driver_id}", response_model=list[DriverSalaryResponse])
 def get_driver_salaries(driver_id: int, db: Session = Depends(get_db)):
     return list_salaries_by_driver(db, driver_id)
 
 
-@router.post("/", response_model=DriverSalaryResponse)
+@router.post("", response_model=DriverSalaryResponse)
 def add_salary(data: DriverSalaryCreate, db: Session = Depends(get_db)):
     return create_salary(db, data)
 
 
-@router.delete("/{salary_id}/")
+@router.delete("/{salary_id}")
 def remove_salary(salary_id: int, db: Session = Depends(get_db)):
     deleted = delete_salary(db, salary_id)
     if not deleted:

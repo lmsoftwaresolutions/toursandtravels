@@ -22,6 +22,7 @@ class MaintenanceCreate(BaseModel):
     description: str
     amount: float
     start_date: datetime
+    end_date: Optional[datetime] = None
 
 
 # ===============================
@@ -32,6 +33,7 @@ class MaintenanceUpdate(BaseModel):
     description: Optional[str] = None
     amount: Optional[float] = None
     start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 
 # ===============================

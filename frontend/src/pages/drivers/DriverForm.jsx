@@ -7,6 +7,8 @@ export default function DriverForm() {
     name: "",
     phone: "",
     license_number: "",
+    joining_date: "",
+    monthly_salary: "",
   });
 
   const navigate = useNavigate();
@@ -43,6 +45,22 @@ export default function DriverForm() {
           placeholder="License Number"
           className="border p-2 w-full mb-4"
           onChange={handleChange}
+        />
+        <input
+          type="date"
+          name="joining_date"
+          placeholder="Joining Date"
+          className="border p-2 w-full mb-3"
+          onChange={handleChange}
+        />
+        <input
+          type="number"
+          step="0.01"
+          name="monthly_salary"
+          placeholder="Monthly Salary"
+          className="border p-2 w-full mb-4"
+          onChange={handleChange}
+          onWheel={(e) => e.currentTarget.blur()}
         />
 
         <button className="bg-blue-600 text-white px-4 py-2 rounded">

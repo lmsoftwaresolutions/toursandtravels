@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function FuelHistory() {
   const navigate = useNavigate();
@@ -118,7 +119,7 @@ export default function FuelHistory() {
               fuelData.map(f => (
                 <tr key={f.id} className="border-t">
                   {/* ✅ CORRECT FIELD NAMES */}
-                  <td className="p-2">{f.filled_date}</td>
+                  <td className="p-2">{formatDateDDMMYYYY(f.filled_date)}</td>
                   <td className="p-2">{f.vehicle_number}</td>
                   <td className="p-2 capitalize">{f.fuel_type}</td>
                   <td className="p-2">{f.quantity}</td>

@@ -5,13 +5,15 @@ import api from "../../services/api";
 export default function MaintenanceForm() {
   const navigate = useNavigate();
   const { type, id } = useParams();
+  const normalizedType = ["emi", "insurance", "tax"].includes(type) ? type : "emi";
 
   const [formData, setFormData] = useState({
     vehicle_number: "",
-    maintenance_type: type,
+    maintenance_type: normalizedType,
     description: "",
     amount: "",
     start_date: new Date().toISOString().split("T")[0],
+    end_date: "",
   });
 
   const [vehicles, setVehicles] = useState([]);
@@ -28,9 +30,9 @@ export default function MaintenanceForm() {
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      maintenance_type: type,
+      maintenance_type: normalizedType,
     }));
-  }, [type]);
+  }, [normalizedType]);
 
   useEffect(() => {
     fetchVehicles();
@@ -40,7 +42,7 @@ export default function MaintenanceForm() {
   /* -------- fetch vehicles -------- */
   const fetchVehicles = async () => {
     try {
-      const res = await api.get("/vehicles/");
+      const res = await api.get("/vehicles");
       setVehicles(res.data);
 
       if (res.data.length > 0 && !formData.vehicle_number) {
@@ -59,7 +61,7 @@ export default function MaintenanceForm() {
   const fetchMaintenance = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/maintenance/${id}/`);
+      const res = await api.get(`/maintenance/${id}`);
       const data = res.data;
 
       setFormData({
@@ -68,6 +70,7 @@ export default function MaintenanceForm() {
         description: data.description,
         amount: data.amount,
         start_date: data.start_date.split("T")[0],
+        end_date: data.end_date ? data.end_date.split("T")[0] : "",
       });
     } catch (err) {
       console.error(err);
@@ -89,12 +92,16 @@ export default function MaintenanceForm() {
     setError("");
 
     try {
+      const payload = {
+        ...formData,
+        end_date: formData.end_date || null,
+      };
       if (id) {
-        await api.put(`/maintenance/${id}/`, formData);
+        await api.put(`/maintenance/${id}`, payload);
       } else {
-        await api.post("/maintenance/", formData);
+        await api.post("/maintenance", payload);
       }
-      navigate(`/maintenance/${type}`);
+      navigate(`/maintenance/${normalizedType}`);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.detail || "Failed to save record");
@@ -113,7 +120,7 @@ export default function MaintenanceForm() {
 
         {/* ---------- HEADER ---------- */}
         <h1 className="text-2xl md:text-3xl font-bold mb-2">
-          {id ? "Edit" : "Add"} {typeLabels[type]}
+          {id ? "Edit" : "Add"} {typeLabels[normalizedType]}
         </h1>
 
         {/* ---------- ERROR ---------- */}
@@ -181,6 +188,19 @@ export default function MaintenanceForm() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              End Date
+            </label>
+            <input
+              type="date"
+              name="end_date"
+              value={formData.end_date}
+              onChange={handleChange}
+              className="w-full border px-3 py-2 rounded"
+            />
+          </div>
+
           {/* Description */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -207,7 +227,7 @@ export default function MaintenanceForm() {
 
             <button
               type="button"
-              onClick={() => navigate(`/maintenance/${type}`)}
+              onClick={() => navigate(`/maintenance/${normalizedType}`)}
               className="bg-gray-300 px-6 py-2 rounded"
             >
               Cancel

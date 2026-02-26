@@ -1,32 +1,26 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import { authService } from "../../services/auth";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 export default function Sidebar() {
-  const [vendorsOpen, setVendorsOpen] = useState(false);
-  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
-  const [isOpen, setIsOpen] = useState(false); // 👈 mobile sidebar
+  const [isOpen, setIsOpen] = useState(false);
   const isAdmin = authService.isAdmin();
 
   const linkClass = ({ isActive }) =>
-    `px-4 py-2 rounded ${
-      isActive ? "bg-gray-700" : "hover:bg-gray-800"
-    }`;
+    `px-4 py-2 rounded ${isActive ? "bg-gray-700" : "hover:bg-gray-800"}`;
 
   return (
     <>
-      {/* Mobile Header */}
       <div className="md:hidden flex items-center gap-3 bg-gray-900 text-white p-4">
-        <button
-          onClick={() => setIsOpen(true)}
-          className="text-2xl"
-        >
-          ☰
+        <button onClick={() => setIsOpen(true)} className="text-sm border border-gray-600 px-2 py-1 rounded">
+          Menu
         </button>
-        <h1 className="text-lg font-bold">Tour & Travel</h1>
+        <div className="bg-white rounded px-2 py-1">
+          <img src={NathkrupaLogo} alt="Nathkrupa" className="h-6 w-auto" />
+        </div>
       </div>
 
-      {/* Overlay */}
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
@@ -34,7 +28,6 @@ export default function Sidebar() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`
           fixed md:static top-0 left-0 z-50
@@ -45,9 +38,11 @@ export default function Sidebar() {
           md:translate-x-0
         `}
       >
-        <h1 className="p-4 text-xl font-bold border-b border-gray-700">
-          Tour & Travel
-        </h1>
+        <div className="p-4 border-b border-gray-700">
+          <div className="bg-white rounded px-2 py-2 inline-block">
+            <img src={NathkrupaLogo} alt="Nathkrupa" className="h-7 w-auto" />
+          </div>
+        </div>
 
         <nav className="flex flex-col gap-1 p-2 overflow-y-auto">
           <NavLink to="/" onClick={() => setIsOpen(false)} className={linkClass}>
@@ -70,48 +65,13 @@ export default function Sidebar() {
             Drivers
           </NavLink>
 
-          {/* Maintenance */}
-          <button
-            onClick={() => setMaintenanceOpen(!maintenanceOpen)}
-            className="w-full px-4 py-2 rounded hover:bg-gray-800 text-left flex justify-between"
-          >
-            <span>Maintenance</span>
-            <span className={`transition-transform ${maintenanceOpen ? "rotate-180" : ""}`}>▼</span>
-          </button>
+          <NavLink to="/maintenance/all" onClick={() => setIsOpen(false)} className={linkClass}>
+            Maintenance
+          </NavLink>
 
-          {maintenanceOpen && (
-            <div className="ml-4 flex flex-col gap-1">
-              <NavLink to="/maintenance/emi" onClick={() => setIsOpen(false)} className={linkClass}>
-                EMI
-              </NavLink>
-              <NavLink to="/maintenance/insurance" onClick={() => setIsOpen(false)} className={linkClass}>
-                Insurance
-              </NavLink>
-              <NavLink to="/maintenance/tax" onClick={() => setIsOpen(false)} className={linkClass}>
-                Tax
-              </NavLink>
-            </div>
-          )}
-
-          {/* Vendors */}
-          <button
-            onClick={() => setVendorsOpen(!vendorsOpen)}
-            className="w-full px-4 py-2 rounded hover:bg-gray-800 text-left flex justify-between"
-          >
-            <span>Vendors</span>
-            <span className={`transition-transform ${vendorsOpen ? "rotate-180" : ""}`}>▼</span>
-          </button>
-
-          {vendorsOpen && (
-            <div className="ml-4 flex flex-col gap-1">
-              <NavLink to="/vendors/fuel" onClick={() => setIsOpen(false)} className={linkClass}>
-                Fuel
-              </NavLink>
-              <NavLink to="/vendors/other" onClick={() => setIsOpen(false)} className={linkClass}>
-                Other (Spare Parts)
-              </NavLink>
-            </div>
-          )}
+          <NavLink to="/vendors" onClick={() => setIsOpen(false)} className={linkClass}>
+            Vendors
+          </NavLink>
 
           <NavLink to="/payments" onClick={() => setIsOpen(false)} className={linkClass}>
             Payments

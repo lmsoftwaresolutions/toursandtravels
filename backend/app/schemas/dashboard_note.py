@@ -1,18 +1,19 @@
 from pydantic import BaseModel
 from datetime import date, datetime
 
-class VehicleNoteCreate(BaseModel):
-    vehicle_id: int
-    note: str
-    note_date: date  # selected date
 
-class VehicleNoteUpdate(BaseModel):
+class DashboardNoteCreate(BaseModel):
     note: str
     note_date: date
 
-class VehicleNoteResponse(BaseModel):
+
+class DashboardNoteUpdate(BaseModel):
+    note: str
+    note_date: date
+
+
+class DashboardNoteResponse(BaseModel):
     id: int
-    vehicle_id: int
     note: str
     note_date: date
     created_at: datetime

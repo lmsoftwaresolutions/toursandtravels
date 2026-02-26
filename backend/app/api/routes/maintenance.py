@@ -10,6 +10,7 @@ from app.schemas.maintenance import (
 )
 from app.services.maintenance_service import (
     add_maintenance,
+    get_all_maintenance,
     get_maintenance_by_vehicle,
     get_maintenance_by_id,
     update_maintenance,
@@ -32,13 +33,21 @@ def get_db():
 
 
 # ---------------- CREATE MAINTENANCE ----------------
-@router.post("/", response_model=MaintenanceResponse)
+@router.post("", response_model=MaintenanceResponse)
 def create_maintenance(data: MaintenanceCreate, db: Session = Depends(get_db)):
     return add_maintenance(db, data)
 
 
+@router.get("", response_model=list[MaintenanceResponse])
+def list_maintenance(
+    maintenance_type: MaintenanceType = Query(None),
+    db: Session = Depends(get_db)
+):
+    return get_all_maintenance(db, maintenance_type)
+
+
 # ---------------- GET MAINTENANCE BY VEHICLE ----------------
-@router.get("/vehicle/{vehicle_number}/", response_model=list[MaintenanceResponse])
+@router.get("/vehicle/{vehicle_number}", response_model=list[MaintenanceResponse])
 def maintenance_history(
     vehicle_number: str,
     maintenance_type: MaintenanceType = Query(None),
@@ -48,7 +57,7 @@ def maintenance_history(
 
 
 # ---------------- GET MAINTENANCE BY ID ----------------
-@router.get("/{maintenance_id}/", response_model=MaintenanceResponse)
+@router.get("/{maintenance_id}", response_model=MaintenanceResponse)
 def get_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
     maintenance = get_maintenance_by_id(db, maintenance_id)
     if not maintenance:
@@ -57,7 +66,7 @@ def get_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------- UPDATE MAINTENANCE ----------------
-@router.put("/{maintenance_id}/", response_model=MaintenanceResponse)
+@router.put("/{maintenance_id}", response_model=MaintenanceResponse)
 def update_maintenance_record(
     maintenance_id: int,
     data: MaintenanceUpdate,
@@ -67,13 +76,13 @@ def update_maintenance_record(
 
 
 # ---------------- DELETE MAINTENANCE ----------------
-@router.delete("/{maintenance_id}/")
+@router.delete("/{maintenance_id}")
 def delete_maintenance_record(maintenance_id: int, db: Session = Depends(get_db)):
     return delete_maintenance(db, maintenance_id)
 
 
 # ---------------- MONTHLY COST ----------------
-@router.get("/monthly-cost/{vehicle_number}/")
+@router.get("/monthly-cost/{vehicle_number}")
 def get_monthly_cost(
     vehicle_number: str,
     year: int = Query(None),

@@ -6,7 +6,7 @@ const AUTH_USER_KEY = "auth_user";
 export const authService = {
   async login(username, password) {
     try {
-      const response = await api.post("/auth/login/", {
+      const response = await api.post("/auth/login", {
         username,
         email: username,
         password,

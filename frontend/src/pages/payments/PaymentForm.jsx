@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function PaymentForm() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+
   const [form, setForm] = useState({
     trip_id: "",
+    payment_date: new Date().toISOString().split("T")[0],
+    payment_mode: "cash",
     amount: "",
-    payment_date: ""
+    notes: ""
   });
-  const [selectedTrip, setSelectedTrip] = useState(null);
 
   useEffect(() => {
     loadTrips();
@@ -19,15 +23,25 @@ export default function PaymentForm() {
   }, []);
 
   const loadTrips = async () => {
-    try {
-      const res = await api.get("/trips");
-      // Filter trips with pending amount
-      const pendingTrips = res.data.filter(t => (t.pending_amount || 0) > 0);
-      setTrips(pendingTrips);
-    } catch (error) {
-      console.error("Error loading trips:", error);
-    }
-  };
+  try {
+    const res = await api.get("/trips");
+
+    const pendingTrips = res.data.filter(t => {
+      const totalCharged = Number(t.total_charged || 0);
+      const received = Number(t.amount_received || 0);
+
+      // Fallback if pending_amount is missing or stale
+      const pending = Number(t.pending_amount ?? (totalCharged - received));
+
+      return pending > 0;
+    });
+
+    setTrips(pendingTrips);
+  } catch (error) {
+    console.error("Error loading trips:", error);
+  }
+};
+
 
   const loadCustomers = async () => {
     try {
@@ -57,20 +71,29 @@ export default function PaymentForm() {
     }
 
     if (Number(form.amount) > selectedTrip.pending_amount) {
-      alert(`Amount cannot exceed pending amount (₹${selectedTrip.pending_amount.toFixed(2)})`);
+      alert(
+        `Amount cannot exceed pending amount (₹${selectedTrip.pending_amount.toFixed(2)})`
+      );
       return;
     }
 
     try {
-      const updatedAmount = selectedTrip.amount_received + Number(form.amount);
-      await api.put(`/trips/${form.trip_id}`, {
-        ...selectedTrip,
-        amount_received: updatedAmount
+      // ✅ CORRECT FLOW: CREATE PAYMENT
+      await api.post("/payments", {
+        trip_id: Number(form.trip_id),
+        payment_date: form.payment_date,
+        payment_mode: form.payment_mode,
+        amount: Number(form.amount),
+        notes: form.notes || null
       });
+
       alert("Payment recorded successfully");
       navigate("/payments");
     } catch (error) {
-      alert("Error recording payment: " + (error.response?.data?.detail || error.message));
+      alert(
+        "Error recording payment: " +
+        (error.response?.data?.detail || error.message)
+      );
     }
   };
 
@@ -79,58 +102,95 @@ export default function PaymentForm() {
       <h1 className="text-2xl font-bold mb-4">Record Payment</h1>
 
       <form className="space-y-4" onSubmit={submit}>
+
+        {/* SELECT TRIP */}
         <div>
-          <label className="block text-sm font-medium mb-2">Select Trip with Pending Payment:</label>
+          <label className="block text-sm font-medium mb-2">
+            Select Invoice (Trip):
+          </label>
           <select
             value={form.trip_id}
             onChange={e => handleTripChange(e.target.value)}
             required
             className="w-full border p-2 rounded"
           >
-            <option value="">-- Select Trip --</option>
+            <option value="">-- Select Invoice --</option>
             {trips.map(trip => {
-              const customer = customers.find(c => c.id === trip.customer_id);
+              const customer = customers.find(
+                c => c.id === trip.customer_id
+              );
               return (
                 <option key={trip.id} value={trip.id}>
-                  #{trip.id} - {customer?.name || "N/A"} - Pending: ₹{(trip.pending_amount || 0).toFixed(2)}
+                  {trip.invoice_number} — {customer?.name || "N/A"} — Pending ₹
+                  {(trip.pending_amount || 0).toFixed(2)}
                 </option>
               );
             })}
           </select>
         </div>
 
+        {/* TRIP SUMMARY */}
         {selectedTrip && (
-          <div className="bg-gray-50 p-4 rounded space-y-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Trip Date</p>
-                <p className="font-semibold">{selectedTrip.trip_date}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Customer</p>
-                <p className="font-semibold">{customers.find(c => c.id === selectedTrip.customer_id)?.name || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Charged</p>
-                <p className="font-semibold">₹ {(selectedTrip.total_charged || 0).toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Already Received</p>
-                <p className="font-semibold">₹ {(selectedTrip.amount_received || 0).toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Pending Amount</p>
-                <p className="font-semibold text-red-600">₹ {(selectedTrip.pending_amount || 0).toFixed(2)}</p>
-              </div>
-            </div>
+          <div className="bg-gray-50 p-4 rounded space-y-2 text-sm">
+            <p>
+              <b>Invoice Number:</b> {selectedTrip.invoice_number}
+            </p>
+            <p>
+              <b>Trip Date:</b> {formatDateDDMMYYYY(selectedTrip.trip_date)}
+            </p>
+            <p>
+              <b>Customer:</b>{" "}
+              {customers.find(c => c.id === selectedTrip.customer_id)?.name || "N/A"}
+            </p>
+            <p>
+              <b>Total Charged:</b> ₹ {(selectedTrip.total_charged || 0).toFixed(2)}
+            </p>
+            <p>
+              <b>Already Received:</b> ₹ {(selectedTrip.amount_received || 0).toFixed(2)}
+            </p>
+            <p className="text-red-600">
+              <b>Pending Amount:</b> ₹ {(selectedTrip.pending_amount || 0).toFixed(2)}
+            </p>
           </div>
         )}
 
+        {/* PAYMENT DATE */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Payment Date:</label>
+          <input
+            type="date"
+            name="payment_date"
+            value={form.payment_date}
+            onChange={handleChange}
+            required
+            className="w-full border p-2 rounded"
+          />
+        </div>
+
+        {/* PAYMENT MODE */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Payment Mode:</label>
+          <select
+            name="payment_mode"
+            value={form.payment_mode}
+            onChange={handleChange}
+            className="w-full border p-2 rounded"
+          >
+            <option value="cash">Cash</option>
+            <option value="online">Online</option>
+            <option value="card">Card</option>
+            <option value="cheque">Cheque</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        {/* AMOUNT */}
         <div>
           <label className="block text-sm font-medium mb-2">Payment Amount:</label>
           <input
             name="amount"
             type="number"
+            onWheel={(e) => e.currentTarget.blur()}
             placeholder="Enter payment amount"
             value={form.amount}
             onChange={handleChange}
@@ -139,23 +199,21 @@ export default function PaymentForm() {
             required
             className="w-full border p-2 rounded"
           />
-          {selectedTrip && (
-            <p className="text-xs text-gray-500 mt-1">Max: ₹{(selectedTrip.pending_amount || 0).toFixed(2)}</p>
-          )}
         </div>
 
+        {/* NOTES */}
         <div>
-          <label className="block text-sm font-medium mb-2">Payment Date:</label>
-          <input
-            name="payment_date"
-            type="date"
-            value={form.payment_date}
+          <label className="block text-sm font-medium mb-2">Notes (optional):</label>
+          <textarea
+            name="notes"
+            value={form.notes}
             onChange={handleChange}
-            required
+            rows="2"
             className="w-full border p-2 rounded"
           />
         </div>
 
+        {/* ACTIONS */}
         <div className="flex gap-2">
           <button
             type="submit"
@@ -171,6 +229,7 @@ export default function PaymentForm() {
             Cancel
           </button>
         </div>
+
       </form>
     </div>
   );

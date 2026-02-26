@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function SparePartList() {
   const navigate = useNavigate();
@@ -118,7 +119,7 @@ export default function SparePartList() {
                 spareParts.map(sp => (
                   <tr key={sp.id} className="border-t hover:bg-gray-50">
                     <td className="p-2">
-                      {sp.replaced_date}
+                      {formatDateDDMMYYYY(sp.replaced_date)}
                     </td>
                     <td className="p-2">
                       {sp.vehicle_number}

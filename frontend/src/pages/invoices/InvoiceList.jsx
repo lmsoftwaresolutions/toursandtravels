@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function InvoiceList() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [filterCustomer, setFilterCustomer] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
 
   useEffect(() => {
     loadTrips();
@@ -31,9 +34,25 @@ export default function InvoiceList() {
     }
   };
 
-  const filteredTrips = filterCustomer
+  let filteredTrips = filterCustomer
     ? trips.filter(t => t.customer_id === Number(filterCustomer))
     : trips;
+
+  if (searchCustomer.trim()) {
+    const query = searchCustomer.trim().toLowerCase();
+    filteredTrips = filteredTrips.filter(t => {
+      const name = customers.find(c => c.id === t.customer_id)?.name || "";
+      return name.toLowerCase().includes(query);
+    });
+  }
+
+  if (searchInvoice.trim()) {
+    const query = searchInvoice.trim().toLowerCase();
+    filteredTrips = filteredTrips.filter(t => {
+      const invoice = String(t.invoice_number || `INV-${String(t.id).padStart(4, "0")}`);
+      return invoice.toLowerCase().includes(query);
+    });
+  }
 
   const totalInvoiced = filteredTrips.reduce((sum, t) => sum + (t.total_charged || 0), 0);
   const totalPaid = filteredTrips.reduce((sum, t) => sum + (t.amount_received || 0), 0);
@@ -78,6 +97,24 @@ export default function InvoiceList() {
         </select>
       </div>
 
+      {/* SEARCH */}
+      <div className="bg-white p-4 rounded shadow">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            className="border p-2 rounded"
+            placeholder="Search by Customer Name"
+            value={searchCustomer}
+            onChange={e => setSearchCustomer(e.target.value)}
+          />
+          <input
+            className="border p-2 rounded"
+            placeholder="Search by Invoice Number"
+            value={searchInvoice}
+            onChange={e => setSearchInvoice(e.target.value)}
+          />
+        </div>
+      </div>
+
       {/* TABLE */}
       <div className="bg-white rounded shadow overflow-x-auto">
         <table className="w-full border-collapse">
@@ -109,9 +146,16 @@ export default function InvoiceList() {
 
                 return (
                   <tr key={trip.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 font-semibold">INV-{String(trip.id).padStart(4, '0')}</td>
+                    <td className="p-2 font-semibold">
+                      <button
+                        onClick={() => navigate(`/trips/${trip.id}`)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}
+                      </button>
+                    </td>
                     <td className="p-2">{customer?.name || "N/A"}</td>
-                    <td className="p-2">{trip.trip_date}</td>
+                    <td className="p-2">{formatDateDDMMYYYY(trip.trip_date)}</td>
                     <td className="p-2">{trip.vehicle_number}</td>
                     <td className="p-2">₹ {(trip.total_charged || 0).toFixed(2)}</td>
                     <td className="p-2 text-green-600">₹ {(trip.amount_received || 0).toFixed(2)}</td>
@@ -121,12 +165,18 @@ export default function InvoiceList() {
                         {status}
                       </span>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 space-x-2">
                       <button
                         onClick={() => navigate(`/invoices/${trip.id}`)}
                         className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                       >
                         View
+                      </button>
+                      <button
+                        onClick={() => window.open(`/invoices/${trip.id}`, "_blank")}
+                        className="bg-gray-800 text-white px-3 py-1 rounded text-sm hover:bg-black"
+                      >
+                        Print
                       </button>
                     </td>
                   </tr>

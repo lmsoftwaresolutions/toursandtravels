@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.trip import Trip
+from app.models.trip_pricing_item import TripPricingItem
+from app.models.trip_driver_change import TripDriverChange
 from app.models.vehicle import Vehicle
 from app.models.driver import Driver
 from app.models.customer import Customer
@@ -12,6 +14,9 @@ from app.schemas.trip import TripCreate, TripUpdate
 # CREATE TRIP
 # =========================
 def create_trip(db: Session, trip_data: TripCreate):
+    # Validate discount (fixed amount only)
+    if trip_data.discount_amount and not (500 <= trip_data.discount_amount <= 1000):
+        raise HTTPException(400, "Discount must be between ₹500 and ₹1000")
     # Validate invoice number
     if not trip_data.invoice_number or trip_data.invoice_number.strip() == "":
         raise HTTPException(400, "Invoice number is required")
@@ -51,14 +56,38 @@ def create_trip(db: Session, trip_data: TripCreate):
         trip_data.petrol_used +
         trip_data.toll_amount +
         trip_data.parking_amount +
-        trip_data.other_expenses
+        trip_data.other_expenses +
+        trip_data.driver_bhatta
     )
 
-    # 💰 CUSTOMER CHARGES (toll/parking paid on spot, not included)
+    # 💰 CUSTOMER CHARGES
+    pricing_items = trip_data.pricing_items or []
+    charge_items = trip_data.charge_items or []
+
+    if pricing_items:
+        pricing_total = sum(
+            (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
+            for i in pricing_items
+        )
+    else:
+        pricing_total = (
+            trip_data.package_amount
+            if trip_data.pricing_type == "package"
+            else (trip_data.distance_km or 0) * trip_data.cost_per_km
+        )
+
+    charges_total = sum(
+        (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
+        for i in charge_items
+    )
+
     total_charged = (
-        trip_data.package_amount
-        if trip_data.pricing_type == "package"
-        else (trip_data.distance_km or 0) * trip_data.cost_per_km
+        pricing_total +
+        trip_data.charged_toll_amount +
+        trip_data.charged_parking_amount +
+        charges_total +
+        trip_data.other_expenses -
+        (trip_data.discount_amount or 0)
     )
     pending_amount = max(total_charged - trip_data.amount_received, 0)
 
@@ -73,12 +102,16 @@ def create_trip(db: Session, trip_data: TripCreate):
         vehicle_number=trip_data.vehicle_number,
         driver_id=trip_data.driver_id,
         customer_id=trip_data.customer_id,
+        start_km=trip_data.start_km or 0,
+        end_km=trip_data.end_km or 0,
         distance_km=trip_data.distance_km or 0,
         diesel_used=trip_data.diesel_used,
         petrol_used=trip_data.petrol_used,
+        fuel_litres=trip_data.fuel_litres,
         toll_amount=trip_data.toll_amount,
         parking_amount=trip_data.parking_amount,
         other_expenses=trip_data.other_expenses,
+        driver_bhatta=trip_data.driver_bhatta,
         vendor=trip_data.vendor,
         total_cost=total_cost,
         pricing_type=trip_data.pricing_type,
@@ -86,6 +119,7 @@ def create_trip(db: Session, trip_data: TripCreate):
         cost_per_km=trip_data.cost_per_km,
         charged_toll_amount=trip_data.charged_toll_amount,
         charged_parking_amount=trip_data.charged_parking_amount,
+        discount_amount=trip_data.discount_amount,
         amount_received=trip_data.amount_received,
         advance_payment=trip_data.advance_payment,
         total_charged=total_charged,
@@ -93,6 +127,39 @@ def create_trip(db: Session, trip_data: TripCreate):
     )
 
     db.add(trip)
+    db.flush()
+
+    # Pricing items
+    for item in pricing_items:
+        amount = item.amount if item.amount else (item.quantity or 1) * (item.rate or 0)
+        db.add(TripPricingItem(
+            trip_id=trip.id,
+            description=item.description,
+            quantity=item.quantity or 1,
+            rate=item.rate or 0,
+            amount=amount,
+            item_type="pricing"
+        ))
+    for item in charge_items:
+        amount = item.amount if item.amount else (item.quantity or 1) * (item.rate or 0)
+        db.add(TripPricingItem(
+            trip_id=trip.id,
+            description=item.description,
+            quantity=item.quantity or 1,
+            rate=item.rate or 0,
+            amount=amount,
+            item_type="charge"
+        ))
+
+    # Driver changes
+    for dc in (trip_data.driver_changes or []):
+        db.add(TripDriverChange(
+            trip_id=trip.id,
+            driver_id=dc.driver_id,
+            start_time=dc.start_time,
+            end_time=dc.end_time,
+            notes=dc.notes
+        ))
 
     # 🔄 UPDATE STATS
     vehicle.total_trips += 1
@@ -138,6 +205,10 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     if not trip:
         raise HTTPException(404, "Trip not found")
 
+    # Validate discount (fixed amount only)
+    if data.discount_amount and not (500 <= data.discount_amount <= 1000):
+        raise HTTPException(400, "Discount must be between ₹500 and ₹1000")
+
     # 🔁 HANDLE DISTANCE CHANGE
     vehicle = db.query(Vehicle).filter(
         Vehicle.vehicle_number == trip.vehicle_number
@@ -167,13 +238,17 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     trip.vehicle_number = data.vehicle_number
     trip.driver_id = data.driver_id
     trip.customer_id = data.customer_id
+    trip.start_km = data.start_km or 0
+    trip.end_km = data.end_km or 0
     trip.distance_km = data.distance_km or 0
 
     trip.diesel_used = data.diesel_used
     trip.petrol_used = data.petrol_used
+    trip.fuel_litres = data.fuel_litres
     trip.toll_amount = data.toll_amount
     trip.parking_amount = data.parking_amount
     trip.other_expenses = data.other_expenses
+    trip.driver_bhatta = data.driver_bhatta
     trip.vendor = data.vendor
 
     # 🔢 RECALCULATE COST
@@ -182,7 +257,8 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
         data.petrol_used +
         data.toll_amount +
         data.parking_amount +
-        data.other_expenses
+        data.other_expenses +
+        data.driver_bhatta
     )
 
     # 💰 RECALCULATE CHARGES
@@ -194,15 +270,73 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     trip.cost_per_km = data.cost_per_km
     trip.charged_toll_amount = data.charged_toll_amount
     trip.charged_parking_amount = data.charged_parking_amount
+    trip.discount_amount = data.discount_amount
     trip.amount_received = data.amount_received
     trip.advance_payment = data.advance_payment
 
+    pricing_items = data.pricing_items or []
+    charge_items = data.charge_items or []
+
+    if pricing_items:
+        pricing_total = sum(
+            (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
+            for i in pricing_items
+        )
+    else:
+        pricing_total = (
+            data.package_amount
+            if data.pricing_type == "package"
+            else (data.distance_km or 0) * data.cost_per_km
+        )
+
+    charges_total = sum(
+        (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
+        for i in charge_items
+    )
+
     trip.total_charged = (
-        data.package_amount
-        if data.pricing_type == "package"
-        else (data.distance_km or 0) * data.cost_per_km
+        pricing_total +
+        data.charged_toll_amount +
+        data.charged_parking_amount +
+        charges_total +
+        data.other_expenses -
+        (data.discount_amount or 0)
     )
     trip.pending_amount = max(trip.total_charged - data.amount_received, 0)
+
+    # Replace pricing items
+    db.query(TripPricingItem).filter(TripPricingItem.trip_id == trip.id).delete()
+    for item in pricing_items:
+        amount = item.amount if item.amount else (item.quantity or 1) * (item.rate or 0)
+        db.add(TripPricingItem(
+            trip_id=trip.id,
+            description=item.description,
+            quantity=item.quantity or 1,
+            rate=item.rate or 0,
+            amount=amount,
+            item_type="pricing"
+        ))
+    for item in charge_items:
+        amount = item.amount if item.amount else (item.quantity or 1) * (item.rate or 0)
+        db.add(TripPricingItem(
+            trip_id=trip.id,
+            description=item.description,
+            quantity=item.quantity or 1,
+            rate=item.rate or 0,
+            amount=amount,
+            item_type="charge"
+        ))
+
+    # Replace driver changes
+    db.query(TripDriverChange).filter(TripDriverChange.trip_id == trip.id).delete()
+    for dc in (data.driver_changes or []):
+        db.add(TripDriverChange(
+            trip_id=trip.id,
+            driver_id=dc.driver_id,
+            start_time=dc.start_time,
+            end_time=dc.end_time,
+            notes=dc.notes
+        ))
 
     # 🔄 UPDATE CUSTOMER BILLING DELTAS
     customer = db.query(Customer).filter(Customer.id == trip.customer_id).first()
