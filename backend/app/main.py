@@ -68,7 +68,7 @@ def ensure_schema_updates():
     maintenance_columns = {col["name"] for col in inspector.get_columns("maintenance")}
     if "end_date" not in maintenance_columns:
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE maintenance ADD COLUMN end_date DATETIME"))
+            conn.execute(text("ALTER TABLE maintenance ADD COLUMN end_date TIMESTAMP"))
 
 
 ensure_schema_updates()
