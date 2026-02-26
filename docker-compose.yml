@@ -58,5 +58,5 @@ volumes:
   postgres_data:
 
 networks:
-  web:
-    external: true
+  lms-network:
+    driver: bridge
