@@ -15,7 +15,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - shared-network
+      - travel-network
     restart: unless-stopped
 
   backend:
@@ -32,7 +32,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - shared-network
+      - travel-network
     restart: unless-stopped
     command: >
       sh -c "until python -c \"import socket; socket.create_connection(('db', 5432), 2).close()\"; do
@@ -56,12 +56,12 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - shared-network
+      - travel-network
     restart: unless-stopped
 
 volumes:
   postgres_data_local:
 
 networks:
-  shared-network:
-    external: true
+  travel-network:
+    driver: bridge
