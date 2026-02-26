@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - local
+      - lms-network
     restart: unless-stopped
 
   backend:
@@ -25,12 +25,12 @@ services:
     environment:
       PYTHONPATH: /app
     ports:
-      - "18000:8000"
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - local
+      - lms-network
     restart: unless-stopped
     command: >
       sh -c "until python -c \"import socket; socket.create_connection(('db', 5432), 2).close()\"; do
@@ -54,12 +54,12 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - local
+      - lms-network
     restart: unless-stopped
 
 volumes:
   postgres_data_local:
 
 networks:
-  local:
+  lms-network:
     driver: bridge
