@@ -12,7 +12,11 @@ export default function Sidebar() {
 
   return (
     <>
+<<<<<<< nicks
       <div className="no-print md:hidden flex items-center gap-3 bg-gray-900 text-white p-4">
+=======
+      <div className="md:hidden flex items-center gap-3 bg-gray-900 text-white p-4">
+>>>>>>> main
         <button onClick={() => setIsOpen(true)} className="text-sm border border-gray-600 px-2 py-1 rounded">
           Menu
         </button>

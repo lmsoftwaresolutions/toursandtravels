@@ -200,13 +200,22 @@ export default function PaymentHistory() {
                 <div class="label">FROM</div>
                 <div class="value">${COMPANY_NAME}</div>
                 <div class="subtle">${COMPANY_ADDRESS}</div>
+<<<<<<< nicks
                 ${COMPANY_CONTACT ? `<div class="subtle">${COMPANY_CONTACT}</div>` : ""}
+=======
+                <div class="subtle">${COMPANY_CONTACT}</div>
+>>>>>>> main
               </div>
               <div>
                 <div class="label">BILL TO</div>
                 <div class="value">${customer?.name || "N/A"}</div>
+<<<<<<< nicks
                 ${customer?.email ? `<div class="subtle">${customer.email}</div>` : ""}
                 ${customer?.phone ? `<div class="subtle">${customer.phone}</div>` : ""}
+=======
+                <div class="subtle">${customer?.email || ""}</div>
+                <div class="subtle">${customer?.phone || ""}</div>
+>>>>>>> main
               </div>
             </div>
 

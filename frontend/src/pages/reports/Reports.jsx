@@ -87,9 +87,15 @@ export default function Reports() {
       return true;
     });
   }, [trips, filterVehicle, filterDriver, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById]);
+<<<<<<< nicks
 
   const tripVehicleSet = useMemo(() => new Set(filteredTrips.map((t) => t.vehicle_number)), [filteredTrips]);
 
+=======
+
+  const tripVehicleSet = useMemo(() => new Set(filteredTrips.map((t) => t.vehicle_number)), [filteredTrips]);
+
+>>>>>>> main
   const filteredFuelEntries = useMemo(() => {
     return fuelEntries.filter((f) => {
       if (!inRange(f.filled_date, dateFrom, dateTo, monthFilter)) return false;
@@ -104,6 +110,7 @@ export default function Reports() {
       if (!inRange(s.replaced_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && s.vehicle_number !== filterVehicle) return false;
       if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(s.vehicle_number)) return false;
+<<<<<<< nicks
       return true;
     });
   }, [spareEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
@@ -124,6 +131,28 @@ export default function Reports() {
     const totalPaid = filteredTrips.reduce((sum, t) => sum + Number(t.amount_received || 0), 0);
     const totalPending = filteredTrips.reduce((sum, t) => sum + Number(t.pending_amount || 0), 0);
 
+=======
+      return true;
+    });
+  }, [spareEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+
+  const filteredMaintenance = useMemo(() => {
+    return maintenanceEntries.filter((m) => {
+      if (!inRange(m.start_date, dateFrom, dateTo, monthFilter)) return false;
+      if (filterVehicle && m.vehicle_number !== filterVehicle) return false;
+      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(m.vehicle_number)) return false;
+      return true;
+    });
+  }, [maintenanceEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+
+  const totals = useMemo(() => {
+    const totalTrips = filteredTrips.length;
+    const totalDistance = filteredTrips.reduce((sum, t) => sum + Number(t.distance_km || 0), 0);
+    const totalRevenue = filteredTrips.reduce((sum, t) => sum + Number(t.total_charged || 0), 0);
+    const totalPaid = filteredTrips.reduce((sum, t) => sum + Number(t.amount_received || 0), 0);
+    const totalPending = filteredTrips.reduce((sum, t) => sum + Number(t.pending_amount || 0), 0);
+
+>>>>>>> main
     const tollAndParking = filteredTrips.reduce(
       (sum, t) => sum + Number(t.toll_amount || 0) + Number(t.parking_amount || 0),
       0
@@ -224,6 +253,7 @@ export default function Reports() {
     });
   }, [filteredFuelEntries, filteredSpareEntries]);
 
+<<<<<<< nicks
   const handlePrint = () => {
     const reportRoot = document.getElementById("report-print-root");
     if (!reportRoot) return;
@@ -265,6 +295,12 @@ export default function Reports() {
 
   return (
     <div id="report-print-root" className="p-4 sm:p-6 space-y-4">
+=======
+  const handlePrint = () => window.print();
+
+  return (
+    <div className="p-4 sm:p-6 space-y-4">
+>>>>>>> main
       <div className="bg-white p-3 rounded shadow">
         <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
       </div>
@@ -430,6 +466,8 @@ export default function Reports() {
           ))
         )}
       </TableCard>
+<<<<<<< nicks
+=======
     </div>
   );
 }
@@ -466,10 +504,50 @@ function TableCard({ title, columns, children }) {
         </thead>
         <tbody>{children}</tbody>
       </table>
+>>>>>>> main
     </div>
   );
 }
 
+<<<<<<< nicks
+function Stat({ title, value, color = "" }) {
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <p className="text-xs text-gray-600">{title}</p>
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function ExpenseCard({ label, value, color }) {
+  return (
+    <div className="text-center p-3 bg-gray-50 rounded">
+      <p className={`text-lg font-bold ${color}`}>₹ {Number(value || 0).toFixed(2)}</p>
+      <p className="text-xs text-gray-600 mt-1">{label}</p>
+    </div>
+  );
+}
+
+function TableCard({ title, columns, children }) {
+  return (
+    <div className="bg-white p-4 rounded shadow overflow-x-auto">
+      <h3 className="font-semibold mb-4">{title}</h3>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-200">
+            {columns.map((c) => (
+              <th key={c} className="p-2 text-left">{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+=======
+>>>>>>> main
 function EmptyRow({ colSpan }) {
   return (
     <tr>
@@ -479,4 +557,7 @@ function EmptyRow({ colSpan }) {
     </tr>
   );
 }
+<<<<<<< nicks
 
+=======
+>>>>>>> main
