@@ -12,7 +12,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="md:hidden flex items-center gap-3 bg-gray-900 text-white p-4">
+      <div className="no-print md:hidden flex items-center gap-3 bg-gray-900 text-white p-4">
         <button onClick={() => setIsOpen(true)} className="text-sm border border-gray-600 px-2 py-1 rounded">
           Menu
         </button>
@@ -24,12 +24,12 @@ export default function Sidebar() {
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="no-print fixed inset-0 bg-black/50 z-40 md:hidden"
         />
       )}
 
       <aside
-        className={`
+        className={`no-print 
           fixed md:static top-0 left-0 z-50
           h-full w-64
           bg-gray-900 text-white
@@ -91,3 +91,4 @@ export default function Sidebar() {
     </>
   );
 }
+

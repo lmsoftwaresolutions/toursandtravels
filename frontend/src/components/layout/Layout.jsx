@@ -15,10 +15,11 @@ export default function Layout() {
         <Navbar />
 
         {/* Page content */}
-        <main className="p-4 md:p-6 overflow-y-auto flex-1">
+        <main className="print-main p-4 md:p-6 overflow-y-auto flex-1">
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
+

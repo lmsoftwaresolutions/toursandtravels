@@ -224,10 +224,47 @@ export default function Reports() {
     });
   }, [filteredFuelEntries, filteredSpareEntries]);
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const reportRoot = document.getElementById("report-print-root");
+    if (!reportRoot) return;
+
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) return;
+
+    const headContent = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"], style')
+    )
+      .map((el) => el.outerHTML)
+      .join("\n");
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Reports</title>
+          ${headContent}
+          <style>
+            body { background: #fff; margin: 0; padding: 16px; }
+            .no-print { display: none !important; }
+          </style>
+        </head>
+        <body>
+          ${reportRoot.outerHTML}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4">
+    <div id="report-print-root" className="p-4 sm:p-6 space-y-4">
       <div className="bg-white p-3 rounded shadow">
         <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
       </div>
@@ -442,3 +479,4 @@ function EmptyRow({ colSpan }) {
     </tr>
   );
 }
+
