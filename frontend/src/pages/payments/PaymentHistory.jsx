@@ -200,13 +200,13 @@ export default function PaymentHistory() {
                 <div class="label">FROM</div>
                 <div class="value">${COMPANY_NAME}</div>
                 <div class="subtle">${COMPANY_ADDRESS}</div>
-                <div class="subtle">${COMPANY_CONTACT}</div>
+                ${COMPANY_CONTACT ? `<div class="subtle">${COMPANY_CONTACT}</div>` : ""}
               </div>
               <div>
                 <div class="label">BILL TO</div>
                 <div class="value">${customer?.name || "N/A"}</div>
-                <div class="subtle">${customer?.email || ""}</div>
-                <div class="subtle">${customer?.phone || ""}</div>
+                ${customer?.email ? `<div class="subtle">${customer.email}</div>` : ""}
+                ${customer?.phone ? `<div class="subtle">${customer.phone}</div>` : ""}
               </div>
             </div>
 
@@ -557,3 +557,4 @@ export default function PaymentHistory() {
     </div>
   );
 }
+

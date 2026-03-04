@@ -1,0 +1,17 @@
+from app.models.customer import Customer  # noqa: F401
+from app.models.dashboard_note import DashboardNote  # noqa: F401
+from app.models.driver import Driver  # noqa: F401
+from app.models.driver_expense import DriverExpense  # noqa: F401
+from app.models.driver_salary import DriverSalary  # noqa: F401
+from app.models.fuel import Fuel  # noqa: F401
+from app.models.maintenance import Maintenance  # noqa: F401
+from app.models.payment import Payment  # noqa: F401
+from app.models.spare_part import SparePart  # noqa: F401
+from app.models.trip import Trip  # noqa: F401
+from app.models.trip_driver_change import TripDriverChange  # noqa: F401
+from app.models.trip_pricing_item import TripPricingItem  # noqa: F401
+from app.models.user import User  # noqa: F401
+from app.models.vehicle import Vehicle  # noqa: F401
+from app.models.vehicle_note import VehicleNote  # noqa: F401
+from app.models.vendor import Vendor  # noqa: F401
+from app.models.vendor_payment import VendorPayment  # noqa: F401

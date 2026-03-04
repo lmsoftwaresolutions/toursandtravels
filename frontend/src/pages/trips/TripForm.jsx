@@ -266,7 +266,7 @@ export default function TripForm() {
       charged_toll_amount: Number(form.charged_toll_amount || 0),
       charged_parking_amount: Number(form.charged_parking_amount || 0),
       discount_amount: Number(form.discount_amount || 0),
-      amount_received: totalReceived,
+      amount_received: Number(form.amount_received || 0),
       vendor: vendorName || null,
       invoice_number: form.invoice_number || null,
       pricing_items: pricingItems.map(i => ({
@@ -617,7 +617,7 @@ export default function TripForm() {
                   value={form.driver_bhatta}
                   onChange={handleChange}
                   className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="??? 0.00"
+                  placeholder="₹ 0.00"
                 />
               </div>
             </div>
@@ -1225,3 +1225,4 @@ export default function TripForm() {
     </div>
   );
 }
+

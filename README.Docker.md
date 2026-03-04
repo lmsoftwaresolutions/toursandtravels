@@ -23,17 +23,26 @@ The services will be available at:
 
 ### 2. Initialize Database
 
-After starting the services, run database migrations:
+Migrations are applied automatically on backend startup:
+
+```bash
+docker-compose up -d --build
+```
+
+Manual migration commands (if needed):
 
 ```bash
 # Access backend container
 docker-compose exec backend bash
 
-# Run migrations (if using Alembic)
+# Apply all pending migrations
 alembic upgrade head
+```
 
-# Or create tables manually
-python -c "from app.database.base import Base; from app.database.session import engine; Base.metadata.create_all(bind=engine)"
+If production database already has schema/data and you only need Alembic to start tracking current state:
+
+```bash
+alembic stamp head
 ```
 
 ### 3. Create Initial Users
@@ -42,9 +51,7 @@ python -c "from app.database.base import Base; from app.database.session import 
 # Access database container
 docker-compose exec db psql -U travel_user -d travel_db
 
-# Insert admin user (password: admin123)
-INSERT INTO users (username, password_hash, role, is_active) 
-VALUES ('Nathkrupa_1', '$2b$12$KIXxJ9vFZ4qH.KQH7qH7qeJ7qH7qH7qH7qH7qH7qH7qH7qH7qH7qH', 'admin', true);
+
 ```
 
 ## Docker Commands
@@ -182,3 +189,5 @@ curl http://localhost:8000/
 # Database health
 docker-compose exec db pg_isready -U travel_user
 ```
+
+

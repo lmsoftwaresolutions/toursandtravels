@@ -47,7 +47,7 @@ export default function InvoiceView() {
   };
 
   const InvoiceContent = () => (
-    <div className="bg-white p-4 md:p-8 rounded shadow max-w-4xl mx-auto">
+    <div className="invoice-print-area bg-white p-4 md:p-8 rounded shadow max-w-4xl mx-auto">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
@@ -72,13 +72,13 @@ export default function InvoiceView() {
           <p className="text-xs text-gray-600 font-semibold">FROM</p>
           <p className="font-semibold">{COMPANY_NAME}</p>
           <p className="text-sm text-gray-600">{COMPANY_ADDRESS}</p>
-          <p className="text-sm text-gray-600">{COMPANY_CONTACT}</p>
+          {COMPANY_CONTACT ? <p className="text-sm text-gray-600">{COMPANY_CONTACT}</p> : null}
         </div>
         <div>
           <p className="text-xs text-gray-600 font-semibold">BILL TO</p>
           <p className="font-semibold">{customer.name}</p>
-          <p className="text-sm">{customer.email}</p>
-          <p className="text-sm">{customer.phone}</p>
+          {customer?.email ? <p className="text-sm">{customer.email}</p> : null}
+          {customer?.phone ? <p className="text-sm">{customer.phone}</p> : null}
         </div>
       </div>
 
@@ -269,3 +269,5 @@ export default function InvoiceView() {
     </div>
   );
 }
+
+

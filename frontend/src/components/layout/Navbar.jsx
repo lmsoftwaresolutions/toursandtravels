@@ -11,7 +11,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="h-14 bg-white shadow flex items-center justify-between px-6">
+    <header className="no-print h-14 bg-white shadow flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
         <span className="text-sm font-semibold text-gray-700">
           {user?.username}
@@ -29,3 +29,4 @@ export default function Navbar() {
     </header>
   );
 }
+

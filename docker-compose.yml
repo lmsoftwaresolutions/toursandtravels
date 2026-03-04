@@ -33,11 +33,7 @@ services:
     networks:
       - travel-network
     restart: unless-stopped
-    command: >
-      gunicorn app.main:app
-      -k uvicorn.workers.UvicornWorker
-      --workers 2
-      --bind 0.0.0.0:8000
+    command: sh -c "alembic upgrade head && gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:8000"
 
   frontend:
     build:
@@ -60,3 +56,5 @@ volumes:
 networks:
   travel-network:
     driver: bridge
+
+
