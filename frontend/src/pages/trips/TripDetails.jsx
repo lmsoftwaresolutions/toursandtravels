@@ -64,179 +64,187 @@ export default function TripDetails() {
   const fuelRate = trip.fuel_litres ? fuelTotal / trip.fuel_litres : 0;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-2xl font-bold">Invoice #{trip.invoice_number || trip.id}</h1>
-          <p className="text-gray-600 text-sm">Trip ID: {trip.id}</p>
-        </div>
-        <div className="space-x-2">
-          <button
-            onClick={() => navigate(`/trips/edit/${trip.id}`)}
-            className="bg-yellow-500 text-white px-4 py-2 rounded"
-          >
-            Edit
-          </button>
           <button
             onClick={() => navigate(-1)}
-            className="bg-gray-200 text-gray-800 px-4 py-2 rounded"
+            className="group flex items-center gap-2 text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest mb-4 transition-all"
           >
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg>
             Back
+          </button>
+          <div className="flex items-center gap-4">
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">Trip {trip.invoice_number || trip.id}</h1>
+            <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm ${pending === 0 ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"}`}>
+              {pending === 0 ? "Settled" : "Outstanding"}
+            </div>
+          </div>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Digital Dispatch Manifest • Trip ID: {trip.id}</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate(`/trips/edit/${trip.id}`)}
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            Edit Trip
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:bg-black transition-all text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print
           </button>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Trip Info">
-          <Row label="Date" value={formatDateDDMMYYYY(trip.trip_date)} />
-          <Row label="From" value={trip.from_location} />
-          <Row label="To" value={trip.to_location} />
-          <Row label="Vehicle" value={trip.vehicle_number} />
-          <Row label="Driver" value={driverName || trip.driver_id} />
-          <Row label="Customer" value={customerName || trip.customer_id} />
-          <Row label="Distance" value={`${trip.distance_km} km`} />
-          <Row label="Start KM" value={trip.start_km ?? "-"} />
-          <Row label="End KM" value={trip.end_km ?? "-"} />
-          <Row label="Fuel Litres" value={trip.fuel_litres ?? "-"} />
-          <Row label="Fuel Rate / L" value={`₹${fuelRate.toFixed(2)}`} />
-          <Row label="Vendor" value={trip.vendor || "-"} />
-        </Card>
+      {/* ---------- TRIP CORE INFO ---------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
+            <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          </div>
+          <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-8">
+            <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+            Trip Info
+          </h2>
+          <div className="grid grid-cols-2 gap-6">
+            <RowItem label="Trip Date" value={formatDateDDMMYYYY(trip.trip_date)} />
+            <RowItem label="Vehicle" value={trip.vehicle_number} />
+            <div className="col-span-2 flex items-center gap-4 py-4 px-6 bg-slate-50/50 rounded-2xl border border-slate-100">
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">From</p>
+                <p className="text-sm font-black text-slate-700">{trip.from_location}</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-px bg-slate-200 relative">
+                   <div className="absolute -top-1 right-0 w-2 h-2 border-t border-r border-slate-400 rotate-45" />
+                </div>
+              </div>
+              <div className="flex-1 text-right">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">To</p>
+                <p className="text-sm font-black text-slate-700">{trip.to_location}</p>
+              </div>
+            </div>
+            <RowItem label="Driver" value={driverName || "N/A"} />
+            <RowItem label="Customer" value={customerName || "N/A"} />
+            <RowItem label="Distance" value={`${trip.distance_km} km`} highlight />
+            <RowItem label="Vendor" value={trip.vendor || "In-House"} />
+          </div>
+        </div>
 
-        <Card title="Charges to Customer">
-          <Row label="Pricing Type" value={pricingLabel} />
-          {trip.pricing_type === "package" && (
-            <Row label="Package Amount" value={`₹${(trip.package_amount ?? 0).toFixed(2)}`} />
-          )}
-          <Row label="Cost / km" value={`₹${(trip.cost_per_km ?? 0).toFixed(2)}`} />
-          <Row label="Charged Toll" value={`₹${(trip.charged_toll_amount ?? 0).toFixed(2)}`} />
-          <Row label="Charged Parking" value={`₹${(trip.charged_parking_amount ?? 0).toFixed(2)}`} />
-          <Row label="Discount" value={`₹${(trip.discount_amount ?? 0).toFixed(2)}`} />
-          <Row label="Total Charged" value={`₹${totalCharged.toFixed(2)}`} bold />
-          <Row label="Received" value={`₹${received.toFixed(2)}`} />
-          <Row label="Pending" value={`₹${pending.toFixed(2)}`} bold highlight={pending > 0} />
-        </Card>
+        <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity -rotate-12">
+            <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-8">
+            <div className="w-1.5 h-6 bg-emerald-600 rounded-full" />
+            Billing Summary
+          </h2>
+          <div className="grid grid-cols-2 gap-6 pb-8 border-b border-slate-100">
+            <RowItem label="Pricing Type" value={pricingLabel} />
+            <RowItem label="Unit Velocity Cost" value={`₹${trip.cost_per_km}/KM`} />
+            <RowItem label="Toll Charged" value={`₹${trip.charged_toll_amount}`} />
+            <RowItem label="Parking Charged" value={`₹${trip.charged_parking_amount}`} />
+          </div>
+          <div className="pt-8 space-y-4">
+            <div className="flex justify-between items-center group/row">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Charged</span>
+              <span className="text-3xl font-black text-slate-800 tracking-tighter group-hover:scale-105 transition-transform">₹{totalCharged.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Received</span>
+              <span className="text-lg font-black text-emerald-600 tracking-tight">₹{received.toLocaleString()}</span>
+            </div>
+            <div className={`flex justify-between items-center p-4 rounded-2xl ${pending > 0 ? "bg-rose-50 ring-1 ring-rose-100" : "bg-emerald-50 ring-1 ring-emerald-100"} transition-colors`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${pending > 0 ? "text-rose-500" : "text-emerald-500"}`}>Pending</span>
+              <span className={`text-xl font-black tracking-tighter ${pending > 0 ? "text-rose-600" : "text-emerald-600"}`}>₹{pending.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {pricingItems.length > 0 && (
-        <Card title="Pricing Entries">
-          <div className="space-y-2">
-            {pricingItems.map((i) => (
-              <div key={i.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">{i.description}</p>
+      {/* ---------- FINANCIAL LEDGERS ---------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* PAYMENTS */}
+        <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100">
+          <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-6">
+            <div className="w-1.5 h-6 bg-slate-400 rounded-full" />
+            Payment History
+          </h2>
+          {payments.length === 0 ? (
+            <div className="p-10 text-center text-slate-400 font-black uppercase tracking-widest text-[10px] bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">No payments found</div>
+          ) : (
+            <div className="space-y-4">
+              {payments.map((p) => (
+                <div key={p.id} className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{p.payment_mode}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">{formatDateDDMMYYYY(p.payment_date)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-base font-black text-emerald-600 tracking-tighter">₹{Number(p.amount).toLocaleString()}</p>
+                    {p.notes && <p className="text-[9px] text-slate-400 font-medium italic mt-0.5">{p.notes}</p>}
+                  </div>
                 </div>
-                <p className="font-bold text-gray-800">₹ {Number(i.amount).toFixed(2)}</p>
+              ))}
+              <div className="flex justify-between items-center pt-6 px-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Payments</p>
+                <p className="text-2xl font-black text-emerald-600 tracking-tighter">₹{totalPayments.toLocaleString()}</p>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {chargeItems.length > 0 && (
-        <Card title="Trip Charges">
-          <div className="space-y-2">
-            {chargeItems.map((i) => (
-              <div key={i.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">{i.description}</p>
-                </div>
-                <p className="font-bold text-gray-800">₹ {Number(i.amount).toFixed(2)}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      <Card title="Payments">
-        {payments.length === 0 ? (
-          <p className="text-sm text-gray-600">No payments recorded for this trip.</p>
-        ) : (
-          <div className="space-y-2">
-            {payments.map((p) => (
-              <div key={p.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">{p.payment_mode}</p>
-                  <p className="text-xs text-gray-500">{formatDateDDMMYYYY(p.payment_date)}</p>
-                  {p.notes && <p className="text-xs text-gray-500">{p.notes}</p>}
-                </div>
-                <p className="font-bold text-green-700">₹ {Number(p.amount).toFixed(2)}</p>
-              </div>
-            ))}
-            <div className="flex justify-between items-center pt-2 border-t">
-              <p className="font-bold text-gray-800">Total Payments:</p>
-              <p className="font-bold text-green-700 text-lg">₹ {totalPayments.toFixed(2)}</p>
             </div>
-          </div>
-        )}
-      </Card>
-
-      <Card title="Internal Costs">
-        <div className="grid md:grid-cols-3 gap-3">
-          <Row label="Fuel Cost (Total)" value={`₹${fuelTotal.toFixed(2)}`} />
-          <Row label="Toll (expense)" value={`₹${(trip.toll_amount ?? 0).toFixed(2)}`} />
-          <Row label="Parking (expense)" value={`₹${(trip.parking_amount ?? 0).toFixed(2)}`} />
-          <Row label="Other Expenses" value={`₹${(trip.other_expenses ?? 0).toFixed(2)}`} />
-          <Row label="Driver Bhatta" value={`₹${(trip.driver_bhatta ?? 0).toFixed(2)}`} />
-          <Row label="Total Cost" value={`₹${(trip.total_cost ?? 0).toFixed(2)}`} bold />
+          )}
         </div>
-      </Card>
 
-      {trip.driver_changes && trip.driver_changes.length > 0 && (
-        <Card title="Driver Changes">
-          <div className="space-y-2">
-            {trip.driver_changes.map((dc) => (
-              <div key={dc.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">Driver #{dc.driver_id}</p>
-                  <p className="text-xs text-gray-500">
-                    {dc.start_time || "Start"} → {dc.end_time || "End"}
-                  </p>
-                  {dc.notes && <p className="text-xs text-gray-500">{dc.notes}</p>}
-                </div>
+        {/* INTERNAL COSTS */}
+        <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100">
+          <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-6">
+            <div className="w-1.5 h-6 bg-rose-500 rounded-full" />
+            Trip Expenses
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <CostChip label="Fuel" value={fuelTotal} color="orange" />
+            <CostChip label="Toll" value={trip.toll_amount} color="slate" />
+            <CostChip label="Parking" value={trip.parking_amount} color="slate" />
+            <CostChip label="Other Expenses" value={trip.other_expenses} color="rose" />
+            <CostChip label="Driver Bhatta" value={trip.driver_bhatta} color="blue" />
+            <div className="col-span-2 mt-4 p-6 bg-slate-900 rounded-[2rem] flex justify-between items-center group overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8 blur-2xl group-hover:scale-150 transition-transform duration-700" />
+              <div className="relative z-10">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Trip Cost</p>
+                <p className="text-2xl font-black text-white tracking-tighter">₹{Number(trip.total_cost || 0).toLocaleString()}</p>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Driver Expenses Section */}
-      {driverExpenses.length > 0 && (
-        <Card title="Driver Expenses">
-          <div className="space-y-2">
-            {driverExpenses.map((exp) => (
-              <div key={exp.id} className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <p className="font-semibold text-gray-800">{exp.description}</p>
-                  {exp.notes && <p className="text-xs text-gray-500">{exp.notes}</p>}
-                </div>
-                <p className="font-bold text-orange-600">₹ {Number(exp.amount).toFixed(2)}</p>
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center relative z-10">
+                <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
-            ))}
-            <div className="flex justify-between items-center pt-2 border-t-2 border-orange-300">
-              <p className="font-bold text-gray-800">Total Driver Expenses:</p>
-              <p className="font-bold text-orange-700 text-lg">₹ {totalDriverExpenses.toFixed(2)}</p>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </div>
+
     </div>
   );
 }
 
-function Card({ title, children }) {
+function RowItem({ label, value, highlight }) {
   return (
-    <div className="bg-white rounded shadow p-4 space-y-2">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {children}
+    <div className="space-y-1">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+      <p className={`text-base font-black ${highlight ? "text-blue-600" : "text-slate-800"} tracking-tight`}>{value || "---"}</p>
     </div>
   );
 }
 
-function Row({ label, value, bold, highlight }) {
+function CostChip({ label, value, color }) {
   return (
-    <div className={`flex justify-between text-sm ${highlight ? "text-red-600" : "text-gray-700"}`}>
-      <span className="font-medium">{label}</span>
-      <span className={bold ? "font-semibold" : ""}>{value}</span>
+    <div className={`p-4 rounded-2xl bg-${color}-50/50 border border-${color}-100 flex flex-col`}>
+      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">{label}</span>
+      <span className={`text-sm font-black text-slate-800 tracking-tighter`}>₹{Number(value || 0).toLocaleString()}</span>
     </div>
   );
 }

@@ -12,38 +12,66 @@ export default function VehicleForm() {
       });
       alert("Vehicle added successfully");
       setVehicleNumber("");
-    } catch (err) {
+    } catch {
       alert("Vehicle already exists");
     }
   };
 
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-4">Add Vehicle</h1>
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-4">
+        <h1 className="text-4xl font-black text-slate-800 tracking-tight">Add Vehicle</h1>
+        <p className="text-slate-500 font-medium">Add a new vehicle to your records</p>
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-4 md:p-6 rounded shadow w-full max-w-md"
-      >
-        <label className="block text-sm font-medium mb-1">
-          Vehicle Number
-        </label>
+      {/* ---------- FORM CARD ---------- */}
+      <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 max-w-2xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+          <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        </div>
 
-        <input
-          className="border p-2 w-full mb-4 rounded"
-          placeholder="MH12AB1234"
-          value={vehicleNumber}
-          onChange={(e) => setVehicleNumber(e.target.value)}
-          required
-        />
+        <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Number</label>
+            <div className="relative">
+              <input
+                className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-black text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-300"
+                placeholder="Example: MH12AB1234"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+                required
+                minLength={4}
+              />
+              <svg className="absolute left-4 top-4.5 w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter ml-1 italic">Use the vehicle registration number</p>
+          </div>
 
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full sm:w-auto"
-        >
-          Save
-        </button>
-      </form>
+          <div className="flex gap-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 h-14 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95"
+            >
+              Save Vehicle
+            </button>
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="px-8 h-14 bg-white text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="max-w-2xl px-8 flex items-center gap-4 text-slate-300">
+        <div className="h-px flex-1 bg-slate-100" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Vehicle Details</span>
+        <div className="h-px flex-1 bg-slate-100" />
+      </div>
     </div>
   );
 }

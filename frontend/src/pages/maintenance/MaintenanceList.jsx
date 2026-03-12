@@ -83,120 +83,155 @@ export default function MaintenanceList() {
   }, [maintenances]);
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="bg-white p-3 rounded shadow">
-        <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-10 w-auto" />
-      </div>
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">Maintenance</h1>
-        <div className="flex gap-2 items-center">
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Maintenance Records</h1>
+          <p className="text-slate-500 font-medium mt-1">Track EMI, insurance, tax, and other vehicle costs</p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
           {activeType === "all" && (
-            <select
-              value={addType}
-              onChange={(e) => setAddType(e.target.value)}
-              className="border px-3 py-2 rounded"
-            >
-              <option value="emi">EMI</option>
-              <option value="insurance">Insurance</option>
-              <option value="tax">Tax</option>
-            </select>
+            <div className="relative group">
+              <select
+                value={addType}
+                onChange={(e) => setAddType(e.target.value)}
+                className="h-12 pl-4 pr-10 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none shadow-sm"
+              >
+                <option value="emi">EMI</option>
+                <option value="insurance">Insurance</option>
+                <option value="tax">Tax</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </div>
           )}
           <button
             onClick={() => navigate(`/maintenance/${addType}/add`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
           >
-            + Add Maintenance
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Record
           </button>
           <button
             onClick={() => window.print()}
-            className="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:bg-black transition-all text-sm"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
             Print
           </button>
         </div>
       </div>
 
-      <div className="border-b">
-        <div className="flex gap-4">
-          {TYPE_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => navigate(`/maintenance/${tab.key}`)}
-              className={`px-2 pb-2 text-xl ${
-                activeType === tab.key
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-700"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* ---------- TABS ---------- */}
+      <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">
+        {TYPE_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => navigate(`/maintenance/${tab.key}`)}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              activeType === tab.key
+                ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ---------- VEHICLE SELECT ---------- */}
+      <div className="glass-card p-6 rounded-3xl border border-slate-100">
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-2 block">Select Vehicle</label>
+        <div className="relative group w-full md:w-96">
+          <select
+            value={selectedVehicle}
+            onChange={(e) => setSelectedVehicle(e.target.value)}
+            className="w-full h-12 pl-4 pr-10 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+          >
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.vehicle_number}>{v.vehicle_number}</option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"/></svg>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded shadow">
-        <label className="block text-sm font-medium mb-2">Select Vehicle</label>
-        <select
-          value={selectedVehicle}
-          onChange={(e) => setSelectedVehicle(e.target.value)}
-          className="w-full md:w-80 px-3 py-2 border rounded"
-        >
-          {vehicles.map((v) => (
-            <option key={v.id} value={v.vehicle_number}>
-              {v.vehicle_number}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="bg-white rounded shadow overflow-x-auto">
+      {/* ---------- TABLE ---------- */}
+      <div className="glass-card rounded-3xl overflow-hidden min-h-[400px]">
         {loading ? (
-          <div className="p-6 text-center text-gray-500">Loading...</div>
-        ) : sortedRows.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">No maintenance records found</div>
+          <div className="p-20 text-center animate-pulse">
+            <div className="w-12 h-12 bg-slate-100 rounded-full mx-auto mb-4" />
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading records...</div>
+          </div>
         ) : (
-          <table className="min-w-[900px] w-full border-collapse">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Type</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Description</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Start Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">End Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Created</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((m) => {
-                const rowType = String(m.maintenance_type || "").toLowerCase();
-                return (
-                  <tr key={m.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3">{TYPE_LABELS[rowType] || rowType || "-"}</td>
-                    <td className="px-4 py-3">INR {Number(m.amount || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3">{m.description || "-"}</td>
-                    <td className="px-4 py-3">{formatDateDDMMYYYY(m.start_date)}</td>
-                    <td className="px-4 py-3">{m.end_date ? formatDateDDMMYYYY(m.end_date) : "-"}</td>
-                    <td className="px-4 py-3">{formatDateDDMMYYYY(m.created_at)}</td>
-                    <td className="px-4 py-3 flex gap-3">
-                      <button
-                        onClick={() => navigate(`/maintenance/${rowType || "emi"}/edit/${m.id}`)}
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(m.id)}
-                        className="text-red-600 hover:underline text-sm"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Type</th>
+                  <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</th>
+                  <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Notes</th>
+                  <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Date / Expiry</th>
+                  <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {sortedRows.length === 0 ? (
+                  <tr><td colSpan="5" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No records found</td></tr>
+                ) : (
+                  sortedRows.map((m) => {
+                    const rowType = String(m.maintenance_type || "").toLowerCase();
+                    return (
+                      <tr key={m.id} className="group hover:bg-slate-50/40 transition-colors">
+                        <td className="p-6">
+                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-blue-100">
+                            {TYPE_LABELS[rowType] || rowType || "-"}
+                          </div>
+                          <div className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Added: {formatDateDDMMYYYY(m.created_at)}</div>
+                        </td>
+                        <td className="p-6 text-base font-black text-slate-800 tracking-tighter">
+                          ₹{Number(m.amount || 0).toLocaleString()}
+                        </td>
+                        <td className="p-6 text-sm text-slate-500 font-medium max-w-xs truncate">
+                          {m.description || "No description provided"}
+                        </td>
+                        <td className="p-6">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-slate-700">{formatDateDDMMYYYY(m.start_date)}</span>
+                            {m.end_date && <span className="text-[10px] text-rose-500 font-bold uppercase tracking-tighter">Expires: {formatDateDDMMYYYY(m.end_date)}</span>}
+                          </div>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => navigate(`/maintenance/${rowType || "emi"}/edit/${m.id}`)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(m.id)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

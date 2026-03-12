@@ -4,6 +4,8 @@ from app.database.session import SessionLocal
 from app.schemas.driver import DriverCreate, DriverResponse
 from app.services.driver_service import create_driver, get_drivers
 from app.models.driver import Driver
+from app.models.trip import Trip
+from app.services.auth_service import require_admin
 
 router = APIRouter(
     prefix="/drivers",
@@ -41,3 +43,25 @@ def get_driver(driver_id: int, db: Session = Depends(get_db)):
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     return driver
+
+
+@router.delete("/{driver_id}")
+def delete_driver(
+    driver_id: int,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    has_trips = db.query(Trip.id).filter(Trip.driver_id == driver_id).first()
+    if has_trips:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete driver with existing trips"
+        )
+
+    db.delete(driver)
+    db.commit()
+    return {"message": "Driver deleted successfully"}

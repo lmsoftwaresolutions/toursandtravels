@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import SessionLocal
 from app.schemas.vendor import VendorCreate, VendorResponse
-from app.services.vendor_service import add_vendor, list_vendors
+from app.services.vendor_service import add_vendor, list_vendors, delete_vendor
 from app.services.vendor_stats_service import vendor_summary
 
 router = APIRouter(prefix="/vendors", tags=["Vendors"])
@@ -31,3 +31,9 @@ def get_vendors(category: str | None = Query(None), db: Session = Depends(get_db
 def get_vendor_summary(vendor_id: int, db: Session = Depends(get_db)):
     summary = vendor_summary(db, vendor_id)
     return summary or {"error": "Vendor not found"}
+
+
+@router.delete("/{vendor_id}")
+def remove_vendor(vendor_id: int, db: Session = Depends(get_db)):
+    delete_vendor(db, vendor_id)
+    return {"message": "Vendor deleted"}

@@ -23,6 +23,9 @@ class Trip(Base):
     end_km = Column(Float, default=0)
     distance_km = Column(Integer, nullable=True)  # Optional for package pricing
 
+    number_of_vehicles = Column(Integer, default=1)
+    bus_type = Column(String, nullable=True)
+
     # 🔥 PHASE-2 FIELDS
     diesel_used = Column(Float, default=0)
     petrol_used = Column(Float, default=0)
@@ -63,6 +66,12 @@ class Trip(Base):
         "TripDriverChange",
         cascade="all, delete-orphan",
         lazy="selectin"
+    )
+    vehicles = relationship(
+        "TripVehicle",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        back_populates="trip"
     )
 
     def calculate_pending_amount(self):

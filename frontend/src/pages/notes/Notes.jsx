@@ -101,109 +101,128 @@ export default function Notes() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Notes</h1>
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Intelligence Ledger</h1>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Centralized Tactical Observations & Directives</p>
+        </div>
         <button
           onClick={openAddNote}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded"
+          className="h-12 px-8 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
         >
-          + Add Note
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+          New Directive
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Month</span>
+      <div className="flex items-center gap-4 p-4 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/50 backdrop-blur-sm">
+        <div className="flex items-center gap-3 px-3">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Temporal Filter</span>
           <input
             type="month"
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
-            className="border px-2 py-1 rounded text-sm"
+            className="bg-transparent border-none text-sm font-black text-slate-700 outline-none focus:ring-0 cursor-pointer"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border p-3 text-left">Date</th>
-              <th className="border p-3 text-left">Note</th>
-              <th className="border p-3 text-left">Actions</th>
+      <div className="glass-card rounded-[2.5rem] overflow-hidden border border-slate-100 bg-white shadow-2xl shadow-slate-200/50">
+        <table className="w-full border-separate border-spacing-0">
+          <thead>
+            <tr className="bg-slate-50/50">
+              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Timestamp</th>
+              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Intel Content</th>
+              <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Control</th>
             </tr>
           </thead>
-          <tbody>
-            {notes.length === 0 && (
+          <tbody className="divide-y divide-slate-50">
+            {notes.length === 0 ? (
               <tr>
-                <td className="border p-4 text-sm text-gray-500" colSpan={3}>
-                  No notes for this month.
-                </td>
-              </tr>
-            )}
-
-            {notes.map(n => (
-              <tr key={n.id}>
-                <td className="border p-3 text-sm">{formatDateDDMMYYYY(n.note_date)}</td>
-                <td className="border p-3 text-sm">{n.note}</td>
-                <td className="border p-3 text-sm">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditNote(n)}
-                      className="px-2 py-1 text-xs border rounded"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteNote(n.id)}
-                      className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded"
-                    >
-                      Delete
-                    </button>
+                <td colSpan={3} className="p-24 text-center">
+                  <div className="flex flex-col items-center gap-4 opacity-20">
+                    <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Silence in this sector</p>
                   </div>
                 </td>
               </tr>
-            ))}
+            ) : (
+              notes.map(n => (
+                <tr key={n.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="p-6">
+                    <span className="text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(n.note_date)}</span>
+                  </td>
+                  <td className="p-6">
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed max-w-xl">{n.note}</p>
+                  </td>
+                  <td className="p-6">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditNote(n)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-lg transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteNote(n.id)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:shadow-lg transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       {showNoteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-5 rounded w-[420px]">
-            <h3 className="font-semibold mb-3">
-              {editingNote ? "Edit Note" : "Add Note"}
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in duration-300">
+          <div className="bg-white p-10 rounded-[2.5rem] w-[500px] shadow-2xl animate-in zoom-in-95 duration-300 border border-slate-100">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8">
+              {editingNote ? "Refine Intelligence" : "Broadcast Directive"}
             </h3>
 
-            <input
-              type="date"
-              className="w-full border p-2 mb-2"
-              value={noteDate}
-              onChange={e => setNoteDate(e.target.value)}
-            />
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Observation Timestamp</label>
+                <input
+                  type="date"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  value={noteDate}
+                  onChange={e => setNoteDate(e.target.value)}
+                />
+              </div>
 
-            <textarea
-              className="w-full border p-2 mb-3"
-              placeholder="Enter note"
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-            />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Intel Metadata (Note Text)</label>
+                <textarea
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 min-h-[150px] resize-none"
+                  placeholder="Enter detailed observation data..."
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                />
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex gap-4 mt-10">
               <button
                 onClick={() => {
                   setShowNoteModal(false);
                   setEditingNote(null);
                 }}
-                className="px-3 py-1 border rounded"
+                className="flex-1 h-14 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
               >
-                Cancel
+                Discard
               </button>
               <button
                 onClick={handleSaveNote}
-                className="px-3 py-1 bg-blue-600 text-white rounded"
+                className="flex-[2] h-14 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl shadow-slate-900/20 active:scale-[0.98]"
               >
-                Save
+                Seal Directive
               </button>
             </div>
           </div>
