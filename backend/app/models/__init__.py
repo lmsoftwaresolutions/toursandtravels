@@ -4,12 +4,14 @@ from app.models.driver import Driver  # noqa: F401
 from app.models.driver_expense import DriverExpense  # noqa: F401
 from app.models.driver_salary import DriverSalary  # noqa: F401
 from app.models.fuel import Fuel  # noqa: F401
+from app.models.mechanic import MechanicEntry  # noqa: F401
 from app.models.maintenance import Maintenance  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
 from app.models.spare_part import SparePart  # noqa: F401
 from app.models.trip import Trip  # noqa: F401
 from app.models.trip_driver_change import TripDriverChange  # noqa: F401
 from app.models.trip_pricing_item import TripPricingItem  # noqa: F401
+from app.models.trip_vehicle import TripVehicle  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.vehicle import Vehicle  # noqa: F401
 from app.models.vehicle_note import VehicleNote  # noqa: F401

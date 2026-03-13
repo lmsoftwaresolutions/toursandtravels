@@ -12,14 +12,14 @@ export const authService = {
         password,
       });
       const { token, user } = response.data;
-      
+
       // Store token and user info
       localStorage.setItem(AUTH_TOKEN_KEY, token);
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-      
+
       // Add token to API headers
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      
+
       return { token, user };
     } catch (error) {
       throw error.response?.data?.detail || "Login failed";
@@ -47,12 +47,12 @@ export const authService = {
 
   isAdmin() {
     const user = this.getUser();
-    return user?.role === "admin";
+    return user?.role?.toLowerCase() === "admin";
   },
 
   hasLimitedAccess() {
     const user = this.getUser();
-    return user?.role === "limited";
+    return user?.role?.toLowerCase() === "limited";
   },
 
   initializeAuth() {

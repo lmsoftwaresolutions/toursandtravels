@@ -25,7 +25,7 @@ export default function SparePartDetails() {
   useEffect(() => {
     loadSparePartData();
     api.get("/vehicles").then(res => setVehicles(res.data));
-    api.get("/vendors", { params: { category: "spare" } }).then(res => setVendors(res.data));
+    api.get("/vendors", { params: { category: "spare_parts" } }).then(res => setVendors(res.data));
   }, [id]);
 
   const loadSparePartData = async () => {

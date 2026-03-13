@@ -59,132 +59,156 @@ export default function InvoiceList() {
   const totalPending = filteredTrips.reduce((sum, t) => sum + (t.pending_amount || 0), 0);
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Invoices</h1>
-      </div>
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      {/* SUMMARY CARDS */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="bg-white p-4 rounded shadow">
-          <p className="text-sm text-gray-600">Total Invoiced</p>
-          <p className="text-2xl font-bold">₹ {totalInvoiced.toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-4 rounded shadow">
-          <p className="text-sm text-gray-600">Total Paid</p>
-          <p className="text-2xl font-bold text-green-600">₹ {totalPaid.toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-4 rounded shadow">
-          <p className="text-sm text-gray-600">Total Due</p>
-          <p className="text-2xl font-bold text-red-600">₹ {totalPending.toFixed(2)}</p>
+      {/* ---------- HEADER ---------- */}
+      <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Invoices</h1>
+          <p className="text-slate-500 font-medium mt-1">View and manage bills for all trips</p>
         </div>
       </div>
 
-      {/* FILTER */}
-      <div className="bg-white p-4 rounded shadow">
-        <label className="block text-sm font-medium mb-2">Filter by Customer:</label>
-        <select
-          value={filterCustomer}
-          onChange={e => setFilterCustomer(e.target.value)}
-          className="border p-2 rounded"
-        >
-          <option value="">All Customers</option>
-          {customers.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      {/* ---------- SUMMARY CARDS ---------- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <KPI CardTitle="Total Billed" CardValue={`₹${totalInvoiced.toLocaleString()}`} CardNote="Total across filtered invoices" Color="blue" />
+        <KPI CardTitle="Total Paid" CardValue={`₹${totalPaid.toLocaleString()}`} CardNote="Amount collected from customers" Color="emerald" />
+        <KPI CardTitle="Balance Due" CardValue={`₹${totalPending.toLocaleString()}`} CardNote="Amount yet to be settled" Color="rose" />
       </div>
 
-      {/* SEARCH */}
-      <div className="bg-white p-4 rounded shadow">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            className="border p-2 rounded"
-            placeholder="Search by Customer Name"
-            value={searchCustomer}
-            onChange={e => setSearchCustomer(e.target.value)}
-          />
-          <input
-            className="border p-2 rounded"
-            placeholder="Search by Invoice Number"
-            value={searchInvoice}
-            onChange={e => setSearchInvoice(e.target.value)}
-          />
+      {/* ---------- FILTERS & SEARCH ---------- */}
+      <div className="flex flex-wrap gap-4 items-center bg-slate-100/30 p-4 rounded-3xl border border-slate-100">
+        <div className="relative group w-full md:w-64">
+          <select
+            value={filterCustomer}
+            onChange={e => setFilterCustomer(e.target.value)}
+            className="w-full pl-4 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 appearance-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none shadow-sm"
+          >
+            <option value="">All Customers</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
+
+        <div className="flex-1 flex gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <input
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+              placeholder="Search Customer..."
+              value={searchCustomer}
+              onChange={e => setSearchCustomer(e.target.value)}
+            />
+            <svg className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+          <div className="relative flex-1 max-w-sm">
+            <input
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+              placeholder="Search Invoice #..."
+              value={searchInvoice}
+              onChange={e => setSearchInvoice(e.target.value)}
+            />
+            <svg className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 text-left">Invoice ID</th>
-              <th className="p-2 text-left">Customer</th>
-              <th className="p-2 text-left">Trip Date</th>
-              <th className="p-2 text-left">Vehicle</th>
-              <th className="p-2 text-left">Amount</th>
-              <th className="p-2 text-left">Paid</th>
-              <th className="p-2 text-left">Due</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTrips.length === 0 ? (
-              <tr>
-                <td colSpan="9" className="p-4 text-center text-gray-500">
-                  No invoices found
-                </td>
+      {/* ---------- TABLE ---------- */}
+      <div className="glass-card rounded-[2rem] overflow-hidden min-h-[500px]">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/50 uppercase">
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black tracking-widest text-slate-400">Invoice</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black tracking-widest text-slate-400">Customer</th>
+                <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black tracking-widest text-slate-400">Payment Status</th>
+                <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black tracking-widest text-slate-400">Actions</th>
               </tr>
-            ) : (
-              filteredTrips.map(trip => {
-                const customer = customers.find(c => c.id === trip.customer_id);
-                const status = trip.pending_amount === 0 ? "Paid" : trip.pending_amount === trip.total_charged ? "Pending" : "Partial";
-                const statusColor = status === "Paid" ? "green" : status === "Pending" ? "red" : "yellow";
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredTrips.length === 0 ? (
+                <tr><td colSpan="4" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No invoices found</td></tr>
+              ) : (
+                filteredTrips.map(trip => {
+                  const customer = customers.find(c => c.id === trip.customer_id);
+                  const status = trip.pending_amount === 0 ? "Settled" : trip.pending_amount === trip.total_charged ? "Outstanding" : "Partial";
 
-                return (
-                  <tr key={trip.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 font-semibold">
-                      <button
-                        onClick={() => navigate(`/trips/${trip.id}`)}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}
-                      </button>
-                    </td>
-                    <td className="p-2">{customer?.name || "N/A"}</td>
-                    <td className="p-2">{formatDateDDMMYYYY(trip.trip_date)}</td>
-                    <td className="p-2">{trip.vehicle_number}</td>
-                    <td className="p-2">₹ {(trip.total_charged || 0).toFixed(2)}</td>
-                    <td className="p-2 text-green-600">₹ {(trip.amount_received || 0).toFixed(2)}</td>
-                    <td className="p-2 text-red-600 font-semibold">₹ {(trip.pending_amount || 0).toFixed(2)}</td>
-                    <td className="p-2">
-                      <span className={`px-2 py-1 rounded text-white text-xs font-semibold`} style={{ backgroundColor: statusColor === "green" ? "#16a34a" : statusColor === "red" ? "#dc2626" : "#eab308" }}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="p-2 space-x-2">
-                      <button
-                        onClick={() => navigate(`/invoices/${trip.id}`)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => window.open(`/invoices/${trip.id}`, "_blank")}
-                        className="bg-gray-800 text-white px-3 py-1 rounded text-sm hover:bg-black"
-                      >
-                        Print
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  return (
+                    <tr key={trip.id} className="group hover:bg-slate-50/40 transition-colors">
+                      <td className="p-6">
+                        <button
+                          onClick={() => navigate(`/trips/${trip.id}`)}
+                          className="text-sm font-black text-blue-600 hover:text-blue-700 tracking-tighter"
+                        >
+                          {trip.invoice_number || `INV-${trip.id}`}
+                        </button>
+                        <div className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Vehicle: {trip.vehicle_number}</div>
+                      </td>
+                      <td className="p-6">
+                        <div className="text-sm font-black text-slate-700">{customer?.name || "N/A"}</div>
+                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">{formatDateDDMMYYYY(trip.trip_date)}</div>
+                      </td>
+                      <td className="p-6 text-right">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border mb-2 shadow-sm transition-colors cursor-default"
+                          style={{
+                            backgroundColor: status === "Settled" ? "#ecfdf5" : status === "Outstanding" ? "#fef2f2" : "#fffbeb",
+                            color: status === "Settled" ? "#059669" : status === "Outstanding" ? "#dc2626" : "#d97706",
+                            borderColor: status === "Settled" ? "#d1fae5" : status === "Outstanding" ? "#fee2e2" : "#fef3c7"
+                          }}>
+                          {status}
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-sm font-black text-slate-800 tracking-tight">₹{trip.total_charged?.toLocaleString()}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Due: ₹{trip.pending_amount?.toLocaleString()}</span>
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => navigate(`/invoices/${trip.id}`)}
+                            className="p-3 bg-white text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                          >
+                            View Invoice
+                          </button>
+                          <button
+                            onClick={() => navigate(`/invoices/${trip.id}?print=true`)}
+                            className="p-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                          >
+                            Print / PDF
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KPI({ CardTitle, CardValue, CardNote, Color }) {
+  const colorClass = Color === "emerald" ? "text-emerald-600" : Color === "rose" ? "text-rose-600" : "text-blue-600";
+  const bgClass = Color === "emerald" ? "bg-emerald-50" : Color === "rose" ? "bg-rose-50" : "bg-blue-50";
+  const borderClass = Color === "emerald" ? "border-emerald-100" : Color === "rose" ? "border-rose-100" : "border-blue-100";
+
+  return (
+    <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+      <div className={`absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity ${colorClass}`}>
+        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{CardTitle}</p>
+      <p className={`text-3xl font-black tracking-tighter ${colorClass}`}>{CardValue}</p>
+      <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${bgClass} ${colorClass} ${borderClass}`}>
+        {CardNote}
       </div>
     </div>
   );

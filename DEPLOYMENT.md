@@ -145,3 +145,56 @@ Use `stamp head` only when DB schema is already aligned and you only need to reg
 - Create trip with advance payments: should not show overpayment error due to double-count.
 - Open Reports page and use in-app **Print Report** button: header/menu/logout must not appear.
 - Open payment/invoice print view: no placeholder `Contact Number: ________` and no empty contact rows.
+
+## 8. Recent Production Updates (2026-03-10)
+
+### Backend / Database
+- Added Alembic migration: `backend/alembic/versions/20260310_01_add_trip_fields.py`.
+- Migration adds these `trips` columns:
+  - `number_of_vehicles`
+  - `bus_type`
+- Migration backfills existing trip rows so `number_of_vehicles` becomes `1` where it was null.
+- Trip backend model/schema/service were updated the same day to support newer pricing and billing fields, including:
+  - invoice number
+  - pricing mode
+  - package/per-km billing
+  - charged toll/parking
+  - discount
+  - advance payment
+  - pricing items / charge items
+
+### Frontend / Functional
+- Trip form and related trip screens were updated for the expanded billing flow and multi-vehicle pricing support.
+- Reporting and print-related screens were updated today as part of the active frontend working set.
+- Layout components (`Sidebar`, `Navbar`, `Layout`) were also updated and should be included in post-deploy UI verification.
+- Added root documentation file: `CALCULATIONS.md` for tracing calculation logic.
+
+### Deploy Steps After Merge
+Run from repo root:
+
+```powershell
+docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml logs -f backend
+```
+
+Expected in backend logs:
+- Alembic applies/validates revisions up to head, including `20260310_01`
+- Gunicorn starts after migration step
+
+### Post-Deploy Validation For This Update
+- Create or edit a trip and confirm the backend accepts:
+  - `number_of_vehicles`
+  - `bus_type`
+  - invoice number
+  - pricing fields
+- Verify old trips still load correctly after the migration backfill.
+- Verify trip totals, pending amount, and payment collection still work after deploy.
+- Verify report print, payment print, and invoice print flows still open correctly.
+- Verify package-trip totals are the same in:
+  - frontend preview
+  - saved trip record
+  - invoice/report output
+
+### Deployment Caution
+- Dashboard expense totals were adjusted to avoid double counting fuel.
+- If your team compares current production dashboard numbers against prior builds, expect expense/profit values to shift where both trip fuel and fuel entries existed.

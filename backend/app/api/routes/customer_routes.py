@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
+from app.models.customer import Customer
+from app.models.trip import Trip
 from app.schemas.customer import (
     CustomerCreate,
     CustomerResponse,
@@ -14,6 +16,7 @@ from app.services.customer_service import (
     update_customer,
     get_customer_with_trips,
 )
+from app.services.auth_service import require_admin
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
@@ -52,3 +55,25 @@ def customer_trips(customer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Customer not found")
     customer, trips = result
     return {"customer": customer, "trips": trips}
+
+
+@router.delete("/{customer_id}")
+def delete_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    has_trips = db.query(Trip.id).filter(Trip.customer_id == customer_id).first()
+    if has_trips:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete customer with existing trips"
+        )
+
+    db.delete(customer)
+    db.commit()
+    return {"message": "Customer deleted successfully"}

@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.trip import Trip
+from app.models.trip_vehicle import TripVehicle
 from app.models.vehicle import Vehicle
 from app.models.fuel import Fuel
 from app.models.spare_part import SparePart
@@ -13,7 +14,7 @@ def vehicle_summary(db: Session, vehicle_number: str):
     vehicle = (
         db.query(Vehicle)
         .filter(
-            Vehicle.vehicle_number == vehicle_number,
+            func.lower(Vehicle.vehicle_number) == vehicle_number.lower(),
             Vehicle.is_deleted == False
         )
         .first()
@@ -24,35 +25,31 @@ def vehicle_summary(db: Session, vehicle_number: str):
 
     # -------- TRIP DATA --------
     total_trips = (
-        db.query(func.count(Trip.id))
-        .filter(
-            Trip.vehicle_number == vehicle_number
-        )
+        db.query(func.count(func.distinct(Trip.id)))
+        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
         .scalar()
         or 0
     )
 
     total_km = (
         db.query(func.coalesce(func.sum(Trip.distance_km), 0))
-        .filter(
-            Trip.vehicle_number == vehicle_number
-        )
+        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
         .scalar()
     )
 
     trip_cost = (
-        db.query(func.coalesce(func.sum(Trip.total_cost), 0))
-        .filter(
-            Trip.vehicle_number == vehicle_number
-        )
+        db.query(func.coalesce(func.sum(Trip.total_charged), 0))
+        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
         .scalar()
     )
 
     customers = (
         db.query(func.count(func.distinct(Trip.customer_id)))
-        .filter(
-            Trip.vehicle_number == vehicle_number
-        )
+        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
         .scalar()
         or 0
     )
@@ -62,26 +59,35 @@ def vehicle_summary(db: Session, vehicle_number: str):
     maintenance_cost = vehicle.total_maintenance_cost or 0
 
     # -------- FUEL COST (BY TYPE) --------
+    trip_fuel_cost = (
+        db.query(func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0))
+        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
+        .scalar()
+        or 0
+    )
+
     fuel_by_type = (
         db.query(
             Fuel.fuel_type,
             func.coalesce(func.sum(Fuel.total_cost), 0).label("cost")
         )
         .filter(
-            Fuel.vehicle_number == vehicle_number
+            func.lower(Fuel.vehicle_number) == vehicle_number.lower()
         )
         .group_by(Fuel.fuel_type)
         .all()
     )
 
     fuel_costs = {f.fuel_type: f.cost for f in fuel_by_type}
-    total_fuel_cost = sum(fuel_costs.values())
+    direct_fuel_cost = sum(fuel_costs.values())
+    total_fuel_cost = direct_fuel_cost + trip_fuel_cost
 
     # -------- SPARE PARTS --------
     spare_parts = (
         db.query(SparePart)
         .filter(
-            SparePart.vehicle_number == vehicle_number
+            func.lower(SparePart.vehicle_number) == vehicle_number.lower()
         )
         .order_by(SparePart.replaced_date.desc())
         .all()
@@ -98,6 +104,8 @@ def vehicle_summary(db: Session, vehicle_number: str):
         "maintenance_cost": maintenance_cost,
         "monthly_maintenance_cost": monthly_maintenance_cost,
         "fuel_costs": fuel_costs,
+        "direct_fuel_cost": direct_fuel_cost,
+        "trip_fuel_cost": trip_fuel_cost,
         "total_fuel_cost": total_fuel_cost,
         "total_vehicle_cost": trip_cost + maintenance_cost + total_fuel_cost + monthly_maintenance_cost,
         "customers_served": customers,

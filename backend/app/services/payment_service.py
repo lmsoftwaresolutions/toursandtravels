@@ -37,7 +37,10 @@ def create_payment(db: Session, payment: PaymentCreate):
 
     # 5️⃣ Update trip amounts
     trip.amount_received = received + payment.amount
-    trip.pending_amount = (trip.total_charged or 0) - trip.amount_received
+    trip.pending_amount = max(
+        (trip.total_charged or 0) - trip.amount_received,
+        0
+    )
 
     db.commit()
     db.refresh(db_payment)
