@@ -252,64 +252,6 @@ function TripScheduleChart({
 
   const vehicleList = vehicles?.length ? vehicles : [];
 
-  const openAddNote = (date, vehicle) => {
-    setNoteText("");
-    setNoteDate(date);
-    setNoteVehicleId(vehicle?.id ?? null);
-    setNoteVehicleNumber(vehicle?.vehicle_number ?? "");
-    setEditingNoteId(null);
-    setShowNoteModal(true);
-  };
-
-  const openEditNote = (note) => {
-    setNoteText(note.note || "");
-    setNoteDate(note.note_date || "");
-    setNoteVehicleId(note.vehicle_id || null);
-    setNoteVehicleNumber(
-      (vehicles || []).find(v => v.id === note.vehicle_id)?.vehicle_number || ""
-    );
-    setEditingNoteId(note.id);
-    setShowNoteModal(true);
-  };
-
-  const handleSaveNote = () => {
-    if (!noteDate || !noteText.trim()) return;
-    if (!noteVehicleId) return;
-
-    const payload = {
-      vehicle_id: noteVehicleId,
-      note: noteText.trim(),
-      note_date: noteDate
-    };
-
-    const request = editingNoteId
-      ? api.put(`/vehicle-notes/${editingNoteId}`, payload)
-      : api.post("/vehicle-notes", payload);
-
-    request
-      .then(() => {
-        setShowNoteModal(false);
-        setNoteText("");
-        setNoteDate("");
-        setNoteVehicleId(null);
-        setNoteVehicleNumber("");
-        setEditingNoteId(null);
-        loadNotes();
-      })
-      .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to save note");
-      });
-  };
-
-  const handleDeleteNote = (noteId) => {
-    if (!noteId) return;
-    if (!window.confirm("Delete this note?")) return;
-    api.delete(`/vehicle-notes/${noteId}`)
-      .then(() => loadNotes())
-      .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to delete note");
-      });
-  };
 
   return (
     <>

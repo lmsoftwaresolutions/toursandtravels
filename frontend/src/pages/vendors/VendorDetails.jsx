@@ -485,22 +485,7 @@ export default function VendorDetails() {
 
   const handleEntrySubmit = async (e) => {
     e.preventDefault();
-    if (!activeCategoryConfig || !vendor) return;
-
-    const normalizedPayload = activeCategoryConfig.fields.reduce((acc, field) => {
-      const raw = entryForm[field.name];
-      if (field.type === "number") {
-        acc[field.name] = raw === "" || raw === undefined ? "" : Number(raw);
-      } else {
-        acc[field.name] = raw;
-      }
-      return acc;
-    }, {});
-
-    let payload = { ...normalizedPayload, vendor: vendor.name };
-    if (typeof activeCategoryConfig.preparePayload === "function") {
-      payload = activeCategoryConfig.preparePayload(payload, normalizedPayload);
-    }
+    const payload = { ...entryForm, vendor_id: Number(id) };
 
     try {
       await api.post(activeCategoryConfig.endpoint, payload);
@@ -890,90 +875,11 @@ export default function VendorDetails() {
                           </div>
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {selectedPayment && (
-        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-[2rem] bg-white shadow-2xl border border-slate-100">
-            <div className="flex items-start justify-between gap-4 p-8 border-b border-slate-100">
-              <div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Payment Details</h2>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  {formatDateDDMMYYYY(selectedPayment.paid_on)} | {formatMoney(selectedPayment.amount)} | {selectedPayment.notes || "No reference"}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedPayment(null)}
-                className="h-10 px-4 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-8 border-b border-slate-100 bg-slate-50/50">
-              <div className="rounded-2xl bg-white border border-slate-200 p-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Amount To Collect</p>
-                <p className="mt-2 text-2xl font-black text-slate-800">
-                  {formatMoney(selectedPaymentActualAmount || selectedPayment.amount)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white border border-slate-200 p-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Received Amount</p>
-                <p className="mt-2 text-2xl font-black text-slate-800">
-                  {formatMoney(selectedPaymentReceivedAmount || selectedPayment.amount)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white border border-slate-200 p-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pending Amount</p>
-                <p className="mt-2 text-2xl font-black text-slate-800">
-                  {formatMoney(selectedPaymentPendingAmount)}
-                </p>
-              </div>
-            </div>
-
-            <div className="max-h-[50vh] overflow-auto p-8">
-              <div className="rounded-[1.5rem] overflow-hidden border border-slate-100">
-                <table className="w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr className="bg-slate-50/70">
-                      <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Charge Date</th>
-                      <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Source</th>
-                      <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicle</th>
-                      <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Description</th>
-                      <th className="p-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Details</th>
-                      <th className="p-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Covered</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {(paymentAllocations[selectedPayment.id]?.allocations || []).length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="p-12 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                          No charge details available for this payment
-                        </td>
-                      </tr>
-                    ) : (
-                      paymentAllocations[selectedPayment.id].allocations.map((entry) => (
-                        <tr key={`${selectedPayment.id}-${entry.chargeId}`} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4 text-sm font-black text-slate-500">{formatDateDDMMYYYY(entry.date)}</td>
-                          <td className="p-4 text-sm font-black text-slate-800">{entry.source}</td>
-                          <td className="p-4 text-sm font-bold text-slate-600">{entry.vehicle}</td>
-                          <td className="p-4 text-sm font-bold text-slate-600">{entry.description}</td>
-                          <td className="p-4 text-sm font-bold text-slate-400">{entry.meta}</td>
-                          <td className="p-4 text-right text-sm font-black text-slate-800">{formatMoney(entry.coveredAmount)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         </div>
       )}

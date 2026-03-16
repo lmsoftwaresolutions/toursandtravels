@@ -19,7 +19,7 @@ export default function InvoiceList() {
   const loadTrips = async () => {
     try {
       const res = await api.get("/trips");
-      setTrips(res.data);
+      setTrips(res.data || []);
     } catch (error) {
       console.error("Error loading trips:", error);
     }
@@ -28,7 +28,7 @@ export default function InvoiceList() {
   const loadCustomers = async () => {
     try {
       const res = await api.get("/customers");
-      setCustomers(res.data);
+      setCustomers(res.data || []);
     } catch (error) {
       console.error("Error loading customers:", error);
     }
@@ -49,8 +49,8 @@ export default function InvoiceList() {
   if (searchInvoice.trim()) {
     const query = searchInvoice.trim().toLowerCase();
     filteredTrips = filteredTrips.filter(t => {
-      const invoice = String(t.invoice_number || `INV-${String(t.id).padStart(4, "0")}`);
-      return invoice.toLowerCase().includes(query);
+      const invoice = String(t.invoice_number || `INV-${t.id}`).toLowerCase();
+      return invoice.includes(query);
     });
   }
 
@@ -60,23 +60,27 @@ export default function InvoiceList() {
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
-      {/* ---------- HEADER ---------- */}
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Invoices</h1>
           <p className="text-slate-500 font-medium mt-1">View and manage bills for all trips</p>
         </div>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <button
+            onClick={() => navigate("/quotations")}
+            className="px-6 py-3 bg-white text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
+            Quotations
+          </button>
+        </div>
       </div>
 
-      {/* ---------- SUMMARY CARDS ---------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <KPI CardTitle="Total Billed" CardValue={`₹${totalInvoiced.toLocaleString()}`} CardNote="Total across filtered invoices" Color="blue" />
         <KPI CardTitle="Total Paid" CardValue={`₹${totalPaid.toLocaleString()}`} CardNote="Amount collected from customers" Color="emerald" />
         <KPI CardTitle="Balance Due" CardValue={`₹${totalPending.toLocaleString()}`} CardNote="Amount yet to be settled" Color="rose" />
       </div>
 
-      {/* ---------- FILTERS & SEARCH ---------- */}
       <div className="flex flex-wrap gap-4 items-center bg-slate-100/30 p-4 rounded-3xl border border-slate-100">
         <div className="relative group w-full md:w-64">
           <select
@@ -116,7 +120,6 @@ export default function InvoiceList() {
         </div>
       </div>
 
-      {/* ---------- TABLE ---------- */}
       <div className="glass-card rounded-[2rem] overflow-hidden min-h-[500px]">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full border-separate border-spacing-0">
