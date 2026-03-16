@@ -18,6 +18,7 @@ from app.api.routes.vehicle import router as vehicle_router
 from app.api.routes.vehicle_notes import router as vehicle_notes_router
 from app.api.routes.vendor import router as vendor_router
 from app.api.routes.vendor_payment_routes import router as vendor_payment_router
+from app.api.routes.quotation import router as quotation_router
 from app.database.session import engine
 from app.models.user import User
 from app.services.auth_service import get_current_user
@@ -97,6 +98,7 @@ app.include_router(vendor_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(vendor_payment_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(driver_expense_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(driver_salary_router, prefix="/api", dependencies=auth_dependency)
+app.include_router(quotation_router, prefix="/api", dependencies=auth_dependency)
 
 
 @app.get("/health")

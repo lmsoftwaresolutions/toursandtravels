@@ -67,6 +67,14 @@ export default function InvoiceList() {
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Invoices</h1>
           <p className="text-slate-500 font-medium mt-1">View and manage bills for all trips</p>
         </div>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <button
+            onClick={() => navigate("/quotations")}
+            className="px-6 py-3 bg-white text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
+            Quotations
+          </button>
+        </div>
       </div>
 
       {/* ---------- SUMMARY CARDS ---------- */}

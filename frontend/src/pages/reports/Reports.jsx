@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 const getMonthKey = (dateStr) => {
@@ -274,7 +274,6 @@ export default function Reports() {
       map.get(key)[type] += amount;
       map.get(key).total += amount;
     };
-
     filteredFuelEntries.forEach((f) => add(f.vendor, "fuel", Number(f.total_cost || 0)));
     filteredTrips.forEach((t) => add(t.vendor, "fuel", Number(t.diesel_used || 0) + Number(t.petrol_used || 0)));
     filteredSpareEntries.forEach((s) => add(s.vendor, "spare_parts", Number(s.cost || 0) * Number(s.quantity || 0)));
@@ -318,39 +317,6 @@ export default function Reports() {
         ? `${dateFrom || "Start"} to ${dateTo || "End"}`
         : "All Dates"
     );
-    const invoiceBreakdownRows = [
-      ["Base Fare", totals.invoiceBaseFare],
-      ["Custom Pricing", totals.invoiceCustomPricing],
-      ["Charged Toll", totals.invoiceChargedToll],
-      ["Charged Parking", totals.invoiceChargedParking],
-      ["Extra Charge Items", totals.invoiceExtraCharges],
-      ["Other Expenses", totals.invoiceOtherExpenses],
-      ["Discount", -totals.invoiceDiscount],
-      ["Invoice Total", totals.totalRevenue],
-    ]
-      .map(([label, amount]) => `
-        <tr>
-          <td>${label}</td>
-          <td class="num">${formatMoney(amount)}</td>
-        </tr>
-      `)
-      .join("");
-    const operatingExpenseRows = [
-      ["Fuel Expenses", totals.fuelExpenses],
-      ["Spare Parts", totals.spareExpenses],
-      ["Maintenance", totals.maintenanceExpenses],
-      ["Mechanic (Mistry)", totals.mechanicExpenses],
-      ["Toll Paid", totals.tollExpenses],
-      ["Parking Paid", totals.parkingExpenses],
-      ["Total Operating Expense", totals.totalOperatingExpense],
-    ]
-      .map(([label, amount]) => `
-        <tr>
-          <td>${label}</td>
-          <td class="num">${formatMoney(amount)}</td>
-        </tr>
-      `)
-      .join("");
     const tripRows = filteredTrips.length
       ? filteredTrips.map((trip) => `
           <tr>
@@ -360,22 +326,9 @@ export default function Reports() {
             <td>${trip.from_location} to ${trip.to_location}</td>
             <td class="num">${formatMoney(trip.total_charged)}</td>
             <td class="num">${formatMoney(trip.amount_received)}</td>
-            <td class="num">${formatMoney(trip.pending_amount)}</td>
           </tr>
         `).join("")
-      : `<tr><td colspan="7" class="empty">No trips found for the selected filters.</td></tr>`;
-    const vendorRows = vendorWiseExpenses.length
-      ? vendorWiseExpenses.map((vendor) => `
-          <tr>
-            <td>${vendor.vendor}</td>
-            <td>${vendor.category || "General"}</td>
-            <td class="num">${formatMoney(vendor.fuel)}</td>
-            <td class="num">${formatMoney(vendor.spare_parts)}</td>
-            <td class="num">${formatMoney(vendor.mechanic)}</td>
-            <td class="num">${formatMoney(vendor.total)}</td>
-          </tr>
-        `).join("")
-      : `<tr><td colspan="6" class="empty">No vendor expenses found for the selected filters.</td></tr>`;
+      : `<tr><td colspan="6" class="empty">No trips found for the selected filters.</td></tr>`;
 
     printWindow.document.write(`
       <!doctype html>
@@ -386,7 +339,7 @@ export default function Reports() {
           <style>
             @page {
               size: A4;
-              margin: 12mm;
+              margin: 8mm;
             }
             html, body {
               background: #fff;
@@ -394,249 +347,168 @@ export default function Reports() {
               padding: 0;
               color: #111827;
               font-family: "Segoe UI", Arial, sans-serif;
-            }
-            body {
-              padding: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .page {
-              width: 186mm;
+              width: 190mm;
               margin: 0 auto;
-              font-size: 10.5pt;
-              line-height: 1.35;
+              padding: 5mm;
+              position: relative;
             }
             .header {
               display: flex;
               justify-content: space-between;
               align-items: flex-start;
-              gap: 16px;
+              border-bottom: 2px solid #E31E24;
               padding-bottom: 10px;
-              border-bottom: 1px solid #111827;
-              margin-bottom: 12px;
+              margin-bottom: 15px;
             }
-            .brand {
-              display: flex;
-              align-items: center;
-              gap: 12px;
+            .logo-section {
+               display: flex;
+               flex-direction: column;
+               gap: 3px;
             }
-            .logo {
-              height: 42px;
+            .logo-img {
+              height: 70px;
               width: auto;
             }
-            .company {
-              font-size: 9pt;
-              line-height: 1.45;
-            }
-            .title-block {
+            .company-info {
               text-align: right;
-              font-size: 9pt;
+              font-size: 7pt;
+              font-weight: 700;
+              color: #374151;
+              line-height: 1.2;
             }
             .report-title {
+              text-align: center;
               font-size: 14pt;
-              font-weight: 700;
-              letter-spacing: 0.03em;
+              font-weight: 900;
               text-transform: uppercase;
+              letter-spacing: 1.5px;
+              border-bottom: 1.5px solid #111827;
+              border-top: 1.5px solid #111827;
+              padding: 3px 0;
+              margin-bottom: 15px;
             }
-            .meta {
-              width: 100%;
-              border: 1px solid #94a3b8;
-              border-collapse: collapse;
-              margin-bottom: 14px;
+            .summary-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 8px;
+              margin-bottom: 15px;
             }
-            .meta td {
-              border: 1px solid #cbd5e1;
-              padding: 6px 8px;
-              font-size: 9pt;
+            .summary-card {
+              border: 1px solid #e5e7eb;
+              padding: 8px;
+              background: #f9fafb;
             }
-            .section {
-              margin-bottom: 14px;
-              break-inside: avoid;
-              page-break-inside: avoid;
-            }
-            .section-title {
-              font-size: 10pt;
-              font-weight: 700;
+            .summary-card div:first-child {
+              font-size: 7pt;
+              color: #6b7280;
               text-transform: uppercase;
-              border-bottom: 1px solid #111827;
-              padding-bottom: 4px;
-              margin-bottom: 6px;
+              font-weight: 700;
+            }
+            .summary-card div:last-child {
+              font-size: 11pt;
+              font-weight: 900;
+              color: #111827;
             }
             table.report-table {
               width: 100%;
               border-collapse: collapse;
-              table-layout: fixed;
-            }
-            .report-table th,
-            .report-table td {
-              border: 1px solid #cbd5e1;
-              padding: 6px 8px;
-              font-size: 9pt;
-              vertical-align: top;
+              margin-bottom: 15px;
+              font-size: 7pt;
             }
             .report-table th {
-              background: #eef2f7;
+              background: #111827;
+              color: #fff;
+              padding: 5px;
               text-align: left;
-              font-weight: 700;
-            }
-            .num {
-              text-align: right;
-              white-space: nowrap;
-            }
-            .summary-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-              gap: 8px;
-              margin-bottom: 14px;
-            }
-            .summary-card {
-              border: 1px solid #cbd5e1;
-              padding: 8px;
-            }
-            .summary-card .label {
-              font-size: 8pt;
-              color: #475569;
               text-transform: uppercase;
+              font-weight: 900;
             }
-            .summary-card .value {
-              margin-top: 4px;
-              font-size: 12pt;
-              font-weight: 700;
+            .report-table td {
+              border: 1px solid #e5e7eb;
+              padding: 4px 6px;
             }
-            .empty {
-              text-align: center;
-              color: #64748b;
-            }
+            .num { text-align: right; }
+            .profit { color: #059669; font-weight: 900; }
+            .loss { color: #dc2626; font-weight: 900; }
             .footer {
-              margin-top: 14px;
-              padding-top: 8px;
-              border-top: 1px solid #cbd5e1;
-              font-size: 8.5pt;
-              color: #64748b;
-              text-align: right;
+              margin-top: 20px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              font-size: 6pt;
+              border-top: 1px solid #eee;
+              padding-top: 10px;
+            }
+            .vertical-text {
+              position: absolute;
+              right: -30px;
+              top: 50%;
+              transform: translateY(-50%) rotate(90deg);
+              font-size: 40pt;
+              font-weight: 900;
+              color: #f3f4f6;
+              z-index: -1;
+              text-transform: uppercase;
+              letter-spacing: 15px;
+              opacity: 0.5;
             }
           </style>
         </head>
         <body>
           <div class="page">
+            <div class="vertical-text">NATH KRUPA</div>
             <div class="header">
-              <div class="brand">
-                <img src="${NathkrupaLogo}" class="logo" alt="${COMPANY_NAME}" />
-                <div class="company">
-                  <div><strong>${COMPANY_NAME}</strong></div>
-                  <div>${COMPANY_ADDRESS}</div>
-                  <div>${COMPANY_CONTACT || ""}</div>
-                  <div>${COMPANY_EMAIL ? `Email: ${COMPANY_EMAIL}` : ""}</div>
+              <div class="logo-section">
+                <img src="${NathkrupaLogo}" class="logo-img" alt="Logo" />
+                <div style="background: #fef3c7; border: 1px solid #fde68a; padding: 2px 5px; font-size: 6pt; color: #b45309; font-weight: 700; font-style: italic;">
+                  All type of busses available for marriage picnics and package tours
                 </div>
               </div>
-              <div class="title-block">
-                <div class="report-title">Financial Report</div>
-                <div>Generated: ${new Date().toLocaleString()}</div>
+              <div class="company-info">
+                <div>${COMPANY_ADDRESS}</div>
+                <div>Ph.: ${COMPANY_CONTACT.split('/')[0]}</div>
+                <div>Mob.: 95 95 95 0 930 | 72 72 90 40 40</div>
+                <div>Email: ${COMPANY_EMAIL}</div>
+                <div>Web: nathkrupatravels.in</div>
               </div>
             </div>
 
-            <table class="meta">
-              <tr>
-                <td><strong>Report Period</strong></td>
-                <td>${reportPeriod}</td>
-                <td><strong>Vehicle Filter</strong></td>
-                <td>${filterVehicle || "All Vehicles"}</td>
-              </tr>
-              <tr>
-                <td><strong>Driver Filter</strong></td>
-                <td>${filterDriver ? (drivers.find((d) => String(d.id) === String(filterDriver))?.name || filterDriver) : "All Drivers"}</td>
-                <td><strong>Customer Search</strong></td>
-                <td>${searchCustomer || "None"}</td>
-              </tr>
+            <div class="report-title">Financial Report</div>
+
+            <div style="font-size: 8pt; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; color: #64748b;">Report Period: ${reportPeriod}</div>
+            
+            <div class="summary-grid">
+               <div class="summary-card"><div>Revenue</div><div>₹ ${formatMoney(totals.totalRevenue)}</div></div>
+               <div class="summary-card"><div>Expenses</div><div>₹ ${formatMoney(totals.totalOperatingExpense)}</div></div>
+               <div class="summary-card"><div>Net Profit</div><div class="${totals.netProfit >= 0 ? 'profit' : 'loss'}">₹ ${formatMoney(totals.netProfit)}</div></div>
+            </div>
+
+            <div class="section-title" style="font-size: 9pt; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; border-left: 3px solid #E31E24; padding-left: 8px;">Filtered Trips</div>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Inv. No</th>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Route</th>
+                  <th class="num">Charged</th>
+                  <th class="num">Paid</th>
+                </tr>
+              </thead>
+              <tbody>${tripRows}</tbody>
             </table>
 
-            <div class="summary-grid">
-              <div class="summary-card">
-                <div class="label">Trips</div>
-                <div class="value">${totals.totalTrips}</div>
-              </div>
-              <div class="summary-card">
-                <div class="label">Revenue</div>
-                <div class="value">Rs. ${formatMoney(totals.totalRevenue)}</div>
-              </div>
-              <div class="summary-card">
-                <div class="label">Paid</div>
-                <div class="value">Rs. ${formatMoney(totals.totalPaid)}</div>
-              </div>
-              <div class="summary-card">
-                <div class="label">Pending</div>
-                <div class="value">Rs. ${formatMoney(totals.totalPending)}</div>
-              </div>
-              <div class="summary-card">
-                <div class="label">Operating Expense</div>
-                <div class="value">Rs. ${formatMoney(totals.totalOperatingExpense)}</div>
-              </div>
-              <div class="summary-card">
-                <div class="label">Net Profit</div>
-                <div class="value">Rs. ${formatMoney(totals.netProfit)}</div>
-              </div>
+            <div class="footer">
+               <div style="font-weight: 700;">Generated on: ${new Date().toLocaleString()}</div>
+               <div style="text-align: right;">
+                  <div style="font-weight: 900; color: #1e40af;">=NATH KRUPA TRAVELS</div>
+                  <div style="font-size: 6pt; font-weight: 700; margin-top: 20px; border-top: 1px solid #9ca3af; padding-top: 4px; text-align: center;">AUTHORISED SIGNATORY</div>
+               </div>
             </div>
-
-            <div class="section">
-              <div class="section-title">Invoice Breakdown</div>
-              <table class="report-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th class="num">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${invoiceBreakdownRows}</tbody>
-              </table>
-            </div>
-
-            <div class="section">
-              <div class="section-title">Operating Expenses</div>
-              <table class="report-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th class="num">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${operatingExpenseRows}</tbody>
-              </table>
-            </div>
-
-            <div class="section">
-              <div class="section-title">Vendor Expenses</div>
-              <table class="report-table">
-                <thead>
-                  <tr>
-                    <th>Vendor Name</th>
-                    <th>Category</th>
-                    <th class="num">Diesel + Petrol</th>
-                    <th class="num">Spare Parts Cost</th>
-                    <th class="num">Mechanic Cost</th>
-                    <th class="num">Total Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${vendorRows}</tbody>
-              </table>
-            </div>
-
-            <div class="section">
-              <div class="section-title">Filtered Trips</div>
-              <table class="report-table">
-                <thead>
-                  <tr>
-                    <th>Invoice No.</th>
-                    <th>Date</th>
-                    <th>Customer</th>
-                    <th>Route</th>
-                    <th class="num">Charged</th>
-                    <th class="num">Paid</th>
-                    <th class="num">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>${tripRows}</tbody>
-              </table>
-            </div>
-
-            <div class="footer">Computer-generated report</div>
           </div>
         </body>
       </html>
