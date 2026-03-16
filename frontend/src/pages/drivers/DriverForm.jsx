@@ -9,6 +9,8 @@ export default function DriverForm() {
     license_number: "",
     joining_date: "",
     monthly_salary: "",
+    joining_date: "",
+    monthly_salary: "",
   });
 
   const navigate = useNavigate();

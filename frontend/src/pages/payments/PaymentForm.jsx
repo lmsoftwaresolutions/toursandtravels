@@ -20,14 +20,12 @@ export default function PaymentForm() {
   const loadTrips = async () => {
     try {
       const res = await api.get("/trips");
-
       const pendingTrips = res.data.filter((t) => {
         const totalCharged = Number(t.total_charged || 0);
         const received = Number(t.amount_received || 0);
         const pending = Number(t.pending_amount ?? Math.max(totalCharged - received, 0));
         return pending > 0;
       });
-
       setTrips(pendingTrips);
     } catch (error) {
       console.error("Error loading trips:", error);
@@ -63,14 +61,13 @@ export default function PaymentForm() {
 
   const submit = async (e) => {
     e.preventDefault();
-
     if (!selectedTrip) {
       alert("Please select a trip");
       return;
     }
-
-    if (Number(form.amount) > selectedTrip.pending_amount) {
-      alert(`Amount cannot exceed pending amount (Rs. ${selectedTrip.pending_amount.toFixed(2)})`);
+    const pending = Number(selectedTrip.pending_amount || 0);
+    if (Number(form.amount) > pending) {
+      alert(`Amount cannot exceed pending amount (Rs. ${pending.toFixed(2)})`);
       return;
     }
 
@@ -82,7 +79,6 @@ export default function PaymentForm() {
         amount: Number(form.amount),
         notes: form.notes || null
       });
-
       alert("Payment recorded successfully");
       navigate("/payments");
     } catch (error) {
@@ -131,7 +127,7 @@ export default function PaymentForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Invoice</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight">{selectedTrip.invoice_number}</p>
+                    <p className="text-sm font-black text-slate-800 tracking-tight">{selectedTrip.invoice_number || `INV-${selectedTrip.id}`}</p>
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trip Date</p>

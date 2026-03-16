@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import PrintLayout from "../../components/print/PrintLayout";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 export default function InvoiceView() {
@@ -162,7 +162,6 @@ export default function InvoiceView() {
   const balanceDue = Number(trip?.pending_amount || 0);
 
   const handlePrint = () => {
-    if (!printRef.current) return;
     if (!printTimestamp) {
       setPrintTimestamp(new Date().toLocaleString());
     }
@@ -210,147 +209,95 @@ export default function InvoiceView() {
         </button>
       </div>
 
-      <div ref={printRef} className="invoice-print-area max-w-5xl mx-auto bg-white border border-slate-200 rounded-[1.5rem] shadow-sm p-5 md:p-8 text-slate-800">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mb-10">
-          <div className="flex items-start gap-4">
-            <img src={NathkrupaLogo} alt="Nathkrupa Logo" className="h-14 w-auto object-contain" />
+      <PrintLayout>
+        <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 border-y-2 border-slate-900 py-2">
+           TAX INVOICE
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 mb-8 border-2 border-slate-900 p-6">
+          <div className="border-r-2 border-slate-900 pr-6">
+            <h2 className="text-[12px] font-black uppercase mb-3 text-red-600">Bill To:</h2>
+            <p className="text-xl font-black text-slate-900 leading-tight">{customer.name}</p>
+            <p className="text-[12px] font-bold text-slate-700 mt-2">{customer.address || "No Address Provided"}</p>
+            {customer?.phone ? <p className="text-[12px] font-bold text-slate-700">Phone: {customer.phone}</p> : null}
           </div>
-          <div className="md:text-right">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">{COMPANY_NAME}</h1>
-            <p className="text-sm text-slate-500 mt-2">{COMPANY_ADDRESS}</p>
-            {COMPANY_EMAIL ? <p className="text-sm text-slate-500">Email: {COMPANY_EMAIL}</p> : null}
-            {COMPANY_CONTACT ? <p className="text-sm text-slate-500">Phone: {COMPANY_CONTACT}</p> : null}
+          <div className="pl-6 space-y-2">
+            <div className="flex justify-between items-center bg-slate-100 p-2 px-4 rounded border border-slate-200">
+               <span className="font-black text-[10px] uppercase">Invoice No:</span>
+               <span className="font-black text-sm">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 px-4">
+               <span className="font-black text-[10px] uppercase">Date:</span>
+               <span className="font-black text-sm">{formatDateDDMMYYYY(trip.trip_date)}</span>
+            </div>
+            {printTimestamp ? <p className="text-[8px] text-right text-slate-400 italic">Printed: {printTimestamp}</p> : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div>
-            <h2 className="text-2xl font-black mb-2">Customer</h2>
-            <p className="text-lg text-slate-600">{customer.name}</p>
-            {customer?.email ? <p className="text-base text-slate-500">Email: {customer.email}</p> : null}
-            {customer?.phone ? <p className="text-base text-slate-500">Phone: {customer.phone}</p> : null}
-          </div>
-          <div className="md:text-right text-slate-500">
-            <p className="text-base"><span className="font-medium">Invoice No:</span> {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</p>
-            <p className="text-base"><span className="font-medium">Date:</span> {formatDateDDMMYYYY(trip.trip_date)}</p>
-            {printTimestamp ? <p className="text-sm mt-1">Printed: {printTimestamp}</p> : null}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto mb-8">
-          <table className="w-full border-collapse invoice-table">
+        <div className="border-2 border-slate-900 border-collapse mb-8 overflow-hidden rounded-sm">
+          <table className="w-full">
             <thead>
-              <tr className="bg-slate-100 text-slate-700">
-                <th className="border border-slate-300 p-3 text-left">Description</th>
-                <th className="border border-slate-300 p-3 text-left">Quantity</th>
-                <th className="border border-slate-300 p-3 text-left">Unit Price</th>
-                <th className="border border-slate-300 p-3 text-right">Total</th>
+              <tr className="bg-slate-900 text-white">
+                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest w-12 border-r border-slate-700">Sr.</th>
+                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700">Description</th>
+                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700 w-24">Qty / KM</th>
+                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700 text-right w-32">Rate</th>
+                <th className="p-3 font-black text-[10px] uppercase tracking-widest text-right w-32">Total</th>
               </tr>
             </thead>
-            <tbody>
-              {invoiceRows.map((row) => {
+            <tbody className="divide-y-2 divide-slate-100">
+              {invoiceRows.map((row, idx) => {
                 return (
-                  <tr key={row.key}>
-                    <td className="border border-slate-300 p-3">{row.description}</td>
-                    <td className="border border-slate-300 p-3 text-slate-600">{row.quantity}</td>
-                    <td className="border border-slate-300 p-3 text-slate-600">{row.unitPrice}</td>
-                    <td className="border border-slate-300 p-3 text-right">
+                  <tr key={row.key} className="hover:bg-slate-50">
+                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100">{idx + 1}</td>
+                    <td className="p-4 py-3 text-[12px] font-black text-slate-800 border-r-2 border-slate-100 uppercase">{row.description}</td>
+                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100 uppercase">{row.quantity}</td>
+                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100 text-right">{row.unitPrice}</td>
+                    <td className="p-4 py-3 text-[12px] font-black text-slate-900 text-right">
                       {`${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`}
                     </td>
                   </tr>
                 );
               })}
+              {/* Filler Rows to maintain layout */}
+              {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
+                <tr key={`filler-${i}`} className="h-10">
+                   <td className="border-r-2 border-slate-100"></td>
+                   <td className="border-r-2 border-slate-100"></td>
+                   <td className="border-r-2 border-slate-100"></td>
+                   <td className="border-r-2 border-slate-100"></td>
+                   <td></td>
+                </tr>
+              ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-900 bg-slate-50">
+                <td colSpan="4" className="p-2 text-right font-black text-[9px] uppercase tracking-widest border-r-2 border-slate-900">Total Amount Due</td>
+                <td className="p-2 text-right text-base font-black text-red-600">Rs. {(trip.total_charged || 0).toFixed(2)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
-        <div className="flex justify-end">
-          <div className="w-full max-w-sm text-base text-slate-600 space-y-1">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>Rs. {subtotalAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Discount:</span>
-              <span>{Number(trip.discount_amount || 0) > 0 ? `- Rs. ${Number(trip.discount_amount || 0).toFixed(2)}` : "Rs. 0.00"}</span>
-            </div>
-            <div className="flex justify-between pt-1 text-2xl font-black text-slate-800">
-              <span>Total Amount Due:</span>
-              <span>Rs. {(trip.total_charged || 0).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Paid:</span>
-              <span>Rs. {totalPaid.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between pt-1 text-xl font-black text-rose-700">
-              <span>Balance:</span>
-              <span>Rs. {balanceDue.toFixed(2)}</span>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-8">
+           <div className="p-4 border-2 border-slate-100 rounded-lg bg-slate-50/50">
+              <h3 className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Payment Summary</h3>
+              <div className="space-y-1">
+                 <div className="flex justify-between text-xs font-bold">
+                    <span>Paid Amount:</span>
+                    <span className="text-emerald-700">Rs. {totalPaid.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-1">
+                    <span>Balance Due:</span>
+                    <span className="text-red-700 underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
+                 </div>
+              </div>
+           </div>
+           <div className="flex flex-col justify-end text-right italic text-slate-400 text-[10px]">
+              * This is a computer generated invoice and does not require signature unless printed for official use.
+           </div>
         </div>
-
-        <div className="mt-16 flex justify-between items-end gap-8">
-          <div className="text-slate-500 space-y-3">
-            <p className="text-lg">Thank you.</p>
-          </div>
-          <div className="min-w-[220px] text-center">
-            <div className="h-16" />
-            <div className="border-t border-slate-400 pt-2">
-              <p className="text-sm font-semibold text-slate-700">Authority Signature</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @page {
-          size: A4;
-          margin: 12mm;
-        }
-
-        @media print {
-          html, body {
-            width: 210mm;
-            background: #ffffff !important;
-            color: #111827 !important;
-            font-family: "Segoe UI", Arial, sans-serif;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-
-          .invoice-print-area {
-            -webkit-print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-
-          .invoice-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-
-          .invoice-table th,
-          .invoice-table td {
-            border: 1px solid #cbd5e1 !important;
-            padding: 8px 10px !important;
-            vertical-align: top !important;
-          }
-
-          .invoice-table thead {
-            display: table-header-group !important;
-          }
-
-          .invoice-table tr,
-          .invoice-print-area {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-        }
-      `}} />
+      </PrintLayout>
     </div>
   );
 }

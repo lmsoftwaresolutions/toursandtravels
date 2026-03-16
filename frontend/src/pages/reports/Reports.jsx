@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 const getMonthKey = (dateStr) => {
@@ -274,7 +274,6 @@ export default function Reports() {
       map.get(key)[type] += amount;
       map.get(key).total += amount;
     };
-
     filteredFuelEntries.forEach((f) => add(f.vendor, "fuel", Number(f.total_cost || 0)));
     filteredTrips.forEach((t) => add(t.vendor, "fuel", Number(t.diesel_used || 0) + Number(t.petrol_used || 0)));
     filteredSpareEntries.forEach((s) => add(s.vendor, "spare_parts", Number(s.cost || 0) * Number(s.quantity || 0)));

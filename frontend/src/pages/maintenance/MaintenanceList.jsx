@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 
 const TYPE_TABS = [
   { key: "all", label: "All" },
@@ -20,7 +19,6 @@ const TYPE_LABELS = {
 export default function MaintenanceList() {
   const navigate = useNavigate();
   const { type } = useParams();
-
   const activeType = TYPE_TABS.some((t) => t.key === type) ? type : "all";
 
   const [maintenances, setMaintenances] = useState([]);
@@ -84,8 +82,6 @@ export default function MaintenanceList() {
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
-      {/* ---------- HEADER ---------- */}
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Maintenance Records</h1>
@@ -128,7 +124,6 @@ export default function MaintenanceList() {
         </div>
       </div>
 
-      {/* ---------- TABS ---------- */}
       <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">
         {TYPE_TABS.map((tab) => (
           <button
@@ -145,7 +140,6 @@ export default function MaintenanceList() {
         ))}
       </div>
 
-      {/* ---------- VEHICLE SELECT ---------- */}
       <div className="glass-card p-6 rounded-3xl border border-slate-100">
         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-2 block">Select Vehicle</label>
         <div className="relative group w-full md:w-96">
@@ -164,7 +158,6 @@ export default function MaintenanceList() {
         </div>
       </div>
 
-      {/* ---------- TABLE ---------- */}
       <div className="glass-card rounded-3xl overflow-hidden min-h-[400px]">
         {loading ? (
           <div className="p-20 text-center animate-pulse">

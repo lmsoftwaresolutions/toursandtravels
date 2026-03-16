@@ -36,7 +36,7 @@ export default function Trips() {
 
   const fetchAllTrips = async () => {
     const res = await api.get("/trips");
-    setTrips(res.data);
+    setTrips(res.data || []);
   };
 
   const searchByVehicle = useCallback(async () => {
@@ -45,7 +45,7 @@ export default function Trips() {
       return;
     }
     const res = await api.get(`/trips/vehicle/${selectedVehicle}`);
-    setTrips(res.data);
+    setTrips(res.data || []);
   }, [selectedVehicle]);
 
   useEffect(() => {
@@ -86,8 +86,12 @@ export default function Trips() {
   /* ---------------- DELETE ---------------- */
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this trip?")) return;
-    await api.delete(`/trips/${id}`);
-    fetchAllTrips();
+    try {
+      await api.delete(`/trips/${id}`);
+      fetchAllTrips();
+    } catch (err) {
+      alert("Failed to delete trip");
+    }
   };
 
   return (
@@ -123,11 +127,10 @@ export default function Trips() {
                   : "text-slate-400 hover:text-slate-600"
                 }`}
             >
-              {tab}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative group">
             <select
@@ -214,12 +217,12 @@ export default function Trips() {
                     <td className="p-6">
                       <div className="flex flex-col gap-1">
                         <div className="text-sm font-black text-slate-700">
-                          {customers.find(c => c.id === trip.customer_id)?.name || trip.customer_id}
+                          {customers.find(c => c.id === trip.customer_id)?.name || trip.customer_id || "Direct Customer"}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
                           <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id}
+                            {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id || "Variable Driver"}
                           </span>
                         </div>
                       </div>

@@ -1,9 +1,8 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 export default function DriverDetails() {
@@ -19,27 +18,6 @@ export default function DriverDetails() {
   );
   const [loading, setLoading] = useState(true);
 
-  // Group expenses per trip so each trip shows a single row
-  const groupedExpenses = Object.values(
-    expenses.reduce((acc, exp) => {
-      const existing = acc[exp.trip_id] || {
-        tripId: exp.trip_id,
-        date: exp.created_at,
-        total: 0,
-        descriptions: [],
-        notes: [],
-      };
-
-      existing.total += Number(exp.amount || 0);
-      existing.date = exp.created_at; // latest entry timestamp
-      existing.descriptions.push(exp.description);
-      if (exp.notes) existing.notes.push(exp.notes);
-
-      acc[exp.trip_id] = existing;
-      return acc;
-    }, {})
-  );
-
   useEffect(() => {
     Promise.all([
       api.get(`/drivers/${id}`),
@@ -49,8 +27,8 @@ export default function DriverDetails() {
     ]).then(([driverRes, expensesRes, tripsRes, salariesRes]) => {
       setDriver(driverRes.data);
       setExpenses(expensesRes.data);
-      setTrips(tripsRes.data.filter(t => t.driver_id === Number(id)));
-      setSalaries(salariesRes.data);
+      setTrips((tripsRes.data || []).filter(t => t.driver_id === Number(id)));
+      setSalaries(salariesRes.data || []);
       setLoading(false);
     }).catch(error => {
       console.error("Error loading driver details:", error);
@@ -59,14 +37,19 @@ export default function DriverDetails() {
   }, [id]);
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-10 text-center font-black animate-pulse">LOADING DRIVER DOSSIER...</div>;
   }
 
   if (!driver) {
-    return <div className="p-6">Driver not found</div>;
+    return (
+      <div className="p-20 text-center">
+        <h2 className="text-2xl font-black text-slate-400 uppercase tracking-widest">Driver Not Found</h2>
+        <button onClick={() => navigate("/drivers")} className="mt-4 px-6 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Back to Directory</button>
+      </div>
+    );
   }
 
-  const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+  const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
 
   const isInSelectedMonth = (dateStr) =>
     dateStr && String(dateStr).slice(0, 7) === selectedMonth;
@@ -272,7 +255,7 @@ export default function DriverDetails() {
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">Pilot Portfolio</h1>
-          <p className="text-slate-500 font-medium mt-1">Operational performance and financial settlement</p>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Operational performance and financial settlement</p>
         </div>
 
         <div className="flex gap-3">
@@ -532,15 +515,13 @@ export default function DriverDetails() {
               Manifest History
             </h3>
             <div className="space-y-4">
-              {groupedExpenses.slice(0, 5).map((group) => {
-                const trip = trips.find(t => t.id === group.tripId);
+              {trips.slice(0, 5).map((trip) => {
                 return (
-                  <div key={group.tripId} className="group cursor-pointer" onClick={() => navigate(`/trips/${group.tripId}`)}>
+                  <div key={trip.id} className="group cursor-pointer" onClick={() => navigate(`/trips/${trip.id}`)}>
                     <div className="flex justify-between items-start mb-1">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        {trip?.invoice_number ? `Manifest #${trip.invoice_number}` : "Pending Audit"}
+                        {trip.invoice_number ? `Manifest #${trip.invoice_number}` : "Pending Audit"}
                       </p>
-                      <p className="text-[10px] font-black text-slate-800 tracking-tight">₹ {Number(group.total).toFixed(0)}</p>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -548,7 +529,7 @@ export default function DriverDetails() {
                       </div>
                     </div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {formatDateDDMMYYYY(group.date)} • {group.descriptions.length} Audit Entries
+                      {formatDateDDMMYYYY(trip.trip_date)} • {trip.from_location} to {trip.to_location}
                     </p>
                   </div>
                 );
