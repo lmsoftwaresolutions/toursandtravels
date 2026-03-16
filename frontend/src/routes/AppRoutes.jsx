@@ -37,6 +37,10 @@ import PaymentHistory from "../pages/payments/PaymentHistory";
 import InvoiceList from "../pages/invoices/InvoiceList";
 import InvoiceView from "../pages/invoices/InvoiceView";
 
+import QuotationList from "../pages/quotations/QuotationList";
+import QuotationForm from "../pages/quotations/QuotationForm";
+import QuotationView from "../pages/quotations/QuotationView";
+
 import Reports from "../pages/reports/Reports";
 import VendorList from "../pages/vendors/VendorList";
 import VendorDetails from "../pages/vendors/VendorDetails";
@@ -129,6 +133,12 @@ export default function AppRoutes() {
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />
         <Route path="/invoices/:id" element={<InvoiceView />} />
+
+        {/* Quotations */}
+        <Route path="/quotations" element={<QuotationList />} />
+        <Route path="/quotations/add" element={<QuotationForm />} />
+        <Route path="/quotations/edit/:id" element={<QuotationForm />} />
+        <Route path="/quotations/view/:id" element={<QuotationView />} />
 
         {/* Maintenance */}
         <Route path="/maintenance" element={<Navigate to="/maintenance/all" replace />} />

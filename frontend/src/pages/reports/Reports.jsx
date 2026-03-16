@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
+import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 const getMonthKey = (dateStr) => {
   if (!dateStr) return "";
@@ -198,7 +199,6 @@ export default function Reports() {
       map.get(key)[type] += amount;
       map.get(key).total += amount;
     };
-
     filteredFuelEntries.forEach((f) => add(f.vendor, "fuel", Number(f.total_cost || 0)));
     filteredSpareEntries.forEach((s) => add(s.vendor, "spare", Number(s.cost || 0) * Number(s.quantity || 0)));
 
@@ -224,7 +224,350 @@ export default function Reports() {
     });
   }, [filteredFuelEntries, filteredSpareEntries]);
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) return;
+    const formatMoney = (value) =>
+      Number(value || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    const reportPeriod = monthFilter || (
+      dateFrom || dateTo
+        ? `${dateFrom || "Start"} to ${dateTo || "End"}`
+        : "All Dates"
+    );
+    const invoiceBreakdownRows = [
+      ["Base Fare", totals.invoiceBaseFare],
+      ["Custom Pricing", totals.invoiceCustomPricing],
+      ["Charged Toll", totals.invoiceChargedToll],
+      ["Charged Parking", totals.invoiceChargedParking],
+      ["Extra Charge Items", totals.invoiceExtraCharges],
+      ["Other Expenses", totals.invoiceOtherExpenses],
+      ["Discount", -totals.invoiceDiscount],
+      ["Invoice Total", totals.totalRevenue],
+    ]
+      .map(([label, amount]) => `
+        <tr>
+          <td>${label}</td>
+          <td class="num">${formatMoney(amount)}</td>
+        </tr>
+      `)
+      .join("");
+    const operatingExpenseRows = [
+      ["Fuel Expenses", totals.fuelExpenses],
+      ["Spare Parts", totals.spareExpenses],
+      ["Maintenance", totals.maintenanceExpenses],
+      ["Mechanic (Mistry)", totals.mechanicExpenses],
+      ["Toll Paid", totals.tollExpenses],
+      ["Parking Paid", totals.parkingExpenses],
+      ["Total Operating Expense", totals.totalOperatingExpense],
+    ]
+      .map(([label, amount]) => `
+        <tr>
+          <td>${label}</td>
+          <td class="num">${formatMoney(amount)}</td>
+        </tr>
+      `)
+      .join("");
+    const tripRows = filteredTrips.length
+      ? filteredTrips.map((trip) => `
+          <tr>
+            <td>${trip.invoice_number || `INV-${trip.id}`}</td>
+            <td>${formatDateDDMMYYYY(trip.trip_date)}</td>
+            <td>${customerNameById.get(trip.customer_id) || "N/A"}</td>
+            <td>${trip.from_location} to ${trip.to_location}</td>
+            <td class="num">${formatMoney(trip.total_charged)}</td>
+            <td class="num">${formatMoney(trip.amount_received)}</td>
+            <td class="num">${formatMoney(trip.pending_amount)}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="7" class="empty">No trips found for the selected filters.</td></tr>`;
+    const vendorRows = vendorWiseExpenses.length
+      ? vendorWiseExpenses.map((vendor) => `
+          <tr>
+            <td>${vendor.vendor}</td>
+            <td>${vendor.category || "General"}</td>
+            <td class="num">${formatMoney(vendor.fuel)}</td>
+            <td class="num">${formatMoney(vendor.spare_parts)}</td>
+            <td class="num">${formatMoney(vendor.mechanic)}</td>
+            <td class="num">${formatMoney(vendor.total)}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="6" class="empty">No vendor expenses found for the selected filters.</td></tr>`;
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${COMPANY_NAME} - Financial Report</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 12mm;
+            }
+            html, body {
+              background: #fff;
+              margin: 0;
+              padding: 0;
+              color: #111827;
+              font-family: "Segoe UI", Arial, sans-serif;
+            }
+            body {
+              padding: 0;
+            }
+            .page {
+              width: 186mm;
+              margin: 0 auto;
+              font-size: 10.5pt;
+              line-height: 1.35;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 16px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #111827;
+              margin-bottom: 12px;
+            }
+            .brand {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo {
+              height: 42px;
+              width: auto;
+            }
+            .company {
+              font-size: 9pt;
+              line-height: 1.45;
+            }
+            .title-block {
+              text-align: right;
+              font-size: 9pt;
+            }
+            .report-title {
+              font-size: 14pt;
+              font-weight: 700;
+              letter-spacing: 0.03em;
+              text-transform: uppercase;
+            }
+            .meta {
+              width: 100%;
+              border: 1px solid #94a3b8;
+              border-collapse: collapse;
+              margin-bottom: 14px;
+            }
+            .meta td {
+              border: 1px solid #cbd5e1;
+              padding: 6px 8px;
+              font-size: 9pt;
+            }
+            .section {
+              margin-bottom: 14px;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              font-size: 10pt;
+              font-weight: 700;
+              text-transform: uppercase;
+              border-bottom: 1px solid #111827;
+              padding-bottom: 4px;
+              margin-bottom: 6px;
+            }
+            table.report-table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+            }
+            .report-table th,
+            .report-table td {
+              border: 1px solid #cbd5e1;
+              padding: 6px 8px;
+              font-size: 9pt;
+              vertical-align: top;
+            }
+            .report-table th {
+              background: #eef2f7;
+              text-align: left;
+              font-weight: 700;
+            }
+            .num {
+              text-align: right;
+              white-space: nowrap;
+            }
+            .summary-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+              gap: 8px;
+              margin-bottom: 14px;
+            }
+            .summary-card {
+              border: 1px solid #cbd5e1;
+              padding: 8px;
+            }
+            .summary-card .label {
+              font-size: 8pt;
+              color: #475569;
+              text-transform: uppercase;
+            }
+            .summary-card .value {
+              margin-top: 4px;
+              font-size: 12pt;
+              font-weight: 700;
+            }
+            .empty {
+              text-align: center;
+              color: #64748b;
+            }
+            .footer {
+              margin-top: 14px;
+              padding-top: 8px;
+              border-top: 1px solid #cbd5e1;
+              font-size: 8.5pt;
+              color: #64748b;
+              text-align: right;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="header">
+              <div class="brand">
+                <img src="${NathkrupaLogo}" class="logo" alt="${COMPANY_NAME}" />
+                <div class="company">
+                  <div><strong>${COMPANY_NAME}</strong></div>
+                  <div>${COMPANY_ADDRESS}</div>
+                  <div>${COMPANY_CONTACT || ""}</div>
+                  <div>${COMPANY_EMAIL ? `Email: ${COMPANY_EMAIL}` : ""}</div>
+                </div>
+              </div>
+              <div class="title-block">
+                <div class="report-title">Financial Report</div>
+                <div>Generated: ${new Date().toLocaleString()}</div>
+              </div>
+            </div>
+
+            <table class="meta">
+              <tr>
+                <td><strong>Report Period</strong></td>
+                <td>${reportPeriod}</td>
+                <td><strong>Vehicle Filter</strong></td>
+                <td>${filterVehicle || "All Vehicles"}</td>
+              </tr>
+              <tr>
+                <td><strong>Driver Filter</strong></td>
+                <td>${filterDriver ? (drivers.find((d) => String(d.id) === String(filterDriver))?.name || filterDriver) : "All Drivers"}</td>
+                <td><strong>Customer Search</strong></td>
+                <td>${searchCustomer || "None"}</td>
+              </tr>
+            </table>
+
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="label">Trips</div>
+                <div class="value">${totals.totalTrips}</div>
+              </div>
+              <div class="summary-card">
+                <div class="label">Revenue</div>
+                <div class="value">Rs. ${formatMoney(totals.totalRevenue)}</div>
+              </div>
+              <div class="summary-card">
+                <div class="label">Paid</div>
+                <div class="value">Rs. ${formatMoney(totals.totalPaid)}</div>
+              </div>
+              <div class="summary-card">
+                <div class="label">Pending</div>
+                <div class="value">Rs. ${formatMoney(totals.totalPending)}</div>
+              </div>
+              <div class="summary-card">
+                <div class="label">Operating Expense</div>
+                <div class="value">Rs. ${formatMoney(totals.totalOperatingExpense)}</div>
+              </div>
+              <div class="summary-card">
+                <div class="label">Net Profit</div>
+                <div class="value">Rs. ${formatMoney(totals.netProfit)}</div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Invoice Breakdown</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th class="num">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>${invoiceBreakdownRows}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Operating Expenses</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th class="num">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>${operatingExpenseRows}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Vendor Expenses</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Vendor Name</th>
+                    <th>Category</th>
+                    <th class="num">Diesel + Petrol</th>
+                    <th class="num">Spare Parts Cost</th>
+                    <th class="num">Mechanic Cost</th>
+                    <th class="num">Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>${vendorRows}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Filtered Trips</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Invoice No.</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Route</th>
+                    <th class="num">Charged</th>
+                    <th class="num">Paid</th>
+                    <th class="num">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>${tripRows}</tbody>
+              </table>
+            </div>
+
+            <div class="footer">Computer-generated report</div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-4">

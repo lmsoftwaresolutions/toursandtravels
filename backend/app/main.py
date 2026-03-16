@@ -22,6 +22,9 @@ from app.api.routes.driver_expense import router as driver_expense_router
 from app.api.routes.payment import router as payment_router
 from app.api.routes.driver_salary_routes import router as driver_salary_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.quotation import router as quotation_router
+from app.database.session import engine
+from app.models.user import User
 from app.services.auth_service import get_current_user
 
 # Ensure models are imported for table creation
@@ -132,6 +135,7 @@ app.include_router(vendor_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(vendor_payment_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(driver_expense_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(driver_salary_router, prefix="/api", dependencies=auth_dependency)
+app.include_router(quotation_router, prefix="/api", dependencies=auth_dependency)
 
 # ===============================
 # Health Check

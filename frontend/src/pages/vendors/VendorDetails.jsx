@@ -2,7 +2,19 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
+import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
+import { vendorEntryConfig } from "../../config/vendorEntryConfig";
+
+const normalizeVendorCategory = (category) => String(category || "").trim().toLowerCase();
+const isFuelCategory = (category) => {
+  const value = normalizeVendorCategory(category);
+  return value === "fuel" || value === "both" || value.includes("fuel") || value.includes("diesel") || value.includes("petrol");
+};
+const isSpareCategory = (category) => {
+  const value = normalizeVendorCategory(category);
+  return value === "spare_parts" || value === "both" || value.includes("spare") || value.includes("part");
+};
 
 export default function VendorDetails() {
   const { id } = useParams();

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
-import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -36,9 +36,12 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-xl shadow-2xl p-8">
           {/* Header */}
-          <div className="text-center mb-8">
-            <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-14 mx-auto mb-3" />
-            <p className="text-gray-600">Login to your account</p>
+          <div className="text-center mb-10">
+            <div className="mb-8 transform hover:scale-105 transition-transform duration-500">
+              <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-20 w-auto mx-auto drop-shadow-sm" />
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-2">Welcome Back</h1>
+            <p className="text-slate-500 font-medium">Please enter your details to sign in</p>
           </div>
 
           {/* Error Message */}
