@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 600 130" role="img" aria-label="Nath Krupa Travels logo">
+  <!-- Top Horizontal Bar -->
+  <rect x="110" y="0" width="370" height="8" rx="2" fill="#000000" />
+  
+  <!-- Left Stylized Dashes (Slanted) -->
+  <path d="M70,10 L95,10 L85,25 L60,25 Z" fill="#000000" />
+  <path d="M45,35 L75,35 L65,55 L35,55 Z" fill="#000000" />
+  
+  <!-- "NATH KRUPA" Stylized Text (High Fidelity Recreation) -->
+  <g transform="translate(100, 75) skewX(-15)" fill="#000000">
+    <text x="0" y="0" font-family="Arial Black, sans-serif" font-size="64" font-weight="900" letter-spacing="-2">
+      NATH KRUPA
+    </text>
+  </g>
+  
+  <!-- "TRAVELS" Text -->
+  <text x="360" y="115" font-family="Arial, sans-serif" font-size="24" font-weight="900" letter-spacing="12" fill="#000000" text-anchor="middle">
+    TRAVELS
+  </text>
+</svg>

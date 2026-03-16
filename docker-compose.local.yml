@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:15-alpine
@@ -13,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - local
+      - travel-network
     restart: unless-stopped
 
   backend:
@@ -25,18 +26,19 @@ services:
     environment:
       PYTHONPATH: /app
     ports:
-      - "18000:8000"
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - local
+      - travel-network
     restart: unless-stopped
     command: >
       sh -c "until python -c \"import socket; socket.create_connection(('db', 5432), 2).close()\"; do
       echo 'waiting for db';
       sleep 2;
       done;
+      alembic upgrade head &&
       gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 1 --bind 0.0.0.0:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
@@ -54,12 +56,12 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - local
+      - travel-network
     restart: unless-stopped
 
 volumes:
   postgres_data_local:
 
 networks:
-  local:
+  travel-network:
     driver: bridge

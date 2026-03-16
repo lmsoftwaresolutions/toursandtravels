@@ -1,9 +1,11 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import { authService } from "../../services/auth";
+import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 
 export default function Sidebar() {
+  const [isOpen, setIsOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const isAdmin = authService.isAdmin();
 
@@ -24,12 +26,12 @@ export default function Sidebar() {
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="no-print fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
         />
       )}
 
       <aside
-        className={`
+        className={`no-print 
           fixed md:static top-0 left-0 z-50
           h-full w-64
           bg-gray-900 text-white
@@ -85,9 +87,23 @@ export default function Sidebar() {
             <NavLink to="/reports" onClick={() => setIsOpen(false)} className={linkClass}>
               Reports
             </NavLink>
-          )}
+          ))}
+
         </nav>
+
+        <div className="absolute bottom-0 left-0 w-full p-6 border-t border-slate-800 bg-slate-900/50 backdrop-blur-md">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500 font-bold border border-blue-500/20">
+              {authService.getUser()?.username?.[0]?.toUpperCase()}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold text-white truncate">{authService.getUser()?.username}</p>
+              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{authService.getUser()?.role}</p>
+            </div>
+          </div>
+        </div>
       </aside>
     </>
   );
 }
+

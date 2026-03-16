@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function InvoiceList() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [filterCustomer, setFilterCustomer] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
 
@@ -35,8 +38,25 @@ export default function InvoiceList() {
   };
 
   let filteredTrips = filterCustomer
+  let filteredTrips = filterCustomer
     ? trips.filter(t => t.customer_id === Number(filterCustomer))
     : trips;
+
+  if (searchCustomer.trim()) {
+    const query = searchCustomer.trim().toLowerCase();
+    filteredTrips = filteredTrips.filter(t => {
+      const name = customers.find(c => c.id === t.customer_id)?.name || "";
+      return name.toLowerCase().includes(query);
+    });
+  }
+
+  if (searchInvoice.trim()) {
+    const query = searchInvoice.trim().toLowerCase();
+    filteredTrips = filteredTrips.filter(t => {
+      const invoice = String(t.invoice_number || `INV-${String(t.id).padStart(4, "0")}`);
+      return invoice.toLowerCase().includes(query);
+    });
+  }
 
   if (searchCustomer.trim()) {
     const query = searchCustomer.trim().toLowerCase();
@@ -123,34 +143,25 @@ export default function InvoiceList() {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded shadow overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 text-left">Invoice ID</th>
-              <th className="p-2 text-left">Customer</th>
-              <th className="p-2 text-left">Trip Date</th>
-              <th className="p-2 text-left">Vehicle</th>
-              <th className="p-2 text-left">Amount</th>
-              <th className="p-2 text-left">Paid</th>
-              <th className="p-2 text-left">Due</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTrips.length === 0 ? (
-              <tr>
-                <td colSpan="9" className="p-4 text-center text-gray-500">
-                  No invoices found
-                </td>
+      {/* ---------- TABLE ---------- */}
+      <div className="glass-card rounded-[2rem] overflow-hidden min-h-[500px]">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/50 uppercase">
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black tracking-widest text-slate-400">Invoice</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black tracking-widest text-slate-400">Customer</th>
+                <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black tracking-widest text-slate-400">Payment Status</th>
+                <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black tracking-widest text-slate-400">Actions</th>
               </tr>
-            ) : (
-              filteredTrips.map(trip => {
-                const customer = customers.find(c => c.id === trip.customer_id);
-                const status = trip.pending_amount === 0 ? "Paid" : trip.pending_amount === trip.total_charged ? "Pending" : "Partial";
-                const statusColor = status === "Paid" ? "green" : status === "Pending" ? "red" : "yellow";
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredTrips.length === 0 ? (
+                <tr><td colSpan="4" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No invoices found</td></tr>
+              ) : (
+                filteredTrips.map(trip => {
+                  const customer = customers.find(c => c.id === trip.customer_id);
+                  const status = trip.pending_amount === 0 ? "Settled" : trip.pending_amount === trip.total_charged ? "Outstanding" : "Partial";
 
                 return (
                   <tr key={trip.id} className="border-t hover:bg-gray-50">

@@ -39,6 +39,26 @@ class TripDriverChangeResponse(TripDriverChangeBase):
     class Config:
         from_attributes = True
 
+
+class TripVehicleBase(BaseModel):
+    vehicle_number: str
+    driver_id: int
+    start_km: float | None = None
+    end_km: float | None = None
+    distance_km: int | None = None
+    driver_bhatta: float = 0
+
+
+class TripVehicleCreate(TripVehicleBase):
+    pass
+
+
+class TripVehicleResponse(TripVehicleBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 # ======================
 # CREATE TRIP
 # ======================
@@ -49,12 +69,15 @@ class TripCreate(BaseModel):
     from_location: str
     to_location: str
     route_details: Optional[str] = None
-    vehicle_number: str
-    driver_id: int
+    vehicle_number: str | None = None
+    driver_id: int | None = None
     customer_id: int
     start_km: float | None = None
     end_km: float | None = None
     distance_km: int | None = None  # Optional for package pricing
+
+    number_of_vehicles: int = 1
+    bus_type: str | None = None
 
     pricing_type: str = "per_km"
     package_amount: float = 0
@@ -84,6 +107,7 @@ class TripCreate(BaseModel):
     pricing_items: List[TripPricingItemCreate] = []
     charge_items: List[TripPricingItemCreate] = []
     driver_changes: List[TripDriverChangeCreate] = []
+    vehicles: List[TripVehicleCreate] = []
 
 
 # ======================
@@ -96,12 +120,15 @@ class TripUpdate(BaseModel):
     from_location: str
     to_location: str
     route_details: Optional[str] = None
-    vehicle_number: str
-    driver_id: int
+    vehicle_number: str | None = None
+    driver_id: int | None = None
     customer_id: int
     start_km: float | None = None
     end_km: float | None = None
     distance_km: int | None = None  # Optional for package pricing
+
+    number_of_vehicles: int = 1
+    bus_type: str | None = None
 
     pricing_type: str = "per_km"
     package_amount: float = 0
@@ -126,6 +153,7 @@ class TripUpdate(BaseModel):
     pricing_items: List[TripPricingItemCreate] = []
     charge_items: List[TripPricingItemCreate] = []
     driver_changes: List[TripDriverChangeCreate] = []
+    vehicles: List[TripVehicleCreate] = []
 
 
 # ======================
@@ -145,6 +173,9 @@ class TripResponse(BaseModel):
     start_km: float | None
     end_km: float | None
     distance_km: int | None  # Optional for package pricing
+
+    number_of_vehicles: int
+    bus_type: str | None
 
     pricing_type: str
     package_amount: float
@@ -174,6 +205,7 @@ class TripResponse(BaseModel):
     created_at: datetime | None
     pricing_items: List[TripPricingItemResponse] = []
     driver_changes: List[TripDriverChangeResponse] = []
+    vehicles: List[TripVehicleResponse] = []
 
     class Config:
         from_attributes = True

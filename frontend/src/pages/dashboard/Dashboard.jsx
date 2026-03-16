@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { formatDateDDMMYYYY } from "../../utils/date";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
 
+const formatDateWithDay = (dateStr) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+  return `${formatDateDDMMYYYY(dateStr)} ${dayName}`;
+};
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -16,9 +27,14 @@ export default function Dashboard() {
   const [dashboardMonth, setDashboardMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
   );
+  const today = new Date();
+  const [dashboardMonth, setDashboardMonth] = useState(
+    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
+  );
 
   useEffect(() => {
     if (isAdmin) {
+      api.get("/dashboard", { params: { month: dashboardMonth } })
       api.get("/dashboard", { params: { month: dashboardMonth } })
         .then(res => setData(res.data))
         .catch(() => alert("Failed to load dashboard"))
@@ -38,6 +54,7 @@ export default function Dashboard() {
         .finally(() => setLoading(false));
     }
   }, [isAdmin, dashboardMonth]);
+  }, [isAdmin, dashboardMonth]);
 
   if (loading) {
     return <div className="p-6 text-gray-500">Loading dashboard...</div>;
@@ -48,8 +65,32 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className="p-8 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Dashboard</h1>
+          <p className="text-slate-500 font-medium mt-1">A quick look at how the business is doing this month</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+            <input
+              type="month"
+              value={dashboardMonth}
+              onChange={e => setDashboardMonth(e.target.value)}
+              className="border-none bg-transparent px-4 py-2 text-sm font-bold text-slate-700 focus:ring-0"
+            />
+          </div>
+          <button
+            onClick={() => navigate("/notes")}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Note
+          </button>
+        </div>
+      </div>
 
       {isAdmin && (
         <div className="space-y-3"><div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -103,16 +144,23 @@ export default function Dashboard() {
 
 /* ================= KPI CARD ================= */
 function KPI({ title, value, note, highlight }) {
+  const color = highlight === "green" ? "text-emerald-600" : highlight === "red" ? "text-rose-600" : "text-blue-600";
+  const bg = highlight === "green" ? "bg-emerald-50" : highlight === "red" ? "bg-rose-50" : "bg-blue-50";
+
   return (
-    <div className="bg-white p-5 rounded shadow">
-      <p className="text-gray-500">{title}</p>
-      <p className={`text-2xl font-bold mt-2 ${
-        highlight === "green" ? "text-green-600" :
-        highlight === "red" ? "text-red-600" : ""
-      }`}>
-        {value}
-      </p>
-      <p className="text-sm text-gray-400 mt-1">{note}</p>
+    <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+      <div className={`absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
+        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{title}</p>
+      <p className={`text-3xl font-black tracking-tighter ${color}`}>{value}</p>
+      <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${highlight === "green" ? "bg-emerald-50 text-emerald-500 border-emerald-100" :
+        highlight === "red" ? "bg-rose-50 text-rose-500 border-rose-100" : "bg-blue-50 text-blue-500 border-blue-100"
+        }`}>
+        {note}
+      </div>
     </div>
   );
 }
@@ -123,9 +171,17 @@ function TripScheduleChart({
   scheduleMonth
 }) {
   const navigate = useNavigate();
+function TripScheduleChart({
+  vehicles,
+  scheduleMonth
+}) {
+  const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [notesByCell, setNotesByCell] = useState({});
+  const [notesByCell, setNotesByCell] = useState({});
 
+  /* ✅ NOTE MODAL STATES */
+  const [showNoteModal, setShowNoteModal] = useState(false);
   /* ✅ NOTE MODAL STATES */
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -133,9 +189,18 @@ function TripScheduleChart({
   const [noteVehicleId, setNoteVehicleId] = useState(null);
   const [noteVehicleNumber, setNoteVehicleNumber] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteVehicleId, setNoteVehicleId] = useState(null);
+  const [noteVehicleNumber, setNoteVehicleNumber] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState(null);
 
   const loadTrips = () => {
+  const loadTrips = () => {
     api.get("/trips").then(res => {
+      setTrips(
+        (res.data || []).sort(
+          (a, b) => new Date(a.trip_date) - new Date(b.trip_date)
+        )
+      );
       setTrips(
         (res.data || []).sort(
           (a, b) => new Date(a.trip_date) - new Date(b.trip_date)
@@ -180,13 +245,61 @@ function TripScheduleChart({
 
   useEffect(() => {
     loadTrips();
+  };
+
+  const loadNotes = () => {
+    const vehicleList = vehicles?.length ? vehicles : [];
+    if (!vehicleList.length) {
+      setNotesByCell({});
+      return;
+    }
+
+    Promise.all(
+      vehicleList.map(v =>
+        api.get("/vehicle-notes", {
+          params: {
+            vehicle_id: v.id,
+            month: scheduleMonth
+          }
+        })
+      )
+    )
+      .then(responses => {
+        const grouped = {};
+        responses.forEach((res, idx) => {
+          const vehicleId = vehicleList[idx].id;
+          (res.data || []).forEach(n => {
+            const key = `${n.note_date}|${vehicleId}`;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(n);
+          });
+        });
+        setNotesByCell(grouped);
+      })
+      .catch(err => {
+        alert(err?.response?.data?.detail || "Failed to load notes");
+      });
+  };
+
+  useEffect(() => {
+    loadTrips();
   }, []);
 
   useEffect(() => {
     loadNotes();
   }, [vehicles, scheduleMonth]);
+    loadNotes();
+  }, [vehicles, scheduleMonth]);
 
   useEffect(() => {
+    const open = () => {
+      setNoteText("");
+      setNoteDate("");
+      setNoteVehicleId(null);
+      setNoteVehicleNumber("");
+      setEditingNoteId(null);
+      setShowNoteModal(true);
+    };
     const open = () => {
       setNoteText("");
       setNoteDate("");
@@ -208,16 +321,86 @@ function TripScheduleChart({
     });
     return grouped;
   }, [trips, scheduleMonth]);
+  const tripsByDate = useMemo(() => {
+    const filteredTrips = trips.filter(t => t.trip_date?.startsWith(scheduleMonth));
+    const grouped = {};
+    filteredTrips.forEach(t => {
+      if (!grouped[t.trip_date]) grouped[t.trip_date] = [];
+      grouped[t.trip_date].push(t);
+    });
+    return grouped;
+  }, [trips, scheduleMonth]);
 
   /* ✅ GENERATE DATES FROM SELECTED MONTH (NEW) */
+  const [year, month] = scheduleMonth.split("-").map(Number);
   const [year, month] = scheduleMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
 
   const dates = Array.from({ length: daysInMonth }, (_, i) =>
     `${scheduleMonth}-${String(i + 1).padStart(2, "0")}`
+    `${scheduleMonth}-${String(i + 1).padStart(2, "0")}`
   );
 
   const vehicleList = vehicles?.length ? vehicles : [];
+
+  const openAddNote = (date, vehicle) => {
+    setNoteText("");
+    setNoteDate(date);
+    setNoteVehicleId(vehicle?.id ?? null);
+    setNoteVehicleNumber(vehicle?.vehicle_number ?? "");
+    setEditingNoteId(null);
+    setShowNoteModal(true);
+  };
+
+  const openEditNote = (note) => {
+    setNoteText(note.note || "");
+    setNoteDate(note.note_date || "");
+    setNoteVehicleId(note.vehicle_id || null);
+    setNoteVehicleNumber(
+      (vehicles || []).find(v => v.id === note.vehicle_id)?.vehicle_number || ""
+    );
+    setEditingNoteId(note.id);
+    setShowNoteModal(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!noteDate || !noteText.trim()) return;
+    if (!noteVehicleId) return;
+
+    const payload = {
+      vehicle_id: noteVehicleId,
+      note: noteText.trim(),
+      note_date: noteDate
+    };
+
+    const request = editingNoteId
+      ? api.put(`/vehicle-notes/${editingNoteId}`, payload)
+      : api.post("/vehicle-notes", payload);
+
+    request
+      .then(() => {
+        setShowNoteModal(false);
+        setNoteText("");
+        setNoteDate("");
+        setNoteVehicleId(null);
+        setNoteVehicleNumber("");
+        setEditingNoteId(null);
+        loadNotes();
+      })
+      .catch(err => {
+        alert(err?.response?.data?.detail || "Failed to save note");
+      });
+  };
+
+  const handleDeleteNote = (noteId) => {
+    if (!noteId) return;
+    if (!window.confirm("Delete this note?")) return;
+    api.delete(`/vehicle-notes/${noteId}`)
+      .then(() => loadNotes())
+      .catch(err => {
+        alert(err?.response?.data?.detail || "Failed to delete note");
+      });
+  };
 
   const openAddNote = (date, vehicle) => {
     setNoteText("");
@@ -284,16 +467,19 @@ function TripScheduleChart({
         <table className="w-full border-collapse">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border p-3">Date</th>
+              <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 min-w-[120px]">Date</th>
               {vehicleList.map(v => (
-                <th key={v.vehicle_number} className="border p-3">
-                  {v.vehicle_number}
+                <th key={v.vehicle_number} className="border-b border-slate-100 p-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 min-w-[180px]">
+                  <div className="flex flex-col items-center">
+                    <span className="text-slate-800 text-sm mb-1">{v.vehicle_number}</span>
+                    <span className="text-blue-500 opacity-60">Vehicle</span>
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {dates.map(date => (
               <tr key={date}>
                 <td className="border p-3 font-medium bg-gray-50">
@@ -361,7 +547,7 @@ function TripScheduleChart({
                           </div>
                         ))}
                       </div>
-                    )}
+                    </div>
                   </td>
                 ))}
               </tr>

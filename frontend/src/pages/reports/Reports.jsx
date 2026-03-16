@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
@@ -22,10 +24,12 @@ const inRange = (dateStr, fromDate, toDate, monthFilter) => {
 
 export default function Reports() {
   const navigate = useNavigate();
+  const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [fuelEntries, setFuelEntries] = useState([]);
   const [spareEntries, setSpareEntries] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
@@ -34,8 +38,11 @@ export default function Reports() {
   const [filterDriver, setFilterDriver] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
 
   useEffect(() => {
@@ -49,6 +56,7 @@ export default function Reports() {
         api.get("/vehicles"),
         api.get("/drivers"),
         api.get("/customers"),
+        api.get("/vendors"),
         api.get("/fuel"),
         api.get("/spare-parts"),
         api.get("/maintenance"),
@@ -61,6 +69,7 @@ export default function Reports() {
       setSpareEntries(spareRes.data || []);
       setMaintenanceEntries(maintenanceRes.data || []);
     } catch (error) {
+      console.error("Error loading report data:", error);
       console.error("Error loading report data:", error);
     }
   };
@@ -94,9 +103,23 @@ export default function Reports() {
   const filteredFuelEntries = useMemo(() => {
     return fuelEntries.filter((f) => {
       if (!inRange(f.filled_date, dateFrom, dateTo, monthFilter)) return false;
+  }, [trips, filterVehicle, filterDriver, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById]);
+
+  const tripVehicleSet = useMemo(() => new Set(filteredTrips.map((t) => t.vehicle_number)), [filteredTrips]);
+
+  const filteredFuelEntries = useMemo(() => {
+    return fuelEntries.filter((f) => {
+      if (!inRange(f.filled_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && f.vehicle_number !== filterVehicle) return false;
       if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(f.vehicle_number)) return false;
+      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(f.vehicle_number)) return false;
       return true;
+    });
+  }, [fuelEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+
+  const filteredSpareEntries = useMemo(() => {
+    return spareEntries.filter((s) => {
+      if (!inRange(s.replaced_date, dateFrom, dateTo, monthFilter)) return false;
     });
   }, [fuelEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
 

@@ -41,7 +41,7 @@
   color: #888;
 }
 
-/* Print styles: show only invoice content */
+/* Print styles: hide app chrome and print only content area */
 @media print {
   body {
     background: #fff;
@@ -53,7 +53,10 @@
     margin: 0;
   }
 
-  .no-print {
+  .no-print,
+  header,
+  aside,
+  nav {
     display: none !important;
   }
 
@@ -61,17 +64,34 @@
     visibility: hidden;
   }
 
+  .print-main,
+  .print-main *,
   .invoice-print-area,
   .invoice-print-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
+  .print-main,
   .invoice-print-area {
     position: absolute;
     inset: 0;
     width: 100%;
     margin: 0;
-    padding: 1.5rem;
+    padding: 1rem;
     box-sizing: border-box;
+    background: #fff;
+  }
+  /* Hard fallback for app shell layout during print (reports/other pages) */
+  #root > div.h-screen > :not(.w-full) {
+    display: none !important;
+  }
+
+  #root > div.h-screen > .w-full > header {
+    display: none !important;
+  }
+
+  #root > div.h-screen > .w-full > main {
+    padding-top: 0 !important;
   }
 }
+

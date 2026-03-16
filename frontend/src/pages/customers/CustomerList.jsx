@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { authService } from "../../services/auth";
 
 export default function CustomerList() {
   const [customers, setCustomers] = useState([]);
   const [trips, setTrips] = useState([]);
   const [searchName, setSearchName] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
+  const [trips, setTrips] = useState([]);
+  const [searchName, setSearchName] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
   const navigate = useNavigate();
+  const isAdmin = authService.isAdmin();
 
   useEffect(() => {
     Promise.all([api.get("/customers"), api.get("/trips")])
@@ -18,6 +23,7 @@ export default function CustomerList() {
       .catch((err) => {
         console.error(err);
         setCustomers([]);
+        setTrips([]);
         setTrips([]);
       });
   }, []);
@@ -44,9 +50,12 @@ export default function CustomerList() {
         <h1 className="text-2xl font-bold">Customers</h1>
         <button
           onClick={() => navigate("/customers/add")}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
         >
-          + Add Customer
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Customer
         </button>
       </div>
 
@@ -73,7 +82,7 @@ export default function CustomerList() {
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-50">
             {customers.length === 0 ? (
               <tr>
                 <td colSpan="2" className="p-4 text-center text-gray-500">
@@ -110,6 +119,6 @@ export default function CustomerList() {
           </tbody>
         </table>
       </div>
-    </>
+    </div>
   );
 }

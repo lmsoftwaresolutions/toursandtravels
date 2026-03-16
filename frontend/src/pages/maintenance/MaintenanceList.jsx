@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
@@ -23,10 +24,14 @@ export default function MaintenanceList() {
 
   const activeType = TYPE_TABS.some((t) => t.key === type) ? type : "all";
 
+  const activeType = TYPE_TABS.some((t) => t.key === type) ? type : "all";
+
   const [maintenances, setMaintenances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [addType, setAddType] = useState(activeType === "all" ? "emi" : activeType);
+
   const [addType, setAddType] = useState(activeType === "all" ? "emi" : activeType);
 
   useEffect(() => {
@@ -34,8 +39,29 @@ export default function MaintenanceList() {
       setAddType(activeType);
     }
   }, [activeType]);
+    if (activeType !== "all") {
+      setAddType(activeType);
+    }
+  }, [activeType]);
 
   useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get("/vehicles");
+        setVehicles(res.data || []);
+        if ((res.data || []).length > 0) {
+          setSelectedVehicle(res.data[0].vehicle_number);
+        }
+      } catch (err) {
+        console.error("Error fetching vehicles:", err);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedVehicle) return;
+    fetchMaintenances();
+  }, [selectedVehicle, activeType]);
     (async () => {
       try {
         const res = await api.get("/vehicles");
@@ -60,8 +86,12 @@ export default function MaintenanceList() {
       const params = activeType === "all" ? {} : { maintenance_type: activeType };
       const res = await api.get(`/maintenance/vehicle/${selectedVehicle}`, { params });
       setMaintenances(res.data || []);
+      const params = activeType === "all" ? {} : { maintenance_type: activeType };
+      const res = await api.get(`/maintenance/vehicle/${selectedVehicle}`, { params });
+      setMaintenances(res.data || []);
     } catch (err) {
       console.error("Error fetching maintenances:", err);
+      setMaintenances([]);
       setMaintenances([]);
     } finally {
       setLoading(false);
@@ -72,12 +102,16 @@ export default function MaintenanceList() {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       await api.delete(`/maintenance/${id}`);
+      await api.delete(`/maintenance/${id}`);
       setMaintenances((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       console.error("Error deleting maintenance:", err);
     }
   };
 
+  const sortedRows = useMemo(() => {
+    return [...maintenances].sort((a, b) => String(b.start_date || "").localeCompare(String(a.start_date || "")));
+  }, [maintenances]);
   const sortedRows = useMemo(() => {
     return [...maintenances].sort((a, b) => String(b.start_date || "").localeCompare(String(a.start_date || "")));
   }, [maintenances]);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function PaymentForm() {
   const navigate = useNavigate();
@@ -9,11 +10,16 @@ export default function PaymentForm() {
   const [customers, setCustomers] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
 
+  const [selectedTrip, setSelectedTrip] = useState(null);
+
   const [form, setForm] = useState({
     trip_id: "",
     payment_date: new Date().toISOString().split("T")[0],
     payment_mode: "cash",
+    payment_date: new Date().toISOString().split("T")[0],
+    payment_mode: "cash",
     amount: "",
+    notes: ""
     notes: ""
   });
 
@@ -52,17 +58,25 @@ export default function PaymentForm() {
     }
   };
 
+  useEffect(() => {
+    const init = async () => {
+      await loadTrips();
+      await loadCustomers();
+    };
+    init();
+  }, []);
+
   const handleTripChange = (tripId) => {
-    const trip = trips.find(t => t.id === Number(tripId));
+    const trip = trips.find((t) => t.id === Number(tripId));
     setSelectedTrip(trip);
     setForm({ ...form, trip_id: tripId });
   };
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const submit = async e => {
+  const submit = async (e) => {
     e.preventDefault();
 
     if (!selectedTrip) {
@@ -86,6 +100,7 @@ export default function PaymentForm() {
         amount: Number(form.amount),
         notes: form.notes || null
       });
+
 
       alert("Payment recorded successfully");
       navigate("/payments");

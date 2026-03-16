@@ -6,13 +6,16 @@ export default function MaintenanceForm() {
   const navigate = useNavigate();
   const { type, id } = useParams();
   const normalizedType = ["emi", "insurance", "tax"].includes(type) ? type : "emi";
+  const normalizedType = ["emi", "insurance", "tax"].includes(type) ? type : "emi";
 
   const [formData, setFormData] = useState({
     vehicle_number: "",
     maintenance_type: normalizedType,
+    maintenance_type: normalizedType,
     description: "",
     amount: "",
     start_date: new Date().toISOString().split("T")[0],
+    end_date: "",
     end_date: "",
   });
 
@@ -31,7 +34,9 @@ export default function MaintenanceForm() {
     setFormData((prev) => ({
       ...prev,
       maintenance_type: normalizedType,
+      maintenance_type: normalizedType,
     }));
+  }, [normalizedType]);
   }, [normalizedType]);
 
   useEffect(() => {
@@ -42,6 +47,7 @@ export default function MaintenanceForm() {
   /* -------- fetch vehicles -------- */
   const fetchVehicles = async () => {
     try {
+      const res = await api.get("/vehicles");
       const res = await api.get("/vehicles");
       setVehicles(res.data);
 
@@ -62,6 +68,7 @@ export default function MaintenanceForm() {
     setLoading(true);
     try {
       const res = await api.get(`/maintenance/${id}`);
+      const res = await api.get(`/maintenance/${id}`);
       const data = res.data;
 
       setFormData({
@@ -70,6 +77,7 @@ export default function MaintenanceForm() {
         description: data.description,
         amount: data.amount,
         start_date: data.start_date.split("T")[0],
+        end_date: data.end_date ? data.end_date.split("T")[0] : "",
         end_date: data.end_date ? data.end_date.split("T")[0] : "",
       });
     } catch (err) {
@@ -96,11 +104,18 @@ export default function MaintenanceForm() {
         ...formData,
         end_date: formData.end_date || null,
       };
+      const payload = {
+        ...formData,
+        end_date: formData.end_date || null,
+      };
       if (id) {
+        await api.put(`/maintenance/${id}`, payload);
         await api.put(`/maintenance/${id}`, payload);
       } else {
         await api.post("/maintenance", payload);
+        await api.post("/maintenance", payload);
       }
+      navigate(`/maintenance/${normalizedType}`);
       navigate(`/maintenance/${normalizedType}`);
     } catch (err) {
       console.error(err);
@@ -123,55 +138,55 @@ export default function MaintenanceForm() {
           {id ? "Edit" : "Add"} {typeLabels[normalizedType]}
         </h1>
 
-        {/* ---------- ERROR ---------- */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl animate-in zoom-in duration-300">
+          <p className="text-rose-600 text-[10px] font-black uppercase tracking-widest text-center">{error}</p>
+        </div>
+      )}
 
-        {/* ---------- FORM ---------- */}
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white p-4 md:p-6 rounded shadow space-y-4"
-        >
-          {/* Vehicle */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Vehicle *
-            </label>
-            <select
-              name="vehicle_number"
-              value={formData.vehicle_number}
-              onChange={handleChange}
-              required
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Select Vehicle</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.vehicle_number}>
-                  {v.vehicle_number}
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+          <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.1.48.01.59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        </div>
 
-          {/* Amount */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Amount (₹) *
-            </label>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              required
-              min="0"
-              step="0.01"
-              className="w-full border px-3 py-2 rounded"
-            />
-          </div>
+        <form className="space-y-8 relative z-10" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Asset Allocation</label>
+              <select
+                name="vehicle_number"
+                value={formData.vehicle_number}
+                onChange={handleChange}
+                required
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+              >
+                <option value="">Select Targeted Vehicle</option>
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.vehicle_number}>
+                    {v.vehicle_number}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Mandate Valuation (Amount)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                <input
+                  type="number"
+                  name="amount"
+                  value={formData.amount}
+                  onChange={handleChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="0.00"
+                  onWheel={(e) => e.currentTarget.blur()}
+                />
+              </div>
+            </div>
 
           {/* Start Date */}
           <div>
@@ -201,30 +216,20 @@ export default function MaintenanceForm() {
             />
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="3"
-              className="w-full border px-3 py-2 rounded"
-            />
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Protocol Intelligence (Description)</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows="3"
+                placeholder="Annotate specific conditions or terms..."
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
+              />
+            </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-600 text-white px-6 py-2 rounded"
-            >
-              {loading ? "Saving..." : "Save"}
-            </button>
-
+          <div className="flex gap-4 pt-4">
             <button
               type="button"
               onClick={() => navigate(`/maintenance/${normalizedType}`)}
@@ -232,9 +237,15 @@ export default function MaintenanceForm() {
             >
               Cancel
             </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-[2] h-16 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl shadow-blue-900/20 active:scale-[0.98]"
+            >
+              {loading ? "Saving..." : "Save Entry"}
+            </button>
           </div>
         </form>
-
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function Trips() {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ export default function Trips() {
   const [drivers, setDrivers] = useState([]);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchInvoice, setSearchInvoice] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
 
@@ -80,7 +83,24 @@ export default function Trips() {
       });
     }
 
+
+    if (searchInvoice.trim()) {
+      const invoiceQuery = searchInvoice.trim().toLowerCase();
+      filtered = filtered.filter(t =>
+        String(t.invoice_number || "").toLowerCase().includes(invoiceQuery)
+      );
+    }
+
+    if (searchCustomer.trim()) {
+      const customerQuery = searchCustomer.trim().toLowerCase();
+      filtered = filtered.filter(t => {
+        const name = customers.find(c => c.id === t.customer_id)?.name || "";
+        return name.toLowerCase().includes(customerQuery);
+      });
+    }
+
     setFilteredTrips(filtered);
+  }, [trips, activeTab, searchInvoice, searchCustomer, customers]);
   }, [trips, activeTab, searchInvoice, searchCustomer, customers]);
 
   /* ---------------- DELETE ---------------- */
@@ -91,50 +111,90 @@ export default function Trips() {
   };
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
       {/* ---------- HEADER ---------- */}
-      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
-        <h1 className="text-2xl font-bold">Trips</h1>
+      <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">All Trips</h1>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">View and manage all your trips</p>
+        </div>
+
         <button
           onClick={() => navigate("/trips/add")}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
         >
-          + Add Trip
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Trip
         </button>
       </div>
 
-      {/* ---------- TABS ---------- */}
-      <div className="flex flex-wrap gap-2 mb-4 border-b">
-        {["upcoming", "past", "all"].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-medium border-b-2 transition ${
-              activeTab === tab
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-800"
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)} Trips
-          </button>
-        ))}
-      </div>
-
-      {/* ---------- FILTER ---------- */}
-      <div className="flex flex-col md:flex-row gap-2 mb-4">
-        <select
-          className="border p-2 rounded w-full md:w-auto"
-          value={selectedVehicle}
-          onChange={(e) => setSelectedVehicle(e.target.value)}
-        >
-          <option value="">All Vehicles</option>
-          {vehicles.map(v => (
-            <option key={v.vehicle_number} value={v.vehicle_number}>
-              {v.vehicle_number}
-            </option>
+      {/* ---------- FILTERS & TABS ---------- */}
+      <div className="space-y-6">
+        <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">
+          {["upcoming", "past", "all"].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab
+                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-400 hover:text-slate-600"
+                }`}
+            >
+              {tab}
+            </button>
           ))}
-        </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative group">
+            <select
+              className="w-full pl-4 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 appearance-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+              value={selectedVehicle}
+              onChange={(e) => setSelectedVehicle(e.target.value)}
+            >
+              <option value="">All Vehicles</option>
+              {vehicles.map(v => (
+                <option key={v.vehicle_number} value={v.vehicle_number}>{v.vehicle_number}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 flex gap-3">
+            <div className="relative flex-1 group">
+              <input
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                placeholder="Search Customer..."
+                value={searchCustomer}
+                onChange={(e) => setSearchCustomer(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            </div>
+            <div className="relative flex-1 group">
+              <input
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                placeholder="Invoice #..."
+                value={searchInvoice}
+                onChange={(e) => setSearchInvoice(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            </div>
+          </div>
 
         <button
           onClick={searchByVehicle}
@@ -160,35 +220,30 @@ export default function Trips() {
       </div>
 
       {/* ---------- TABLE ---------- */}
-      <div className="bg-white rounded shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-[900px] w-full border-collapse">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="p-2 text-left">Invoice #</th>
-                <th className="p-2 text-left">Date</th>
-                <th className="p-2 text-left">Customer</th>
-                <th className="p-2 text-left">Driver</th>
-                <th className="p-2 text-left hidden md:table-cell">Distance (KM)</th>
-                <th className="p-2 text-left hidden md:table-cell">Total Charged</th>
-                <th className="p-2 text-left hidden md:table-cell">Received</th>
-                <th className="p-2 text-left hidden md:table-cell">Pending</th>
-                <th className="p-2 text-left">Actions</th>
+      <div className="glass-card rounded-3xl overflow-hidden min-h-[500px]">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/50 sticky top-0 z-10">
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Invoice / Date</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Customer & Driver</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 hidden lg:table-cell text-right">Distance</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 hidden lg:table-cell text-right">Payment</th>
+                <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {filteredTrips.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="p-4 text-center text-gray-500">
-                    No trips found
-                  </td>
-                </tr>
+                <tr><td colSpan="5" className="p-20 text-center text-slate-400 font-bold">No trips found</td></tr>
               ) : (
                 filteredTrips.map(trip => (
-                  <tr key={trip.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 font-semibold text-blue-600">
-                      {trip.invoice_number || "N/A"}
+                  <tr key={trip.id} className="group hover:bg-slate-50/40 transition-colors">
+                    <td className="p-6">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-blue-600 tracking-tight">{trip.invoice_number || "PENDING"}</span>
+                        <span className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{formatDateDDMMYYYY(trip.trip_date)}</span>
+                      </div>
                     </td>
                     <td className="p-2">{formatDateDDMMYYYY(trip.trip_date)}</td>
                     <td className="p-2">
@@ -197,37 +252,30 @@ export default function Trips() {
                     <td className="p-2">
                       {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id}
                     </td>
-
-                    <td className="p-2 hidden md:table-cell">{trip.distance_km}</td>
-                    <td className="p-2 hidden md:table-cell">
-                      ₹{(trip.total_charged ?? 0).toFixed(2)}
+                    <td className="p-6 hidden lg:table-cell text-right">
+                      <div className="text-sm font-bold text-slate-700">{trip.distance_km} KM</div>
+                      <div className="text-[10px] text-slate-400 font-black uppercase">Distance</div>
                     </td>
-                    <td className="p-2 hidden md:table-cell">
-                      ₹{(trip.amount_received ?? 0).toFixed(2)}
+                    <td className="p-6 hidden lg:table-cell text-right">
+                      <div className="text-lg font-black text-slate-800 tracking-tight">₹{(trip.total_charged ?? 0).toLocaleString()}</div>
+                      {trip.pending_amount > 0 ? (
+                        <div className="text-[10px] text-rose-500 font-black uppercase mt-1 tracking-widest">₹{trip.pending_amount.toLocaleString()} Due</div>
+                      ) : (
+                        <div className="text-[10px] text-emerald-500 font-black uppercase mt-1 tracking-widest">Paid in Full</div>
+                      )}
                     </td>
-                    <td className="p-2 hidden md:table-cell text-red-700">
-                      ₹{(trip.pending_amount ?? 0).toFixed(2)}
-                    </td>
-
-                    <td className="p-2 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => navigate(`/trips/${trip.id}`)}
-                        className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => navigate(`/trips/edit/${trip.id}`)}
-                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(trip.id)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Delete
-                      </button>
+                    <td className="p-6">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => navigate(`/trips/${trip.id}`)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                        <button onClick={() => navigate(`/trips/edit/${trip.id}`)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                        <button onClick={() => handleDelete(trip.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -236,7 +284,6 @@ export default function Trips() {
           </table>
         </div>
       </div>
-
     </div>
   );
 }

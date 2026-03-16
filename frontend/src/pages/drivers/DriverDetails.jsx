@@ -1,4 +1,5 @@
 
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
@@ -12,6 +13,11 @@ export default function DriverDetails() {
   const [driver, setDriver] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [trips, setTrips] = useState([]);
+  const [salaries, setSalaries] = useState([]);
+  const [salaryForm, setSalaryForm] = useState({ amount: "", paid_on: "", notes: "" });
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
   const [salaries, setSalaries] = useState([]);
   const [salaryForm, setSalaryForm] = useState({ amount: "", paid_on: "", notes: "" });
   const [selectedMonth, setSelectedMonth] = useState(
@@ -47,9 +53,13 @@ export default function DriverDetails() {
       api.get("/trips"),
       api.get(`/driver-salaries/driver/${id}`)
     ]).then(([driverRes, expensesRes, tripsRes, salariesRes]) => {
+      api.get("/trips"),
+      api.get(`/driver-salaries/driver/${id}`)
+    ]).then(([driverRes, expensesRes, tripsRes, salariesRes]) => {
       setDriver(driverRes.data);
       setExpenses(expensesRes.data);
       setTrips(tripsRes.data.filter(t => t.driver_id === Number(id)));
+      setSalaries(salariesRes.data);
       setSalaries(salariesRes.data);
       setLoading(false);
     }).catch(error => {
@@ -436,7 +446,13 @@ export default function DriverDetails() {
                 </tbody>
               </table>
             </div>
-          )}
+            <button
+              onClick={() => navigate("/trips")}
+              className="w-full mt-6 py-3 bg-slate-50 text-slate-500 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all border border-slate-100"
+            >
+              Examine Full Archive
+            </button>
+          </div>
         </div>
       </div>
     </div>
