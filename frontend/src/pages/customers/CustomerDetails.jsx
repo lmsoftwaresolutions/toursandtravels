@@ -29,7 +29,6 @@ export default function CustomerDetails() {
       String(t.invoice_number || "").toLowerCase().includes(searchInvoice.trim().toLowerCase())
     )
     : trips;
-
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center border-b border-slate-100 pb-8">
