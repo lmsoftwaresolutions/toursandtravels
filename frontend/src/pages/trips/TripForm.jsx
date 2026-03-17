@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { formatDateDDMMYYYY } from "../../utils/date";
 
 const createVehicleEntry = () => ({
   vehicle_number: "",
@@ -19,9 +18,9 @@ export default function TripForm() {
   const isEdit = Boolean(id);
 
   const [form, setForm] = useState({
-    trip_date: "",
-    departure_datetime: "",
-    return_datetime: "",
+    trip_date: new Date().toISOString().split("T")[0],
+    customer_id: "",
+    customer_name: "",
     from_location: "",
     to_location: "",
     route_details: "",
@@ -48,9 +47,20 @@ export default function TripForm() {
     discount_amount: "",
     amount_received: "",
     pricing_type: "per_km",
+    cost_per_km: "",
     package_amount: "",
+    amount_received: "",
+    fuel_rate: "",
+    fuel_litres: "",
     vendor: "",
-    invoice_number: "",
+    bus_type: "",
+    number_of_vehicles: "1",
+    invoice_number: `INV-${Date.now().toString().slice(-6)}`,
+    route_details: "",
+    discount_amount: "0",
+    other_expenses: "0",
+    charged_toll_amount: "0",
+    charged_parking_amount: "0"
   });
 
   const [vehicles, setVehicles] = useState([]);
@@ -178,17 +188,61 @@ export default function TripForm() {
         setDriverChanges(data.driver_changes || []);
       });
 
-      // Load driver expenses for this trip
-      api.get(`/driver-expenses/trip/${id}`).then(res => {
-        // Mark existing expenses as saved so they won't be re-saved
-        setDriverExpenses(res.data.map(exp => ({ ...exp, saved: true })));
-      }).catch(() => {
-        setDriverExpenses([]);
-      });
-    }
-  }, [id, isEdit, vendors]);
+  // --- Initial Data Load ---
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [vRes, dRes, cRes, venRes] = await Promise.all([
+          api.get("/vehicles"),
+          api.get("/drivers"),
+          api.get("/customers"),
+          api.get("/vendors")
+        ]);
+        setVehicles(vRes.data);
+        setDrivers(dRes.data);
+        setCustomers(cRes.data);
+        setVendors(venRes.data);
 
-  /* ---------------- HANDLE CHANGE ---------------- */
+        if (isEdit) {
+          const tripRes = await api.get(`/trips/${id}`);
+          const trip = tripRes.data;
+          
+          setForm({
+            ...trip,
+            trip_date: trip.trip_date ? trip.trip_date.split("T")[0] : "",
+            departure_datetime: trip.departure_datetime ? trip.departure_datetime.slice(0, 16) : "",
+            return_datetime: trip.return_datetime ? trip.return_datetime.slice(0, 16) : "",
+            customer_name: trip.customer?.name || "",
+            customer_id: String(trip.customer_id || ""),
+            vendor: trip.vendor || ""
+          });
+
+          if (trip.vehicle_entries?.length > 0) {
+            setVehicleEntries(trip.vehicle_entries.map(ve => ({
+              ...ve,
+              driver_id: String(ve.driver_id || ""),
+              driver_name: ve.driver?.name || ""
+            })));
+          }
+          setPricingItems(trip.pricing_items || []);
+          setChargeItems(trip.charge_items || []);
+          setAdvancePayments(trip.payments || []);
+          setDriverChanges(trip.driver_changes || []);
+          
+          const expRes = await api.get(`/driver-expenses?trip_id=${id}`);
+          setDriverExpenses(expRes.data.map(e => ({ ...e, saved: true })));
+        }
+      } catch (error) {
+        console.error("Error loading trip data:", error);
+        alert("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [id, isEdit]);
+
+  // --- Handlers ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
@@ -227,80 +281,69 @@ export default function TripForm() {
     }
   };
 
-  /* ---------------- DRIVER EXPENSE HANDLERS ---------------- */
-  const addDriverExpense = () => {
-    if (!newExpense.description || !newExpense.amount) {
-      alert("Please enter description and amount");
-      return;
-    }
-    setDriverExpenses([...driverExpenses, { ...newExpense, id: Date.now() }]);
-    setNewExpense({ description: "", amount: "", notes: "" });
+  const handleVehicleEntryChange = (index, field, value) => {
+    setVehicleEntries(prev => prev.map((entry, i) => i === index ? { ...entry, [field]: value } : entry));
   };
 
-  const removeDriverExpense = (index) => {
-    setDriverExpenses(driverExpenses.filter((_, i) => i !== index));
-  };
-
-  const totalDriverExpenses = driverExpenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-
-  /* ---------------- PRICING ITEMS ---------------- */
   const addPricingItem = () => {
-    if (!newPricingItem.description) {
-      alert("Please enter pricing description");
-      return;
-    }
+    if (!newPricingItem.description || !newPricingItem.amount) return;
     setPricingItems([...pricingItems, { ...newPricingItem, id: Date.now() }]);
     setNewPricingItem({ description: "", amount: "" });
   };
-
-  const removePricingItem = (index) => {
-    setPricingItems(pricingItems.filter((_, i) => i !== index));
-  };
+  const removePricingItem = (idx) => setPricingItems(pricingItems.filter((_, i) => i !== idx));
 
   const addChargeItem = () => {
-    if (!newChargeItem.description) {
-      alert("Please enter charge description");
-      return;
-    }
+    if (!newChargeItem.description || !newChargeItem.amount) return;
     setChargeItems([...chargeItems, { ...newChargeItem, id: Date.now() }]);
     setNewChargeItem({ description: "", amount: "" });
   };
+  const removeChargeItem = (idx) => setChargeItems(chargeItems.filter((_, i) => i !== idx));
 
-  const removeChargeItem = (index) => {
-    setChargeItems(chargeItems.filter((_, i) => i !== index));
+  const addDriverExpense = () => {
+    if (!newExpense.description || !newExpense.amount) return;
+    setDriverExpenses([...driverExpenses, { ...newExpense, saved: false }]);
+    setNewExpense({ description: "", amount: "", notes: "" });
   };
+  const removeDriverExpense = (idx) => setDriverExpenses(driverExpenses.filter((_, i) => i !== idx));
 
-  /* ---------------- DRIVER CHANGES ---------------- */
+  const addAdvancePayment = () => {
+    if (!newAdvance.amount) return;
+    setAdvancePayments([...advancePayments, { ...newAdvance, id: Date.now() }]);
+    setNewAdvance({ payment_date: new Date().toISOString().split("T")[0], payment_mode: "Cash", amount: "", notes: "" });
+  };
+  const removeAdvancePayment = (idx) => setAdvancePayments(advancePayments.filter((_, i) => i !== idx));
+
   const addDriverChange = () => {
-    if (!newDriverChange.driver_id) {
-      alert("Please select driver");
-      return;
-    }
+    if (!newDriverChange.driver_id) return;
     setDriverChanges([...driverChanges, { ...newDriverChange, id: Date.now() }]);
     setNewDriverChange({ driver_id: "", start_time: "", end_time: "", notes: "" });
   };
+  const removeDriverChange = (idx) => setDriverChanges(driverChanges.filter((_, i) => i !== idx));
 
-  const removeDriverChange = (index) => {
-    setDriverChanges(driverChanges.filter((_, i) => i !== index));
-  };
-
-  /* ---------------- ADVANCE PAYMENTS ---------------- */
-  const addAdvancePayment = () => {
-    if (!newAdvance.amount) {
-      alert("Please enter amount");
-      return;
+  const saveNewVendor = async () => {
+    if (!newVendorForm.name) return;
+    setSavingVendor(true);
+    try {
+      const res = await api.post("/vendors", newVendorForm);
+      setVendors(prev => [...prev, res.data].sort((a,b) => a.name.localeCompare(b.name)));
+      setForm(prev => ({ ...prev, vendor: res.data.name }));
+      setShowNewVendorForm(false);
+      setNewVendorForm({ name: "", phone: "", category: "fuel" });
+    } catch (error) {
+      alert("Error saving vendor");
+    } finally {
+      setSavingVendor(false);
     }
-    setAdvancePayments([...advancePayments, { ...newAdvance, id: Date.now() }]);
-    setNewAdvance({ payment_date: "", payment_mode: "Cash", amount: "", notes: "" });
   };
 
-  const removeAdvancePayment = (index) => {
-    setAdvancePayments(advancePayments.filter((_, i) => i !== index));
-  };
-
-  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      let custId = form.customer_id;
+      if (!custId && form.customer_name) {
+        const res = await api.post("/customers", { name: form.customer_name, phone: "N/A" });
+        custId = res.data.id;
+      }
 
     let customer_id = form.customer_id;
 
@@ -438,12 +481,9 @@ export default function TripForm() {
       let tripId;
       if (isEdit) {
         await api.put(`/trips/${id}`, payload);
-        tripId = id;
-        alert("Trip updated successfully");
       } else {
         const res = await api.post("/trips", payload);
         tripId = res.data.id;
-        alert("Trip created successfully");
       }
 
       // Save driver expenses
@@ -458,32 +498,39 @@ export default function TripForm() {
           });
         }
       }
-
-      // Save advance payments (multiple)
-      for (const payment of advancePayments) {
-        await api.post("/payments", {
-          trip_id: Number(tripId),
-          payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString() : new Date().toISOString(),
-          payment_mode: payment.payment_mode || "Cash",
-          amount: Number(payment.amount),
-          notes: payment.notes || null,
-        });
+      for (const pay of advancePayments) {
+        if (!pay.id || typeof pay.id !== "number" || pay.id > 1000000000000) { // New payments usually have Date.now() id
+          await api.post("/payments", {
+            trip_id: Number(tripId),
+            payment_date: pay.payment_date || new Date().toISOString(),
+            payment_mode: pay.payment_mode,
+            amount: Number(pay.amount),
+            notes: pay.notes
+          });
+        }
       }
 
       navigate("/trips");
     } catch (error) {
-      alert("Error saving trip: " + (error.response?.data?.detail || error.message));
+      console.error("Save error:", error);
+      alert("Error saving trip");
     }
   };
 
-  const pricingItemsTotal = pricingItems.reduce(
-    (sum, i) => sum + Number(i.amount || 0),
-    0
-  );
-  const chargeItemsTotal = chargeItems.reduce(
-    (sum, i) => sum + Number(i.amount || 0),
-    0
-  );
+  // --- Calculations ---
+  const pricingItemsTotal = pricingItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const chargeItemsTotal = chargeItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const totalDriverExpenses = driverExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const tripDays = (() => {
+    if (form.departure_datetime && form.return_datetime) {
+      const s = new Date(form.departure_datetime);
+      const e = new Date(form.return_datetime);
+      if (isNaN(s) || isNaN(e) || e < s) return 1;
+      return Math.max(1, Math.ceil((e - s) / (1000 * 60 * 60 * 24)));
+    }
+    return 1;
+  })();
 
   const getTripDays = () => {
     if (form.departure_datetime && form.return_datetime) {
@@ -524,20 +571,19 @@ export default function TripForm() {
     Number(form.other_expenses || 0) -
     Number(form.discount_amount || 0);
 
-  const totalAdvancePayments = advancePayments.reduce(
-    (sum, p) => sum + Number(p.amount || 0),
-    0
-  );
+  const pricingItemsCharged = pricingItemsTotal * Number(form.number_of_vehicles || 1);
 
+  const totalChargedValue = basePricing + pricingItemsCharged + Number(form.charged_toll_amount || 0) + Number(form.charged_parking_amount || 0) + chargeItemsTotal + Number(form.other_expenses || 0) - Number(form.discount_amount || 0);
+  const totalAdvancePayments = advancePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const totalReceived = Number(form.amount_received || 0) + totalAdvancePayments;
+  const pending = Math.max(0, totalChargedValue - totalReceived);
+  const totalBill = totalChargedValue;
 
   const displayedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
   const stopWheel = (e) => e.currentTarget.blur();
 
-  const totalBill = totalChargedValue.toFixed(2);
-  const pending = Math.max(totalChargedValue - totalReceived, 0).toFixed(2);
+  if (loading) return <div className="p-8 text-center font-black animate-pulse">LOADING TRIP DATA...</div>;
 
-  /* ---------------- UI ---------------- */
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
@@ -1027,6 +1073,14 @@ export default function TripForm() {
                     placeholder="0.00"
                   />
                 </div>
+              ))}
+              <div className="pt-4 border-t border-slate-100 flex justify-between text-[10px] font-black uppercase text-emerald-800">
+                <span>Total Received</span>
+                <span>₹{totalAdvancePayments.toFixed(2)}</span>
+              </div>
+            </section>
+          </div>
+        </div>
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Logistics Vendor</label>
@@ -1346,6 +1400,9 @@ export default function TripForm() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </form>
 
             <div className="space-y-8">
               <div className="glass-card p-8 rounded-[3rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/10 sticky top-8">
