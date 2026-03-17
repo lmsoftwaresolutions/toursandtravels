@@ -12,10 +12,22 @@ const createVehicleEntry = () => ({
   driver_bhatta: "",
 });
 
+// Utility function for date formatting
+const formatDateDDMMYYYY = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-IN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+};
+
 export default function TripForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     trip_date: new Date().toISOString().split("T")[0],
@@ -26,9 +38,7 @@ export default function TripForm() {
     route_details: "",
     vehicle_number: "",
     driver_id: "",
-    driver_name: "", // For Autocomplete
-    customer_id: "",
-    customer_name: "", // For Autocomplete
+    driver_name: "",
     number_of_vehicles: 1,
     bus_type: "",
     start_km: "",
@@ -47,20 +57,11 @@ export default function TripForm() {
     discount_amount: "",
     amount_received: "",
     pricing_type: "per_km",
-    cost_per_km: "",
     package_amount: "",
-    amount_received: "",
-    fuel_rate: "",
-    fuel_litres: "",
     vendor: "",
-    bus_type: "",
-    number_of_vehicles: "1",
     invoice_number: `INV-${Date.now().toString().slice(-6)}`,
-    route_details: "",
-    discount_amount: "0",
-    other_expenses: "0",
-    charged_toll_amount: "0",
-    charged_parking_amount: "0"
+    departure_datetime: "",
+    return_datetime: "",
   });
 
   const [vehicles, setVehicles] = useState([]);
@@ -78,119 +79,18 @@ export default function TripForm() {
   const [newPricingItem, setNewPricingItem] = useState({ description: "", amount: "" });
   const [newChargeItem, setNewChargeItem] = useState({ description: "", amount: "" });
   const [newDriverChange, setNewDriverChange] = useState({ driver_id: "", start_time: "", end_time: "", notes: "" });
-  const [newAdvance, setNewAdvance] = useState({ payment_date: "", payment_mode: "Cash", amount: "", notes: "" });
+  const [newAdvance, setNewAdvance] = useState({ payment_date: new Date().toISOString().split("T")[0], payment_mode: "Cash", amount: "", notes: "" });
   const [showNewVendorForm, setShowNewVendorForm] = useState(false);
   const [newVendorForm, setNewVendorForm] = useState({ name: "", phone: "", category: "fuel" });
   const [savingVendor, setSavingVendor] = useState(false);
 
-  /* ---------------- LOAD DROPDOWNS ---------------- */
-  useEffect(() => {
-    api.get("/vehicles").then(res => setVehicles(res.data));
-    api.get("/drivers").then(res => setDrivers(res.data));
-    api.get("/customers").then(res => setCustomers(res.data));
-    api.get("/vendors").then(res => setVendors(res.data));
-  }, []);
-
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
 
-  useEffect(() => {
-    if (form.customer_name) {
-      const filtered = customers.filter(c =>
-        c.name.toLowerCase().includes(form.customer_name.toLowerCase())
-      );
-      setFilteredCustomers(filtered);
-    } else {
-      setFilteredCustomers([]);
-    }
-  }, [form.customer_name, customers]);
-
-  useEffect(() => {
-    const count = Math.max(1, Number(form.number_of_vehicles) || 1);
-    setVehicleEntries((prev) => {
-      const next = [...prev];
-      while (next.length < count) {
-        next.push(createVehicleEntry());
-      }
-      return next.slice(0, count);
-    });
-  }, [form.number_of_vehicles]);
-
-  /* ---------------- LOAD TRIP (EDIT MODE) ---------------- */
-  useEffect(() => {
-    if (isEdit) {
-      api.get(`/trips/${id}`).then(res => {
-        const data = res.data;
-
-        const customer = customers.find(c => String(c.id) === String(data.customer_id));
-        const primaryDriver = drivers.find(d => String(d.id) === String(data.driver_id));
-        const incomingVehicles = (data.vehicles?.length ? data.vehicles : [{
-          vehicle_number: data.vehicle_number,
-          driver_id: data.driver_id,
-          start_km: data.start_km,
-          end_km: data.end_km,
-          distance_km: data.distance_km,
-          driver_bhatta: data.driver_bhatta,
-        }]).map((entry) => {
-          const driver = drivers.find(d => String(d.id) === String(entry.driver_id));
-          return {
-            vehicle_number: entry.vehicle_number || "",
-            driver_id: entry.driver_id ? String(entry.driver_id) : "",
-            driver_name: driver?.name || "",
-            start_km: entry.start_km ?? "",
-            end_km: entry.end_km ?? "",
-            distance_km: entry.distance_km ?? "",
-            driver_bhatta: entry.driver_bhatta ?? "",
-          };
-        });
-
-        setForm({
-          trip_date: data.trip_date,
-          departure_datetime: data.departure_datetime ? data.departure_datetime.slice(0, 16) : "",
-          return_datetime: data.return_datetime ? data.return_datetime.slice(0, 16) : "",
-          from_location: data.from_location,
-          to_location: data.to_location,
-          route_details: data.route_details || "",
-          vehicle_number: incomingVehicles[0]?.vehicle_number || "",
-          driver_id: incomingVehicles[0]?.driver_id || "",
-          driver_name: incomingVehicles[0]?.driver_name || primaryDriver?.name || "",
-          customer_id: String(data.customer_id),
-          customer_name: customer ? customer.name : "",
-          number_of_vehicles: data.number_of_vehicles || incomingVehicles.length || 1,
-          bus_type: data.bus_type || "",
-          start_km: incomingVehicles[0]?.start_km ?? "",
-          end_km: incomingVehicles[0]?.end_km ?? "",
-          distance_km: data.distance_km ?? "",
-          fuel_rate: data.fuel_litres
-            ? ((data.diesel_used || data.petrol_used || 0) / data.fuel_litres).toFixed(2)
-            : "",
-          fuel_cost: (data.diesel_used || data.petrol_used || ""),
-          fuel_litres: data.fuel_litres || "",
-          toll_amount: data.toll_amount || "",
-          parking_amount: data.parking_amount || "",
-          other_expenses: data.other_expenses || "",
-          driver_bhatta: data.driver_bhatta || incomingVehicles.reduce((sum, entry) => sum + Number(entry.driver_bhatta || 0), 0),
-          cost_per_km: data.cost_per_km || "",
-          charged_toll_amount: data.charged_toll_amount || "",
-          charged_parking_amount: data.charged_parking_amount || "",
-          discount_amount: data.discount_amount || "",
-          amount_received: data.amount_received || "",
-          pricing_type: data.pricing_type || "per_km",
-          package_amount: data.package_amount || "",
-          vendor: data.vendor || "",
-          invoice_number: data.invoice_number || "",
-        });
-        setVehicleEntries(incomingVehicles.length ? incomingVehicles : [createVehicleEntry()]);
-
-        const allItems = data.pricing_items || [];
-        setPricingItems(allItems.filter(i => i.item_type !== "charge"));
-        setChargeItems(allItems.filter(i => i.item_type === "charge"));
-        setDriverChanges(data.driver_changes || []);
-      });
-
-  // --- Initial Data Load ---
+  /* ============ DATA LOADING ============ */
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
       try {
         const [vRes, dRes, cRes, venRes] = await Promise.all([
           api.get("/vehicles"),
@@ -203,18 +103,43 @@ export default function TripForm() {
         setCustomers(cRes.data);
         setVendors(venRes.data);
 
-        if (isEdit) {
+        if (isEdit && id) {
           const tripRes = await api.get(`/trips/${id}`);
           const trip = tripRes.data;
-          
+
           setForm({
-            ...trip,
             trip_date: trip.trip_date ? trip.trip_date.split("T")[0] : "",
             departure_datetime: trip.departure_datetime ? trip.departure_datetime.slice(0, 16) : "",
             return_datetime: trip.return_datetime ? trip.return_datetime.slice(0, 16) : "",
+            from_location: trip.from_location || "",
+            to_location: trip.to_location || "",
+            route_details: trip.route_details || "",
             customer_name: trip.customer?.name || "",
             customer_id: String(trip.customer_id || ""),
-            vendor: trip.vendor || ""
+            number_of_vehicles: trip.number_of_vehicles || 1,
+            bus_type: trip.bus_type || "",
+            vehicle_number: trip.vehicle_number || "",
+            driver_id: trip.driver_id ? String(trip.driver_id) : "",
+            driver_name: trip.driver?.name || "",
+            start_km: trip.start_km || "",
+            end_km: trip.end_km || "",
+            distance_km: trip.distance_km || "",
+            fuel_rate: trip.fuel_rate || "",
+            fuel_litres: trip.fuel_litres || "",
+            fuel_cost: trip.diesel_used || trip.petrol_used || "",
+            toll_amount: trip.toll_amount || "",
+            parking_amount: trip.parking_amount || "",
+            other_expenses: trip.other_expenses || "",
+            driver_bhatta: trip.driver_bhatta || "",
+            cost_per_km: trip.cost_per_km || "",
+            charged_toll_amount: trip.charged_toll_amount || "",
+            charged_parking_amount: trip.charged_parking_amount || "",
+            discount_amount: trip.discount_amount || "",
+            amount_received: trip.amount_received || "",
+            pricing_type: trip.pricing_type || "per_km",
+            package_amount: trip.package_amount || "",
+            vendor: trip.vendor || "",
+            invoice_number: trip.invoice_number || "",
           });
 
           if (trip.vehicle_entries?.length > 0) {
@@ -224,11 +149,12 @@ export default function TripForm() {
               driver_name: ve.driver?.name || ""
             })));
           }
+
           setPricingItems(trip.pricing_items || []);
           setChargeItems(trip.charge_items || []);
           setAdvancePayments(trip.payments || []);
           setDriverChanges(trip.driver_changes || []);
-          
+
           const expRes = await api.get(`/driver-expenses?trip_id=${id}`);
           setDriverExpenses(expRes.data.map(e => ({ ...e, saved: true })));
         }
@@ -242,19 +168,38 @@ export default function TripForm() {
     loadData();
   }, [id, isEdit]);
 
-  // --- Handlers ---
+  /* ============ CUSTOMER FILTERING ============ */
+  useEffect(() => {
+    if (form.customer_name) {
+      const filtered = customers.filter(c =>
+        c.name.toLowerCase().includes(form.customer_name.toLowerCase())
+      );
+      setFilteredCustomers(filtered);
+    } else {
+      setFilteredCustomers([]);
+    }
+  }, [form.customer_name, customers]);
+
+  /* ============ VEHICLE ENTRIES SYNC ============ */
+  useEffect(() => {
+    const count = Math.max(1, Number(form.number_of_vehicles) || 1);
+    setVehicleEntries((prev) => {
+      const next = [...prev];
+      while (next.length < count) {
+        next.push(createVehicleEntry());
+      }
+      return next.slice(0, count);
+    });
+  }, [form.number_of_vehicles]);
+
+  /* ============ HANDLERS ============ */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
   };
 
   const handleVehicleEntryChange = (index, field, value) => {
-    setVehicleEntries((prev) => prev.map((entry, entryIndex) => {
-      if (entryIndex !== index) {
-        return entry;
-      }
-      return { ...entry, [field]: value };
-    }));
+    setVehicleEntries(prev => prev.map((entry, i) => i === index ? { ...entry, [field]: value } : entry));
   };
 
   const saveNewVendor = async () => {
@@ -279,10 +224,6 @@ export default function TripForm() {
     } finally {
       setSavingVendor(false);
     }
-  };
-
-  const handleVehicleEntryChange = (index, field, value) => {
-    setVehicleEntries(prev => prev.map((entry, i) => i === index ? { ...entry, [field]: value } : entry));
   };
 
   const addPricingItem = () => {
@@ -320,217 +261,191 @@ export default function TripForm() {
   };
   const removeDriverChange = (idx) => setDriverChanges(driverChanges.filter((_, i) => i !== idx));
 
-  const saveNewVendor = async () => {
-    if (!newVendorForm.name) return;
-    setSavingVendor(true);
-    try {
-      const res = await api.post("/vendors", newVendorForm);
-      setVendors(prev => [...prev, res.data].sort((a,b) => a.name.localeCompare(b.name)));
-      setForm(prev => ({ ...prev, vendor: res.data.name }));
-      setShowNewVendorForm(false);
-      setNewVendorForm({ name: "", phone: "", category: "fuel" });
-    } catch (error) {
-      alert("Error saving vendor");
-    } finally {
-      setSavingVendor(false);
-    }
-  };
-
+  /* ============ FORM SUBMISSION ============ */
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      let custId = form.customer_id;
-      if (!custId && form.customer_name) {
-        const res = await api.post("/customers", { name: form.customer_name, phone: "N/A" });
-        custId = res.data.id;
-      }
+      let customer_id = form.customer_id;
 
-    let customer_id = form.customer_id;
-
-    if (!customer_id && form.customer_name) {
-      try {
-        const res = await api.post("/customers", { name: form.customer_name.trim(), phone: "N/A" });
-        customer_id = res.data.id;
-        setCustomers(prev => [...prev, res.data]);
-      } catch (err) {
-        alert("Error creating customer: " + (err.response?.data?.detail || err.message));
-        return;
-      }
-    }
-
-    const vendorName = form.vendor ? String(form.vendor).trim() : "";
-
-    const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
-    const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
-    const resolvedVehicleEntries = [];
-    const createdDrivers = [];
-
-    for (const entry of vehicleEntries) {
-      if (!entry.vehicle_number) {
-        alert("Please select a vehicle for every vehicle section.");
-        return;
-      }
-
-      let resolvedDriverId = entry.driver_id;
-      if (!resolvedDriverId && entry.driver_name) {
+      if (!customer_id && form.customer_name) {
         try {
-          const res = await api.post("/drivers", {
-            name: entry.driver_name.trim(),
-            phone: "N/A",
-            license_number: "N/A",
-            joining_date: new Date().toISOString().split("T")[0],
-            monthly_salary: 0
-          });
-          resolvedDriverId = String(res.data.id);
-          createdDrivers.push(res.data);
+          const res = await api.post("/customers", { name: form.customer_name.trim(), phone: "N/A" });
+          customer_id = res.data.id;
+          setCustomers(prev => [...prev, res.data]);
         } catch (err) {
-          alert("Error creating driver: " + (err.response?.data?.detail || err.message));
+          alert("Error creating customer: " + (err.response?.data?.detail || err.message));
           return;
         }
       }
 
-      if (!resolvedDriverId) {
-        alert("Please select or enter a driver for every vehicle section.");
-        return;
-      }
+      const vendorName = form.vendor ? String(form.vendor).trim() : "";
+      const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
+      const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
+      const resolvedVehicleEntries = [];
+      const createdDrivers = [];
 
-      const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
-      const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
-      const derivedDistance = startKm !== null && endKm !== null ? Math.max(endKm - startKm, 0) : null;
-      const distanceKmValue = entry.distance_km !== "" ? Number(entry.distance_km) : derivedDistance;
-
-      resolvedVehicleEntries.push({
-        vehicle_number: entry.vehicle_number,
-        driver_id: Number(resolvedDriverId),
-        start_km: startKm,
-        end_km: endKm,
-        distance_km: distanceKmValue,
-        driver_bhatta: Number(entry.driver_bhatta || 0),
-      });
-    }
-
-    if (createdDrivers.length) {
-      setDrivers(prev => [...prev, ...createdDrivers]);
-    }
-
-    const primaryVehicle = resolvedVehicleEntries[0];
-    const totalDistanceKm = resolvedVehicleEntries.reduce(
-      (sum, entry) => sum + Number(entry.distance_km || 0),
-      0
-    );
-    const totalDriverBhatta = resolvedVehicleEntries.reduce(
-      (sum, entry) => sum + Number(entry.driver_bhatta || 0),
-      0
-    );
-
-    const payload = {
-      trip_date: form.trip_date,
-      departure_datetime: form.departure_datetime || null,
-      return_datetime: form.return_datetime || null,
-      from_location: form.from_location,
-      to_location: form.to_location,
-      route_details: form.route_details || null,
-      vehicle_number: primaryVehicle?.vehicle_number || null,
-      driver_id: primaryVehicle?.driver_id || null,
-      customer_id: Number(customer_id),
-      number_of_vehicles: resolvedVehicleEntries.length,
-      bus_type: form.bus_type || null,
-      start_km: primaryVehicle?.start_km ?? null,
-      end_km: primaryVehicle?.end_km ?? null,
-      distance_km: totalDistanceKm || null,
-      diesel_used: fuelCostTotal,
-      petrol_used: 0,
-      fuel_litres: Number(form.fuel_litres || 0),
-      toll_amount: Number(form.toll_amount || 0),
-      parking_amount: Number(form.parking_amount || 0),
-      other_expenses: Number(form.other_expenses || 0),
-      driver_bhatta: totalDriverBhatta,
-      pricing_type: form.pricing_type,
-      package_amount: Number(form.package_amount || 0),
-      cost_per_km: Number(form.cost_per_km || 0),
-      charged_toll_amount: Number(form.charged_toll_amount || 0),
-      charged_parking_amount: Number(form.charged_parking_amount || 0),
-      discount_amount: Number(form.discount_amount || 0),
-      amount_received: Number(form.amount_received || 0),
-      vendor: vendorName || null,
-      invoice_number: form.invoice_number || null,
-      pricing_items: pricingItems.map(i => ({
-        description: i.description,
-        quantity: 1,
-        rate: 0,
-        amount: Number(i.amount || 0),
-        item_type: "pricing"
-      })),
-      charge_items: chargeItems.map(i => ({
-        description: i.description,
-        quantity: 1,
-        rate: 0,
-        amount: Number(i.amount || 0),
-        item_type: "charge"
-      })),
-      driver_changes: driverChanges.map(dc => ({
-        driver_id: Number(dc.driver_id),
-        start_time: dc.start_time || null,
-        end_time: dc.end_time || null,
-        notes: dc.notes || null
-      })),
-      vehicles: resolvedVehicleEntries,
-    };
-
-    try {
-      let tripId;
-      if (isEdit) {
-        await api.put(`/trips/${id}`, payload);
-      } else {
-        const res = await api.post("/trips", payload);
-        tripId = res.data.id;
-      }
-
-      // Save driver expenses
-      for (const expense of driverExpenses) {
-        if (!expense.saved) {  // Only save new expenses
-          await api.post("/driver-expenses", {
-            trip_id: Number(tripId),
-            driver_id: primaryVehicle?.driver_id,
-            description: expense.description,
-            amount: Number(expense.amount),
-            notes: expense.notes || null,
-          });
+      for (const entry of vehicleEntries) {
+        if (!entry.vehicle_number) {
+          alert("Please select a vehicle for every vehicle section.");
+          return;
         }
-      }
-      for (const pay of advancePayments) {
-        if (!pay.id || typeof pay.id !== "number" || pay.id > 1000000000000) { // New payments usually have Date.now() id
-          await api.post("/payments", {
-            trip_id: Number(tripId),
-            payment_date: pay.payment_date || new Date().toISOString(),
-            payment_mode: pay.payment_mode,
-            amount: Number(pay.amount),
-            notes: pay.notes
-          });
+
+        let resolvedDriverId = entry.driver_id;
+        if (!resolvedDriverId && entry.driver_name) {
+          try {
+            const res = await api.post("/drivers", {
+              name: entry.driver_name.trim(),
+              phone: "N/A",
+              license_number: "N/A",
+              joining_date: new Date().toISOString().split("T")[0],
+              monthly_salary: 0
+            });
+            resolvedDriverId = String(res.data.id);
+            createdDrivers.push(res.data);
+          } catch (err) {
+            alert("Error creating driver: " + (err.response?.data?.detail || err.message));
+            return;
+          }
         }
+
+        if (!resolvedDriverId) {
+          alert("Please select or enter a driver for every vehicle section.");
+          return;
+        }
+
+        const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
+        const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
+        const derivedDistance = startKm !== null && endKm !== null ? Math.max(endKm - startKm, 0) : null;
+        const distanceKmValue = entry.distance_km !== "" ? Number(entry.distance_km) : derivedDistance;
+
+        resolvedVehicleEntries.push({
+          vehicle_number: entry.vehicle_number,
+          driver_id: Number(resolvedDriverId),
+          start_km: startKm,
+          end_km: endKm,
+          distance_km: distanceKmValue,
+          driver_bhatta: Number(entry.driver_bhatta || 0),
+        });
       }
 
-      navigate("/trips");
+      if (createdDrivers.length) {
+        setDrivers(prev => [...prev, ...createdDrivers]);
+      }
+
+      const primaryVehicle = resolvedVehicleEntries[0];
+      const totalDistanceKm = resolvedVehicleEntries.reduce(
+        (sum, entry) => sum + Number(entry.distance_km || 0),
+        0
+      );
+      const totalDriverBhatta = resolvedVehicleEntries.reduce(
+        (sum, entry) => sum + Number(entry.driver_bhatta || 0),
+        0
+      );
+
+      const payload = {
+        trip_date: form.trip_date,
+        departure_datetime: form.departure_datetime || null,
+        return_datetime: form.return_datetime || null,
+        from_location: form.from_location,
+        to_location: form.to_location,
+        route_details: form.route_details || null,
+        vehicle_number: primaryVehicle?.vehicle_number || null,
+        driver_id: primaryVehicle?.driver_id || null,
+        customer_id: Number(customer_id),
+        number_of_vehicles: resolvedVehicleEntries.length,
+        bus_type: form.bus_type || null,
+        start_km: primaryVehicle?.start_km ?? null,
+        end_km: primaryVehicle?.end_km ?? null,
+        distance_km: totalDistanceKm || null,
+        diesel_used: fuelCostTotal,
+        petrol_used: 0,
+        fuel_litres: Number(form.fuel_litres || 0),
+        toll_amount: Number(form.toll_amount || 0),
+        parking_amount: Number(form.parking_amount || 0),
+        other_expenses: Number(form.other_expenses || 0),
+        driver_bhatta: totalDriverBhatta,
+        pricing_type: form.pricing_type,
+        package_amount: Number(form.package_amount || 0),
+        cost_per_km: Number(form.cost_per_km || 0),
+        charged_toll_amount: Number(form.charged_toll_amount || 0),
+        charged_parking_amount: Number(form.charged_parking_amount || 0),
+        discount_amount: Number(form.discount_amount || 0),
+        amount_received: Number(form.amount_received || 0),
+        vendor: vendorName || null,
+        invoice_number: form.invoice_number || null,
+        pricing_items: pricingItems.map(i => ({
+          description: i.description,
+          quantity: 1,
+          rate: 0,
+          amount: Number(i.amount || 0),
+          item_type: "pricing"
+        })),
+        charge_items: chargeItems.map(i => ({
+          description: i.description,
+          quantity: 1,
+          rate: 0,
+          amount: Number(i.amount || 0),
+          item_type: "charge"
+        })),
+        driver_changes: driverChanges.map(dc => ({
+          driver_id: Number(dc.driver_id),
+          start_time: dc.start_time || null,
+          end_time: dc.end_time || null,
+          notes: dc.notes || null
+        })),
+        vehicles: resolvedVehicleEntries,
+      };
+
+      try {
+        let tripId = id; // Use existing ID in edit mode
+        if (isEdit) {
+          await api.put(`/trips/${id}`, payload);
+        } else {
+          const res = await api.post("/trips", payload);
+          tripId = res.data.id;
+        }
+
+        // Save driver expenses
+        for (const expense of driverExpenses) {
+          if (!expense.saved) {
+            await api.post("/driver-expenses", {
+              trip_id: Number(tripId),
+              driver_id: primaryVehicle?.driver_id,
+              description: expense.description,
+              amount: Number(expense.amount),
+              notes: expense.notes || null,
+            });
+          }
+        }
+
+        // Save advance payments
+        for (const pay of advancePayments) {
+          if (!pay.id || typeof pay.id !== "number" || pay.id > 1000000000000) {
+            await api.post("/payments", {
+              trip_id: Number(tripId),
+              payment_date: pay.payment_date || new Date().toISOString(),
+              payment_mode: pay.payment_mode,
+              amount: Number(pay.amount),
+              notes: pay.notes
+            });
+          }
+        }
+
+        navigate("/trips");
+      } catch (error) {
+        console.error("Save error:", error);
+        alert("Error saving trip");
+      }
     } catch (error) {
-      console.error("Save error:", error);
-      alert("Error saving trip");
+      console.error("Submit error:", error);
+      alert("Error processing form");
     }
   };
 
-  // --- Calculations ---
+  /* ============ CALCULATIONS ============ */
   const pricingItemsTotal = pricingItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
   const chargeItemsTotal = chargeItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
   const totalDriverExpenses = driverExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-  const tripDays = (() => {
-    if (form.departure_datetime && form.return_datetime) {
-      const s = new Date(form.departure_datetime);
-      const e = new Date(form.return_datetime);
-      if (isNaN(s) || isNaN(e) || e < s) return 1;
-      return Math.max(1, Math.ceil((e - s) / (1000 * 60 * 60 * 24)));
-    }
-    return 1;
-  })();
 
   const getTripDays = () => {
     if (form.departure_datetime && form.return_datetime) {
@@ -559,7 +474,6 @@ export default function TripForm() {
       ? Number(form.package_amount || 0) * tripDays
       : vehicleDistanceTotal * Number(form.cost_per_km || 0)) * (form.pricing_type === "package" ? Number(form.number_of_vehicles || 1) : 1);
 
-  // Custom pricing items are extra billable rows on top of the standard base fare.
   const pricingItemsCharged = pricingItemsTotal * Number(form.number_of_vehicles || 1);
 
   const totalChargedValue =
@@ -571,9 +485,6 @@ export default function TripForm() {
     Number(form.other_expenses || 0) -
     Number(form.discount_amount || 0);
 
-  const pricingItemsCharged = pricingItemsTotal * Number(form.number_of_vehicles || 1);
-
-  const totalChargedValue = basePricing + pricingItemsCharged + Number(form.charged_toll_amount || 0) + Number(form.charged_parking_amount || 0) + chargeItemsTotal + Number(form.other_expenses || 0) - Number(form.discount_amount || 0);
   const totalAdvancePayments = advancePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const totalReceived = Number(form.amount_received || 0) + totalAdvancePayments;
   const pending = Math.max(0, totalChargedValue - totalReceived);
@@ -586,8 +497,7 @@ export default function TripForm() {
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
-      {/* ---------- HEADER ---------- */}
+      {/* HEADER */}
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
           <button
@@ -620,14 +530,10 @@ export default function TripForm() {
 
       <form onSubmit={handleSubmit} className="space-y-8 pb-20">
         <div className="w-full">
-
-          {/* SECTION: JOURNEY PARAMETERS */}
+          {/* JOURNEY PARAMETERS */}
           <div className="space-y-8">
+            {/* TRIP DETAILS CARD */}
             <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-              </div>
-
               <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
                 <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
                 Trip Details
@@ -707,7 +613,7 @@ export default function TripForm() {
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-1">
+                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">From (Start Point)</label>
                   <input
                     name="from_location"
@@ -719,7 +625,7 @@ export default function TripForm() {
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-1">
+                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">To (End Point)</label>
                   <input
                     name="to_location"
@@ -771,6 +677,7 @@ export default function TripForm() {
               </div>
             </div>
 
+            {/* VEHICLE ENTRIES */}
             {vehicleEntries.map((entry, index) => {
               const matchingDrivers = entry.driver_name
                 ? drivers.filter((d) => d.name.toLowerCase().includes(entry.driver_name.toLowerCase()))
@@ -862,9 +769,7 @@ export default function TripForm() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Start KM
-                      </label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Start KM</label>
                       <input
                         type="number"
                         onWheel={stopWheel}
@@ -878,9 +783,7 @@ export default function TripForm() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        End KM
-                      </label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">End KM</label>
                       <input
                         type="number"
                         onWheel={stopWheel}
@@ -894,9 +797,7 @@ export default function TripForm() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Driver Bhatta
-                      </label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Driver Bhatta</label>
                       <input
                         type="number"
                         onWheel={stopWheel}
@@ -912,11 +813,9 @@ export default function TripForm() {
                 </div>
               );
             })}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3 1.343 3 3-1.343 3-3 3m0-13c1.657 0 3 1.343 3 3s-1.343 3-3 3-3-1.343-3-3 1.343-3 3-3m0 13a9 9 0 110-18 9 9 0 010 18z" /></svg>
-              </div>
 
+            {/* PRICING DETAILS */}
+            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
               <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
                 <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
                 Pricing Details
@@ -986,7 +885,7 @@ export default function TripForm() {
                 </div>
               </div>
 
-              {/* PRICING ITEMS SUB-SECTION */}
+              {/* PRICING ITEMS */}
               <div className="mt-10 p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100/50">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
@@ -1036,7 +935,7 @@ export default function TripForm() {
               </div>
             </div>
 
-
+            {/* EXPENSES */}
             <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
               <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
                 <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
@@ -1073,94 +972,87 @@ export default function TripForm() {
                     placeholder="0.00"
                   />
                 </div>
-              ))}
-              <div className="pt-4 border-t border-slate-100 flex justify-between text-[10px] font-black uppercase text-emerald-800">
-                <span>Total Received</span>
-                <span>₹{totalAdvancePayments.toFixed(2)}</span>
               </div>
-            </section>
-          </div>
-        </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Logistics Vendor</label>
-                  <div className="space-y-3">
-                    <select
-                      name="vendor"
-                      value={form.vendor}
-                      onChange={handleChange}
-                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
-                    >
-                      <option value="">Select Vendor</option>
-                      {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewVendorForm((prev) => !prev)}
-                      className="text-left text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      + Add New Vendor
-                    </button>
+              <div className="mt-8 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Logistics Vendor</label>
+                <div className="space-y-3">
+                  <select
+                    name="vendor"
+                    value={form.vendor}
+                    onChange={handleChange}
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                  >
+                    <option value="">Select Vendor</option>
+                    {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewVendorForm((prev) => !prev)}
+                    className="text-left text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + Add New Vendor
+                  </button>
 
-                    {showNewVendorForm && (
-                      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <input
-                          type="text"
-                          placeholder="Vendor Name"
-                          value={newVendorForm.name}
-                          onChange={(e) => setNewVendorForm((prev) => ({ ...prev, name: e.target.value }))}
-                          className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Phone Number"
-                          value={newVendorForm.phone}
-                          onChange={(e) => setNewVendorForm((prev) => ({ ...prev, phone: e.target.value }))}
-                          className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                        />
-                        <select
-                          value={newVendorForm.category}
-                          onChange={(e) => setNewVendorForm((prev) => ({ ...prev, category: e.target.value }))}
-                          className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                  {showNewVendorForm && (
+                    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <input
+                        type="text"
+                        placeholder="Vendor Name"
+                        value={newVendorForm.name}
+                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, name: e.target.value }))}
+                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Phone Number"
+                        value={newVendorForm.phone}
+                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, phone: e.target.value }))}
+                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                      />
+                      <select
+                        value={newVendorForm.category}
+                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, category: e.target.value }))}
+                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                      >
+                        <option value="fuel">Fuel</option>
+                        <option value="spare_parts">Spare Parts</option>
+                        <option value="mechanic">Mechanic</option>
+                      </select>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={saveNewVendor}
+                          disabled={savingVendor}
+                          className="h-11 px-5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
                         >
-                          <option value="fuel">Fuel</option>
-                          <option value="spare_parts">Spare Parts</option>
-                          <option value="mechanic">Mechanic</option>
-                        </select>
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={saveNewVendor}
-                            disabled={savingVendor}
-                            className="h-11 px-5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
-                          >
-                            {savingVendor ? "Saving..." : "Save Vendor"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowNewVendorForm(false);
-                              setNewVendorForm({ name: "", phone: "", category: "fuel" });
-                            }}
-                            className="h-11 px-5 bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-300 transition-all"
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                          {savingVendor ? "Saving..." : "Save Vendor"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewVendorForm(false);
+                            setNewVendorForm({ name: "", phone: "", category: "fuel" });
+                          }}
+                          className="h-11 px-5 bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-300 transition-all"
+                        >
+                          Cancel
+                        </button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Projected Energy Cost (₹)</label>
-                  <div className="w-full h-12 px-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 flex items-center">
-                    {Number(displayedFuelCost || 0).toFixed(2)}
-                  </div>
+              <div className="mt-8 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Projected Energy Cost (₹)</label>
+                <div className="w-full h-12 px-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 flex items-center">
+                  {Number(displayedFuelCost || 0).toFixed(2)}
                 </div>
               </div>
             </div>
 
+            {/* DRIVER CHANGES */}
             <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
               <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
                 <div className="w-1.5 h-6 bg-slate-400 rounded-full" />
@@ -1207,9 +1099,7 @@ export default function TripForm() {
                   {driverChanges.map((dc, idx) => (
                     <div key={dc.id || idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 group">
                       <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-black uppercase tracking-tighter">
-                          R
-                        </div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-black uppercase tracking-tighter">R</div>
                         <div>
                           <p className="text-[10px] font-black text-slate-800 leading-none">
                             {drivers.find(d => String(d.id) === String(dc.driver_id))?.name || "RESERVE PILOT"}
@@ -1228,6 +1118,7 @@ export default function TripForm() {
               )}
             </div>
 
+            {/* DRIVER PAID EXPENSES */}
             <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
               <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2">
                 <div className="w-1.5 h-6 bg-red-500 rounded-full" />
@@ -1306,211 +1197,212 @@ export default function TripForm() {
                   </div>
                 </div>
               )}
-              {/* SECTION: ADVANCE PAYMENTS (RESTORED) */}
-              <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-                <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2">
-                  <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                  Advance Payments
-                </h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Record advance payments received for this trip</p>
-
-                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div className="md:col-span-3">
-                      <input
-                        type="date"
-                        value={newAdvance.payment_date}
-                        onChange={(e) => setNewAdvance({ ...newAdvance, payment_date: e.target.value })}
-                        className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <select
-                        value={newAdvance.payment_mode}
-                        onChange={(e) => setNewAdvance({ ...newAdvance, payment_mode: e.target.value })}
-                        className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full appearance-none"
-                      >
-                        <option value="Cash">Cash</option>
-                        <option value="Online">Online / UPI</option>
-                        <option value="Cheque">Cheque</option>
-                        <option value="Transfer">Bank Transfer</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
-                      <input
-                        type="number"
-                        onWheel={stopWheel}
-                        step="0.01"
-                        min="0"
-                        placeholder="Amount"
-                        value={newAdvance.amount}
-                        onChange={(e) => setNewAdvance({ ...newAdvance, amount: e.target.value })}
-                        className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full text-right"
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <input
-                        type="text"
-                        placeholder="Reference/Notes"
-                        value={newAdvance.notes}
-                        onChange={(e) => setNewAdvance({ ...newAdvance, notes: e.target.value })}
-                        className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
-                      />
-                    </div>
-                    <div className="md:col-span-1">
-                      <button
-                        type="button"
-                        onClick={addAdvancePayment}
-                        className="h-11 w-full bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
-                      >
-                        <svg className="w-5 h-5 font-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {advancePayments.length > 0 && (
-                  <div className="space-y-3">
-                    {advancePayments.map((p, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 group hover:border-emerald-100 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                          </div>
-                          <div>
-                            <p className="text-xs font-black text-slate-800 leading-none">{p.payment_mode} Payment</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">
-                              {formatDateDDMMYYYY(p.payment_date)} {p.notes && `• ${p.notes}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <p className="text-xs font-black text-emerald-600">₹ {Number(p.amount).toFixed(2)}</p>
-                          <button type="button" onClick={() => removeAdvancePayment(idx)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 text-red-400 rounded-xl transition-all">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-between items-center p-6 bg-emerald-50 rounded-2xl border border-emerald-100 mt-6">
-                      <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Total Advance Received</p>
-                      <p className="text-xl font-black text-emerald-600 tracking-tight">₹ {totalAdvancePayments.toFixed(2)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-        </div>
-      </form>
 
-            <div className="space-y-8">
-              <div className="glass-card p-8 rounded-[3rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/10 sticky top-8">
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-3">
-                  <div className="w-2 h-8 bg-blue-600 rounded-full" />
-                  Trip Summary
-                </h3>
+            {/* ADVANCE PAYMENTS */}
+            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                Advance Payments
+              </h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Record advance payments received for this trip</p>
 
-                <div className="space-y-8">
-                  <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Bill Amount</span>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-black text-slate-400">₹</span>
-                        <span className="text-3xl font-black text-slate-800 tracking-tighter">
-                          {Number(totalBill).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Total Amount Received</span>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-sm font-black text-emerald-400">₹</span>
-                        <span className="text-3xl font-black text-emerald-600 tracking-tighter">
-                          {totalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-slate-200">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Balance Amount Due</span>
-                      <div className="flex items-baseline gap-1">
-                        <span className={`text-sm font-black ${Number(pending) > 0 ? "text-rose-400" : "text-emerald-400"}`}>₹</span>
-                        <span className={`text-4xl font-black tracking-tight ${Number(pending) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                          {Number(pending).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-3">
+                    <input
+                      type="date"
+                      value={newAdvance.payment_date}
+                      onChange={(e) => setNewAdvance({ ...newAdvance, payment_date: e.target.value })}
+                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
+                    />
                   </div>
-
-                  <div className="space-y-6 px-2">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Extra Expenses</label>
-                      <input
-                        type="number"
-                        onWheel={stopWheel}
-                        step="0.01"
-                        name="other_expenses"
-                        min="0"
-                        value={form.other_expenses}
-                        onChange={handleChange}
-                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Toll Yield</label>
-                        <input
-                          type="number"
-                          onWheel={stopWheel}
-                          step="0.01"
-                          name="charged_toll_amount"
-                          min="0"
-                          value={form.charged_toll_amount}
-                          onChange={handleChange}
-                          className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Parking Yield</label>
-                        <input
-                          type="number"
-                          onWheel={stopWheel}
-                          step="0.01"
-                          name="charged_parking_amount"
-                          min="0"
-                          value={form.charged_parking_amount}
-                          onChange={handleChange}
-                          className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98] mt-4"
+                  <div className="md:col-span-3">
+                    <select
+                      value={newAdvance.payment_mode}
+                      onChange={(e) => setNewAdvance({ ...newAdvance, payment_mode: e.target.value })}
+                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full appearance-none"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                      {isEdit ? "Update Trip" : "Save Trip"}
-                    </button>
-
+                      <option value="Cash">Cash</option>
+                      <option value="Online">Online / UPI</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <input
+                      type="number"
+                      onWheel={stopWheel}
+                      step="0.01"
+                      min="0"
+                      placeholder="Amount"
+                      value={newAdvance.amount}
+                      onChange={(e) => setNewAdvance({ ...newAdvance, amount: e.target.value })}
+                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full text-right"
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <input
+                      type="text"
+                      placeholder="Reference/Notes"
+                      value={newAdvance.notes}
+                      onChange={(e) => setNewAdvance({ ...newAdvance, notes: e.target.value })}
+                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
+                    />
+                  </div>
+                  <div className="md:col-span-1">
                     <button
                       type="button"
-                      onClick={() => navigate("/trips")}
-                      className="w-full h-14 bg-white text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all"
+                      onClick={addAdvancePayment}
+                      className="h-11 w-full bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
                     >
-                      Cancel
+                      <svg className="w-5 h-5 font-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                     </button>
                   </div>
                 </div>
               </div>
+
+              {advancePayments.length > 0 && (
+                <div className="space-y-3">
+                  {advancePayments.map((p, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 group hover:border-emerald-100 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-800 leading-none">{p.payment_mode} Payment</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">
+                            {formatDateDDMMYYYY(p.payment_date)} {p.notes && `• ${p.notes}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <p className="text-xs font-black text-emerald-600">₹ {Number(p.amount).toFixed(2)}</p>
+                        <button type="button" onClick={() => removeAdvancePayment(idx)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 text-red-400 rounded-xl transition-all">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center p-6 bg-emerald-50 rounded-2xl border border-emerald-100 mt-6">
+                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Total Advance Received</p>
+                    <p className="text-xl font-black text-emerald-600 tracking-tight">₹ {totalAdvancePayments.toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </form>
+
+      {/* TRIP SUMMARY - OUTSIDE FORM */}
+      <div className="space-y-8">
+        <div className="glass-card p-8 rounded-[3rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/10 sticky top-8">
+          <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-3">
+            <div className="w-2 h-8 bg-blue-600 rounded-full" />
+            Trip Summary
+          </h3>
+
+          <div className="space-y-8">
+            <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Bill Amount</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-black text-slate-400">₹</span>
+                  <span className="text-3xl font-black text-slate-800 tracking-tighter">
+                    {Number(totalBill).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Total Amount Received</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-black text-emerald-400">₹</span>
+                  <span className="text-3xl font-black text-emerald-600 tracking-tighter">
+                    {totalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-200">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Balance Amount Due</span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-sm font-black ${Number(pending) > 0 ? "text-rose-400" : "text-emerald-400"}`}>₹</span>
+                  <span className={`text-4xl font-black tracking-tight ${Number(pending) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                    {Number(pending).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6 px-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Extra Expenses</label>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  step="0.01"
+                  name="other_expenses"
+                  min="0"
+                  value={form.other_expenses}
+                  onChange={handleChange}
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Toll Yield</label>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    name="charged_toll_amount"
+                    min="0"
+                    value={form.charged_toll_amount}
+                    onChange={handleChange}
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Parking Yield</label>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    name="charged_parking_amount"
+                    min="0"
+                    value={form.charged_parking_amount}
+                    onChange={handleChange}
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <button
+                  type="submit"
+                  className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                  {isEdit ? "Update Trip" : "Save Trip"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/trips")}
+                  className="w-full h-14 bg-white text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
