@@ -65,11 +65,18 @@ export default function InvoiceView() {
     const vehicles = Number(trip.number_of_vehicles || 1);
     const computedFareAmount = trip.pricing_type === "package"
       ? Number(trip.package_amount || 0) * vehicles * tripDays
-      : Number(trip.distance_km || 0) * Number(trip.cost_per_km || 0) * vehicles;
+      : Number(trip.distance_km || 0) * Number(trip.cost_per_km || 0);
+
     const computedFareLabel = trip.pricing_type === "package" ? "Package Fare" : "Base Fare";
+    
+    // For per_km, we show (total_distance / vehicles) to clarify it's per-vehicle distance
+    // if that matches the quantity label logic.
+    const distancePerVehicle = Number(trip.distance_km || 0) / vehicles;
+    
     const computedFareQuantity = trip.pricing_type === "package"
       ? `${tripDays} day(s) x ${vehicles} vehicle(s)`
-      : `${trip.distance_km || 0} km x ${vehicles} vehicle(s)`;
+      : `${distancePerVehicle.toFixed(1)} km x ${vehicles} vehicle(s)`;
+
     const computedFareUnit = trip.pricing_type === "package"
       ? `Rs. ${Number(trip.package_amount || 0).toFixed(2)}/day`
       : `Rs. ${Number(trip.cost_per_km || 0).toFixed(2)}/km`;
@@ -155,11 +162,12 @@ export default function InvoiceView() {
     return rows;
   }, [trip]);
 
-  const subtotalAmount = invoiceRows
-    .filter((row) => row.included !== false && row.total > 0)
-    .reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const calculatedTotal = useMemo(() => {
+    return invoiceRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  }, [invoiceRows]);
+
   const totalPaid = Number(trip?.amount_received || 0);
-  const balanceDue = Number(trip?.pending_amount || 0);
+  const balanceDue = Math.max(calculatedTotal - totalPaid, 0);
 
   const handlePrint = () => {
     if (!printTimestamp) {
@@ -273,7 +281,7 @@ export default function InvoiceView() {
             <tfoot>
               <tr className="border-t-2 border-slate-900 bg-slate-50">
                 <td colSpan="4" className="p-2 text-right font-black text-[9px] uppercase tracking-widest border-r-2 border-slate-900">Total Amount Due</td>
-                <td className="p-2 text-right text-base font-black text-red-600">Rs. {(trip.total_charged || 0).toFixed(2)}</td>
+                <td className="p-2 text-right text-base font-black text-red-600">Rs. {calculatedTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
