@@ -1,16 +1,29 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from app.models.customer import Customer
 from app.models.trip import Trip
 
 def create_customer(db: Session, name: str, phone: str | None = None, email: str | None = None):
-    existing = db.query(Customer).filter(Customer.name == name).first()
+    normalized_name = name.strip() if name else ""
+    if not normalized_name:
+        raise HTTPException(status_code=400, detail="Customer name is required")
+
+    existing = db.query(Customer).filter(Customer.name == normalized_name).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Customer already exists")
-    customer = Customer(name=name, phone=phone, email=email)
+        return existing
+
+    customer = Customer(name=normalized_name, phone=phone, email=email)
     db.add(customer)
-    db.commit()
-    db.refresh(customer)
+    try:
+        db.commit()
+        db.refresh(customer)
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(Customer).filter(Customer.name == normalized_name).first()
+        if existing:
+            return existing
+        raise HTTPException(status_code=400, detail="Customer already exists")
     return customer
 
 def get_customers(db: Session):

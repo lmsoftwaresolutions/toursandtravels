@@ -13,29 +13,30 @@ def vendor_summary(db: Session, vendor_id: int):
     if not vendor:
         return None
 
-    name = vendor.name
+    name = vendor.name or ""
+    normalized_name = name.strip().lower()
 
     fuel_total = (
         db.query(func.coalesce(func.sum(Fuel.total_cost), 0.0))
-        .filter(Fuel.vendor == name)
+        .filter(func.lower(func.trim(Fuel.vendor)) == normalized_name)
         .scalar()
     )
 
     spare_total = (
         db.query(func.coalesce(func.sum(SparePart.cost * SparePart.quantity), 0.0))
-        .filter(SparePart.vendor == name)
+        .filter(func.lower(func.trim(SparePart.vendor)) == normalized_name)
         .scalar()
     )
 
     trip_fuel_total = (
         db.query(func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0.0))
-        .filter(Trip.vendor == name)
+        .filter(func.lower(func.trim(Trip.vendor)) == normalized_name)
         .scalar()
     )
 
     mechanic_total = (
         db.query(func.coalesce(func.sum(MechanicEntry.cost), 0.0))
-        .filter(MechanicEntry.vendor == name)
+        .filter(func.lower(func.trim(MechanicEntry.vendor)) == normalized_name)
         .scalar()
     )
 
