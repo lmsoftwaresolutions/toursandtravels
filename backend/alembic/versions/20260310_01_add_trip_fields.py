@@ -17,23 +17,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    existing_columns = {col["name"] for col in inspector.get_columns("trips")}
-
-    added_number_of_vehicles = "number_of_vehicles" not in existing_columns
-    if added_number_of_vehicles:
-        op.add_column(
-            "trips",
-            sa.Column("number_of_vehicles", sa.Integer(), nullable=True, server_default="1"),
-        )
-
-    if "bus_type" not in existing_columns:
-        op.add_column("trips", sa.Column("bus_type", sa.String(), nullable=True))
+    # Use IF NOT EXISTS so the migration can be applied safely on DBs
+    # where these columns already exist.
+    op.execute(
+        "ALTER TABLE trips ADD COLUMN IF NOT EXISTS number_of_vehicles INTEGER DEFAULT 1"
+    )
+    op.execute(
+        "ALTER TABLE trips ADD COLUMN IF NOT EXISTS bus_type VARCHAR"
+    )
 
     # Update existing records to have 1 as default for number_of_vehicles
-    if "number_of_vehicles" in existing_columns or added_number_of_vehicles:
-        op.execute("UPDATE trips SET number_of_vehicles = 1 WHERE number_of_vehicles IS NULL")
+    op.execute("UPDATE trips SET number_of_vehicles = 1 WHERE number_of_vehicles IS NULL")
 
 
 def downgrade() -> None:
