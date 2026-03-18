@@ -289,16 +289,18 @@ export default function VehicleDetails() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {maintenanceEntries.map((m) => (
+                    {maintenanceEntries.map((m) => {
+                      const mechanicAmount = m.cost ?? m.amount ?? 0;
+                      return (
                       <tr key={m.id} className="group hover:bg-slate-50/40 transition-colors">
                         <td className="p-6 text-sm font-black text-slate-500">{formatDateDDMMYYYY(m.service_date)}</td>
                         <td className="p-6">
                           <div className="text-sm font-black text-slate-800 tracking-tight">{m.work_description}</div>
                         </td>
                         <td className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.vendor || "-"}</td>
-                        <td className="p-6 text-right font-black text-emerald-600">Rs. {formatMoney(m.amount)}</td>
+                        <td className="p-6 text-right font-black text-emerald-600">Rs. {formatMoney(mechanicAmount)}</td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

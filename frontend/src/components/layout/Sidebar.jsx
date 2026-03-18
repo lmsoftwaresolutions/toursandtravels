@@ -30,8 +30,8 @@ export default function Sidebar() {
     <>
       <div className="no-print md:hidden flex items-center justify-between bg-slate-900 text-white p-4 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/10">
-            <img src={NathkrupaLogo} alt="Nathkrupa" className="h-6 w-auto brightness-0 invert" />
+          <div className="bg-white p-2.5 rounded-2xl shadow-lg shadow-blue-500/10">
+            <img src={NathkrupaLogo} alt="Nathkrupa" className="h-7 w-auto" />
           </div>
           <span className="font-bold text-lg tracking-tight">Nath Krupa</span>
         </div>
@@ -98,4 +98,3 @@ export default function Sidebar() {
     </>
   );
 }
-

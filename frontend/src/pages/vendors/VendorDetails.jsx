@@ -6,7 +6,12 @@ import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 import { vendorEntryConfig } from "../../config/vendorEntryConfig";
 
-const normalizeVendorCategory = (category) => String(category || "").trim().toLowerCase();
+const normalizeVendorCategory = (category) => {
+  const value = String(category || "").trim().toLowerCase();
+  if (!value) return value;
+  if (value === "mistry" || value === "mistri") return "mechanic";
+  return value;
+};
 const normalizeVendorName = (name) => String(name || "").trim().toLowerCase();
 const isFuelCategory = (category) => {
   const value = normalizeVendorCategory(category);
@@ -83,7 +88,7 @@ export default function VendorDetails() {
         const tripFuelEntries = tripRes.data
           .filter(t => normalizeVendorName(t.vendor) === vendorNameKey && (t.diesel_used > 0 || t.petrol_used > 0))
           .map(t => {
-            const totalCost = t.diesel_used > 0 ? t.diesel_used : t.petrol_used;
+            const totalCost = Number(t.diesel_used || 0) + Number(t.petrol_used || 0);
             const litres = Number(t.fuel_litres || 0);
             const rate = litres > 0 ? totalCost / litres : 0;
 
@@ -190,6 +195,16 @@ export default function VendorDetails() {
       meta: `${Number(entry.quantity || 0)} qty at ${formatMoney(entry.cost)}`,
     }));
 
+    const mechanicCharges = mechanicHistory.map((entry) => ({
+      id: `mechanic-${entry.id}`,
+      source: "Mechanic",
+      date: entry.service_date,
+      vehicle: entry.vehicle_number || "-",
+      description: entry.work_description || "Mechanic work",
+      amount: Number(entry.cost || 0),
+      meta: "Service charge",
+    }));
+
     const tripCharges = tripHistory
       .filter((trip) => Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0) > 0)
       .map((trip) => ({
@@ -202,12 +217,12 @@ export default function VendorDetails() {
         meta: `${Number(trip.distance_km || 0).toLocaleString()} km`,
       }));
 
-    return [...fuelCharges, ...spareCharges, ...tripCharges].sort((a, b) => {
+    return [...fuelCharges, ...spareCharges, ...mechanicCharges, ...tripCharges].sort((a, b) => {
       const first = new Date(a.date || 0).getTime();
       const second = new Date(b.date || 0).getTime();
       return first - second || String(a.id).localeCompare(String(b.id));
     });
-  }, [fuelHistory, spareHistory, tripHistory]);
+  }, [fuelHistory, spareHistory, mechanicHistory, tripHistory]);
 
   const paymentAllocations = useMemo(() => {
     const charges = chargeEntries.map((charge) => ({
@@ -513,7 +528,11 @@ export default function VendorDetails() {
 
   const handleEntrySubmit = async (e) => {
     e.preventDefault();
-    const payload = { ...entryForm, vendor_id: Number(id) };
+    const payload = {
+      ...entryForm,
+      vendor: vendor?.name,
+      vendor_id: Number(id),
+    };
 
     try {
       await api.post(activeCategoryConfig.endpoint, payload);
@@ -742,7 +761,7 @@ export default function VendorDetails() {
             <span className="text-3xl font-black text-slate-800 tabular-nums">{pendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)}
+            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)} | Mistry {formatMoney(totalMechanicCost)}
           </div>
         </div>
       </div>
