@@ -18,7 +18,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("vendors", sa.Column("phone", sa.String(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_columns = {col["name"] for col in inspector.get_columns("vendors")}
+
+    if "phone" not in existing_columns:
+        op.add_column("vendors", sa.Column("phone", sa.String(), nullable=True))
+
     op.execute("UPDATE vendors SET category = 'spare_parts' WHERE category = 'spare'")
 
 

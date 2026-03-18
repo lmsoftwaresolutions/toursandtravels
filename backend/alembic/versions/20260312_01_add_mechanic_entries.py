@@ -18,17 +18,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "mechanic_entries",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("vehicle_number", sa.String(), sa.ForeignKey("vehicles.vehicle_number"), nullable=False),
-        sa.Column("work_description", sa.String(), nullable=False),
-        sa.Column("cost", sa.Float(), nullable=False),
-        sa.Column("vendor", sa.String(), nullable=True),
-        sa.Column("service_date", sa.Date(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP")),
-    )
-    op.create_index("ix_mechanic_entries_id", "mechanic_entries", ["id"])
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
+    if not inspector.has_table("mechanic_entries"):
+        op.create_table(
+            "mechanic_entries",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("vehicle_number", sa.String(), sa.ForeignKey("vehicles.vehicle_number"), nullable=False),
+            sa.Column("work_description", sa.String(), nullable=False),
+            sa.Column("cost", sa.Float(), nullable=False),
+            sa.Column("vendor", sa.String(), nullable=True),
+            sa.Column("service_date", sa.Date(), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP")),
+        )
+        op.create_index("ix_mechanic_entries_id", "mechanic_entries", ["id"])
 
 
 def downgrade() -> None:
