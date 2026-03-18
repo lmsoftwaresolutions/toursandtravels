@@ -15,31 +15,37 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
-    op.create_table(
-        "quotations",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("quotation_no", sa.String(), nullable=False),
-        sa.Column("customer_name", sa.String(), nullable=False),
-        sa.Column("address", sa.String(), nullable=True),
-        sa.Column("mobile", sa.String(), nullable=True),
-        sa.Column("quotation_date", sa.Date(), nullable=False),
-        sa.Column("tour_description", sa.String(), nullable=True),
-        sa.Column("approx_km", sa.Float(), nullable=True),
-        sa.Column("rate_per_km", sa.Float(), nullable=True),
-        sa.Column("no_of_buses", sa.Integer(), nullable=True),
-        sa.Column("trip_cost", sa.Float(), nullable=True),
-        sa.Column("mp_tax", sa.Float(), nullable=True),
-        sa.Column("border_entry", sa.Float(), nullable=True),
-        sa.Column("toll", sa.Float(), nullable=True),
-        sa.Column("total_amount", sa.Float(), nullable=True),
-        sa.Column("amount_in_words", sa.String(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), onupdate=sa.text("CURRENT_TIMESTAMP")),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_deleted", sa.Boolean(), server_default="false"),
+    # Use IF NOT EXISTS so this can run safely on a schema that already contains the table.
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quotations (
+            id SERIAL PRIMARY KEY,
+            quotation_no VARCHAR NOT NULL,
+            customer_name VARCHAR NOT NULL,
+            address VARCHAR,
+            mobile VARCHAR,
+            quotation_date DATE NOT NULL,
+            tour_description VARCHAR,
+            approx_km FLOAT,
+            rate_per_km FLOAT,
+            no_of_buses INTEGER,
+            trip_cost FLOAT,
+            mp_tax FLOAT,
+            border_entry FLOAT,
+            toll FLOAT,
+            total_amount FLOAT,
+            amount_in_words VARCHAR,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ,
+            is_deleted BOOLEAN DEFAULT false
+        );
+        """
     )
-    op.create_index("ix_quotations_id", "quotations", ["id"])
-    op.create_index("ix_quotations_quotation_no", "quotations", ["quotation_no"], unique=True)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_quotations_id ON quotations (id);")
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_quotations_quotation_no ON quotations (quotation_no);"
+    )
 
 def downgrade() -> None:
     op.drop_index("ix_quotations_quotation_no", table_name="quotations")

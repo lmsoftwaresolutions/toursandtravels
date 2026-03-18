@@ -59,7 +59,7 @@ export default function TripForm() {
     pricing_type: "per_km",
     package_amount: "",
     vendor: "",
-    invoice_number: `INV-${Date.now().toString().slice(-6)}`,
+    invoice_number: "",
     departure_datetime: "",
     return_datetime: "",
   });
@@ -155,7 +155,7 @@ export default function TripForm() {
           setAdvancePayments(trip.payments || []);
           setDriverChanges(trip.driver_changes || []);
 
-          const expRes = await api.get(`/driver-expenses?trip_id=${id}`);
+          const expRes = await api.get(`/driver-expenses/trip/${id}`);
           setDriverExpenses(expRes.data.map(e => ({ ...e, saved: true })));
         }
       } catch (error) {

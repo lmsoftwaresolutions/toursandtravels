@@ -18,22 +18,26 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "trip_vehicles",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("trip_id", sa.Integer(), nullable=False),
-        sa.Column("vehicle_number", sa.String(), nullable=False),
-        sa.Column("driver_id", sa.Integer(), nullable=False),
-        sa.Column("start_km", sa.Float(), nullable=True, server_default="0"),
-        sa.Column("end_km", sa.Float(), nullable=True, server_default="0"),
-        sa.Column("distance_km", sa.Integer(), nullable=True),
-        sa.Column("driver_bhatta", sa.Float(), nullable=True, server_default="0"),
-        sa.ForeignKeyConstraint(["driver_id"], ["drivers.id"]),
-        sa.ForeignKeyConstraint(["trip_id"], ["trips.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["vehicle_number"], ["vehicles.vehicle_number"]),
-        sa.PrimaryKeyConstraint("id"),
+    # Make this migration idempotent by using IF NOT EXISTS.
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS trip_vehicles (
+            id SERIAL NOT NULL,
+            trip_id INTEGER NOT NULL,
+            vehicle_number VARCHAR NOT NULL,
+            driver_id INTEGER NOT NULL,
+            start_km FLOAT DEFAULT 0,
+            end_km FLOAT DEFAULT 0,
+            distance_km INTEGER,
+            driver_bhatta FLOAT DEFAULT 0,
+            PRIMARY KEY (id),
+            FOREIGN KEY(driver_id) REFERENCES drivers (id),
+            FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+            FOREIGN KEY(vehicle_number) REFERENCES vehicles (vehicle_number)
+        );
+        """
     )
-    op.create_index(op.f("ix_trip_vehicles_id"), "trip_vehicles", ["id"], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_trip_vehicles_id ON trip_vehicles (id);")
 
     op.execute(
         """

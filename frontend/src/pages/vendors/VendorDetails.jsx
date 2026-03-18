@@ -6,7 +6,13 @@ import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 import { vendorEntryConfig } from "../../config/vendorEntryConfig";
 
-const normalizeVendorCategory = (category) => String(category || "").trim().toLowerCase();
+const normalizeVendorCategory = (category) => {
+  const value = String(category || "").trim().toLowerCase();
+  if (!value) return value;
+  if (value === "mistry" || value === "mistri") return "mechanic";
+  return value;
+};
+const normalizeVendorName = (name) => String(name || "").trim().toLowerCase();
 const isFuelCategory = (category) => {
   const value = normalizeVendorCategory(category);
   return value === "fuel" || value === "both" || value.includes("fuel") || value.includes("diesel") || value.includes("petrol");
@@ -14,6 +20,10 @@ const isFuelCategory = (category) => {
 const isSpareCategory = (category) => {
   const value = normalizeVendorCategory(category);
   return value === "spare_parts" || value === "both" || value.includes("spare") || value.includes("part");
+};
+const isMechanicCategory = (category) => {
+  const value = normalizeVendorCategory(category);
+  return value === "mechanic" || value.includes("mechanic");
 };
 
 export default function VendorDetails() {
@@ -24,6 +34,7 @@ export default function VendorDetails() {
   const [fuelHistory, setFuelHistory] = useState([]);
   const [spareHistory, setSpareHistory] = useState([]);
   const [tripHistory, setTripHistory] = useState([]);
+  const [mechanicHistory, setMechanicHistory] = useState([]);
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("fuel");
   const [payments, setPayments] = useState([]);
@@ -45,12 +56,16 @@ export default function VendorDetails() {
       const vendorCategory = normalizeVendorCategory(vendorData.category);
       const supportsFuel = isFuelCategory(vendorCategory);
       const supportsSpare = isSpareCategory(vendorCategory);
+      const supportsMechanic = isMechanicCategory(vendorCategory);
+      const vendorNameKey = normalizeVendorName(vendorData.name);
 
       // Set default tab based on vendor category
       if (supportsFuel) {
         setActiveTab("fuel");
       } else if (supportsSpare) {
         setActiveTab("spare");
+      } else if (supportsMechanic) {
+        setActiveTab("mechanic");
       } else {
         setActiveTab("payments");
       }
@@ -66,14 +81,14 @@ export default function VendorDetails() {
       if (supportsFuel) {
         // Get separate fuel entries
         const fuelRes = await api.get("/fuel");
-        const fuelEntries = fuelRes.data.filter(f => f.vendor === vendorData.name);
+        const fuelEntries = fuelRes.data.filter(f => normalizeVendorName(f.vendor) === vendorNameKey);
 
         // Get trips with fuel for this vendor and convert to fuel entries
         const tripRes = await api.get("/trips");
         const tripFuelEntries = tripRes.data
-          .filter(t => t.vendor === vendorData.name && (t.diesel_used > 0 || t.petrol_used > 0))
+          .filter(t => normalizeVendorName(t.vendor) === vendorNameKey && (t.diesel_used > 0 || t.petrol_used > 0))
           .map(t => {
-            const totalCost = t.diesel_used > 0 ? t.diesel_used : t.petrol_used;
+            const totalCost = Number(t.diesel_used || 0) + Number(t.petrol_used || 0);
             const litres = Number(t.fuel_litres || 0);
             const rate = litres > 0 ? totalCost / litres : 0;
 
@@ -94,13 +109,18 @@ export default function VendorDetails() {
         setFuelHistory([...fuelEntries, ...tripFuelEntries]);
 
         // Also set trip history for trips tab
-        setTripHistory(tripRes.data.filter(t => t.vendor === vendorData.name));
+        setTripHistory(tripRes.data.filter(t => normalizeVendorName(t.vendor) === vendorNameKey));
       }
 
       // Only load spare parts history for spare vendors
       if (supportsSpare) {
         const spareRes = await api.get("/spare-parts");
-        setSpareHistory(spareRes.data.filter(s => s.vendor === vendorData.name));
+        setSpareHistory(spareRes.data.filter(s => normalizeVendorName(s.vendor) === vendorNameKey));
+      }
+
+      if (supportsMechanic) {
+        const mechRes = await api.get("/mechanic");
+        setMechanicHistory(mechRes.data.filter(m => normalizeVendorName(m.vendor) === vendorNameKey));
       }
     } catch (error) {
       console.error("Error loading vendor data:", error);
@@ -142,6 +162,7 @@ export default function VendorDetails() {
   const vendorCategory = normalizeVendorCategory(vendor?.category);
   const vendorSupportsFuel = isFuelCategory(vendorCategory);
   const vendorSupportsSpare = isSpareCategory(vendorCategory);
+  const vendorSupportsMechanic = isMechanicCategory(vendorCategory);
   const availableCategories = useMemo(() => {
     if (!vendorCategory) return [];
     if (vendorCategory === "both") return ["fuel", "spare_parts"].filter((key) => vendorEntryConfig[key]);
@@ -174,6 +195,16 @@ export default function VendorDetails() {
       meta: `${Number(entry.quantity || 0)} qty at ${formatMoney(entry.cost)}`,
     }));
 
+    const mechanicCharges = mechanicHistory.map((entry) => ({
+      id: `mechanic-${entry.id}`,
+      source: "Mechanic",
+      date: entry.service_date,
+      vehicle: entry.vehicle_number || "-",
+      description: entry.work_description || "Mechanic work",
+      amount: Number(entry.cost || 0),
+      meta: "Service charge",
+    }));
+
     const tripCharges = tripHistory
       .filter((trip) => Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0) > 0)
       .map((trip) => ({
@@ -186,12 +217,12 @@ export default function VendorDetails() {
         meta: `${Number(trip.distance_km || 0).toLocaleString()} km`,
       }));
 
-    return [...fuelCharges, ...spareCharges, ...tripCharges].sort((a, b) => {
+    return [...fuelCharges, ...spareCharges, ...mechanicCharges, ...tripCharges].sort((a, b) => {
       const first = new Date(a.date || 0).getTime();
       const second = new Date(b.date || 0).getTime();
       return first - second || String(a.id).localeCompare(String(b.id));
     });
-  }, [fuelHistory, spareHistory, tripHistory]);
+  }, [fuelHistory, spareHistory, mechanicHistory, tripHistory]);
 
   const paymentAllocations = useMemo(() => {
     const charges = chargeEntries.map((charge) => ({
@@ -327,6 +358,18 @@ export default function VendorDetails() {
             s.part_name,
             s.quantity,
             formatMoney((s.cost || 0) * (s.quantity || 0)),
+          ]),
+        };
+      }
+      if (activeTab === "mechanic") {
+        return {
+          title: "Mechanic Entries",
+          headers: ["Date", "Vehicle", "Work Done", "Cost"],
+          rows: mechanicHistory.map((m) => [
+            formatDateDDMMYYYY(m.service_date),
+            m.vehicle_number,
+            m.work_description,
+            formatMoney(m.cost || 0),
           ]),
         };
       }
@@ -485,7 +528,11 @@ export default function VendorDetails() {
 
   const handleEntrySubmit = async (e) => {
     e.preventDefault();
-    const payload = { ...entryForm, vendor_id: Number(id) };
+    const payload = {
+      ...entryForm,
+      vendor: vendor?.name,
+      vendor_id: Number(id),
+    };
 
     try {
       await api.post(activeCategoryConfig.endpoint, payload);
@@ -714,7 +761,7 @@ export default function VendorDetails() {
             <span className="text-3xl font-black text-slate-800 tabular-nums">{pendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)}
+            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)} | Mistry {formatMoney(totalMechanicCost)}
           </div>
         </div>
       </div>
@@ -741,6 +788,17 @@ export default function VendorDetails() {
               }`}
           >
             Spare Entries ({spareHistory.length})
+          </button>
+        )}
+        {vendorSupportsMechanic && (
+          <button
+            onClick={() => setActiveTab("mechanic")}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "mechanic"
+              ? "bg-white text-blue-600 shadow-lg shadow-slate-200 ring-1 ring-slate-100"
+              : "text-slate-400 hover:text-slate-600"
+              }`}
+          >
+            Mechanic Entries ({mechanicHistory.length})
           </button>
         )}
         {vendorSupportsFuel && (
@@ -950,6 +1008,38 @@ export default function VendorDetails() {
                     <td className="p-6 text-sm font-bold text-slate-500 tabular-nums">{s.quantity}</td>
                     <td className="p-6 text-sm font-bold text-slate-400 tabular-nums">Rs. {s.cost}</td>
                     <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {(s.cost * s.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ---------- MECHANIC LOGS TAB ---------- */}
+      {activeTab === "mechanic" && (
+        <div className="glass-card rounded-[2rem] overflow-hidden border border-slate-100 bg-white shadow-2xl shadow-slate-200/50 animate-in fade-in duration-500">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Service Date</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicle</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Work Done</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {mechanicHistory.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No mechanic entries found</td>
+                </tr>
+              ) : (
+                mechanicHistory.map(m => (
+                  <tr key={m.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(m.service_date)}</td>
+                    <td className="p-6 text-sm font-black text-slate-800">{m.vehicle_number}</td>
+                    <td className="p-6 text-sm font-bold text-slate-600">{m.work_description}</td>
+                    <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {Number(m.cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                   </tr>
                 ))
               )}

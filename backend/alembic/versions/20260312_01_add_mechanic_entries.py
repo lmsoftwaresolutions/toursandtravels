@@ -18,17 +18,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "mechanic_entries",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("vehicle_number", sa.String(), sa.ForeignKey("vehicles.vehicle_number"), nullable=False),
-        sa.Column("work_description", sa.String(), nullable=False),
-        sa.Column("cost", sa.Float(), nullable=False),
-        sa.Column("vendor", sa.String(), nullable=True),
-        sa.Column("service_date", sa.Date(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP")),
+    # Use IF NOT EXISTS to allow running against an existing schema.
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mechanic_entries (
+            id SERIAL PRIMARY KEY,
+            vehicle_number VARCHAR NOT NULL REFERENCES vehicles(vehicle_number),
+            work_description VARCHAR NOT NULL,
+            cost FLOAT NOT NULL,
+            vendor VARCHAR,
+            service_date DATE NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+        """
     )
-    op.create_index("ix_mechanic_entries_id", "mechanic_entries", ["id"])
+    op.execute("CREATE INDEX IF NOT EXISTS ix_mechanic_entries_id ON mechanic_entries (id);")
 
 
 def downgrade() -> None:

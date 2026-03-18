@@ -18,10 +18,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("vendors", sa.Column("phone", sa.String(), nullable=True))
+    # Use IF NOT EXISTS to avoid failure when column already exists.
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS phone VARCHAR")
     op.execute("UPDATE vendors SET category = 'spare_parts' WHERE category = 'spare'")
 
 
 def downgrade() -> None:
     op.execute("UPDATE vendors SET category = 'spare' WHERE category = 'spare_parts'")
-    op.drop_column("vendors", "phone")
+    op.execute("ALTER TABLE vendors DROP COLUMN IF EXISTS phone")
