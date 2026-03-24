@@ -1075,6 +1075,9 @@ export default function TripForm() {
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     required
                   />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Total Days: {tripTotalDays ?? "-"}
+                  </p>
                 </div>
               </div>
 
@@ -1110,8 +1113,8 @@ export default function TripForm() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Trip Type</label>
                   <input
                     type="text"
-                    name="bus_type"
-                    value={form.bus_type}
+                    name="to_location"
+                    value={form.to_location}
                     onChange={handleChange}
                     placeholder="e.g. AC Sleeper Coach"
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
