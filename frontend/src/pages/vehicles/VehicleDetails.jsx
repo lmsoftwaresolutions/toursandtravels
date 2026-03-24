@@ -51,25 +51,55 @@ export default function VehicleDetails() {
   }
 
   const formatMoney = (value) => Number(value || 0).toFixed(2);
+  const targetVehicleNumber = normalizeVehicleNumber(vehicle_number);
   const fuelLogEntries = [
     ...fuelEntries.map((entry) => ({ ...entry, source: "fuel_entry" })),
     ...tripFuelEntries
       .filter((trip) => Number(trip.diesel_used || 0) > 0 || Number(trip.petrol_used || 0) > 0)
-      .map((trip) => ({
-        id: `trip-${trip.id}`,
-        source: "trip_usage",
-        filled_date: trip.trip_date,
-        fuel_type: Number(trip.diesel_used || 0) > 0 && Number(trip.petrol_used || 0) > 0
-          ? "diesel + petrol"
-          : Number(trip.diesel_used || 0) > 0
-            ? "diesel"
-            : "petrol",
-        vendor: trip.vendor || "-",
-        quantity: "-",
-        rate_per_litre: null,
-        total_cost: Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0),
-        reference: trip.invoice_number || `Trip #${trip.id}`,
-      })),
+      .map((trip) => {
+        const matchingVehicle = (trip.vehicles || []).find(
+          (v) => normalizeVehicleNumber(v.vehicle_number) === targetVehicleNumber
+        );
+        const vehicleFuelVendor = matchingVehicle?.fuel_vendor || null;
+        const vehicleDiesel = Number(matchingVehicle?.diesel_used || 0);
+        const vehiclePetrol = Number(matchingVehicle?.petrol_used || 0);
+        const vehicleLitres = Number(matchingVehicle?.fuel_litres || 0);
+        const vehicleFuelCost = Number(matchingVehicle?.fuel_cost || 0);
+        const tripFuelLitres = Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0);
+        const hasSingleVehicle = Number(trip.number_of_vehicles || 1) === 1;
+        const effectiveLitres = vehicleLitres > 0 ? vehicleLitres : (hasSingleVehicle ? tripFuelLitres : 0);
+        const vehicleFuelType =
+          vehicleDiesel > 0 && vehiclePetrol > 0
+            ? "diesel + petrol"
+            : vehicleDiesel > 0
+              ? "diesel"
+              : vehiclePetrol > 0
+                ? "petrol"
+                : Number(trip.diesel_used || 0) > 0 && Number(trip.petrol_used || 0) > 0
+                  ? "diesel + petrol"
+                  : Number(trip.diesel_used || 0) > 0
+                    ? "diesel"
+                    : "petrol";
+        const tripFuelCost = Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0);
+        const computedRate =
+          effectiveLitres > 0
+            ? vehicleFuelCost / effectiveLitres
+            : Number(matchingVehicle?.fuel_price || 0);
+        const fallbackRate = effectiveLitres > 0 ? vehicleFuelCost / effectiveLitres : 0;
+        return {
+          id: `trip-${trip.id}`,
+          source: "trip_usage",
+          filled_date: trip.trip_date,
+          fuel_type: vehicleFuelType,
+          vendor: vehicleFuelVendor || trip.vendor || "-",
+          quantity: effectiveLitres > 0 ? effectiveLitres : "-",
+          rate_per_litre: matchingVehicle
+            ? Number(computedRate.toFixed(2))
+            : (effectiveLitres > 0 ? Number(fallbackRate.toFixed(2)) : null),
+          total_cost: matchingVehicle ? vehicleFuelCost : tripFuelCost,
+          reference: trip.invoice_number || `Trip #${trip.id}`,
+        };
+      }),
   ].sort((a, b) => new Date(b.filled_date) - new Date(a.filled_date));
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import Modal from "../../components/common/Modal";
 
 export default function Trips() {
   const navigate = useNavigate();
@@ -17,6 +18,12 @@ export default function Trips() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
+
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   /* ---------------- LOAD DATA ---------------- */
   useEffect(() => {
@@ -61,7 +68,7 @@ export default function Trips() {
     let filtered = trips;
     if (activeTab === "upcoming") {
       filtered = trips.filter(t => t.trip_date >= today);
-    } else if (activeTab === "past") {
+    } else if (activeTab === "completed") {
       filtered = trips.filter(t => t.trip_date < today);
     }
 
@@ -85,13 +92,20 @@ export default function Trips() {
 
   /* ---------------- DELETE ---------------- */
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this trip?")) return;
-    try {
-      await api.delete(`/trips/${id}`);
-      fetchAllTrips();
-    } catch (err) {
-      alert("Failed to delete trip");
-    }
+    showModal(
+      "Confirm Delete", 
+      "Are you sure you want to delete this trip? This action cannot be undone.", 
+      "warning",
+      async () => {
+        try {
+          await api.delete(`/trips/${id}`);
+          fetchAllTrips();
+          closeModal();
+        } catch (err) {
+          showModal("Delete Error", "Failed to delete trip. Please try again.");
+        }
+      }
+    );
   };
 
   return (
@@ -118,7 +132,7 @@ export default function Trips() {
       {/* ---------- FILTERS & TABS ---------- */}
       <div className="space-y-6">
         <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">
-          {["upcoming", "past", "all"].map(tab => (
+          {["completed", "upcoming", "all"].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -259,6 +273,31 @@ export default function Trips() {
           </table>
         </div>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? () => {} : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      >
+        {modal.onConfirm && (
+          <div className="flex gap-3 mt-6">
+            <button 
+              onClick={modal.onConfirm}
+              className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs"
+            >
+              Delete
+            </button>
+            <button 
+              onClick={closeModal}
+              className="px-6 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

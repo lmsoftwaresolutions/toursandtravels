@@ -20,7 +20,9 @@ def create_vehicle(db: Session, vehicle: VehicleCreate):
         raise HTTPException(400, "Vehicle already exists")
 
     db_vehicle = Vehicle(
-        vehicle_number=vehicle.vehicle_number
+        vehicle_number=vehicle.vehicle_number,
+        vehicle_type=vehicle.vehicle_type,
+        seat_count=vehicle.seat_count,
     )
 
     db.add(db_vehicle)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
 import { formatDateDDMMYYYY } from "../../utils/date";
 
 export default function PaymentForm() {
@@ -8,6 +9,12 @@ export default function PaymentForm() {
   const [trips, setTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
+
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   const [form, setForm] = useState({
     trip_id: "",
@@ -62,12 +69,12 @@ export default function PaymentForm() {
   const submit = async (e) => {
     e.preventDefault();
     if (!selectedTrip) {
-      alert("Please select a trip");
+      showModal("Wait!", "Please select a trip first.");
       return;
     }
     const pending = Number(selectedTrip.pending_amount || 0);
     if (Number(form.amount) > pending) {
-      alert(`Amount cannot exceed pending amount (Rs. ${pending.toFixed(2)})`);
+      showModal("Validation Error", `Amount cannot exceed pending amount (₹ ${pending.toFixed(2)})`);
       return;
     }
 
@@ -79,10 +86,9 @@ export default function PaymentForm() {
         amount: Number(form.amount),
         notes: form.notes || null
       });
-      alert("Payment recorded successfully");
-      navigate("/payments");
+      showModal("Success", "Payment recorded successfully!", "success", () => navigate("/payments"));
     } catch (error) {
-      alert("Error recording payment: " + (error.response?.data?.detail || error.message));
+      showModal("Error", "Failed to record payment. Please try again.");
     }
   };
 
@@ -228,6 +234,14 @@ export default function PaymentForm() {
           </div>
         </form>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? modal.onConfirm : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }

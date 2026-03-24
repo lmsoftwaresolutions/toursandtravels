@@ -9,6 +9,7 @@ class Trip(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     trip_date = Column(Date, nullable=False)
+    booking_id = Column(String(100), nullable=True)
     departure_datetime = Column(DateTime(timezone=True))
     return_datetime = Column(DateTime(timezone=True))
     from_location = Column(String, nullable=False)
@@ -35,6 +36,10 @@ class Trip(Base):
     other_expenses = Column(Float, default=0)
     driver_bhatta = Column(Float, default=0)
     vendor = Column(String)
+
+    # 🔥 CUSTOMER & BOOKING FIELDS
+    customer_phone = Column(String, nullable=True)
+    customer_address = Column(String, nullable=True)
 
     # 🔥 CUSTOMER CHARGE FIELDS
     pricing_type = Column(String, default="per_km")  # per_km or package

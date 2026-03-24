@@ -8,7 +8,9 @@ class QuotationBase(BaseModel):
     address: Optional[str] = None
     mobile: Optional[str] = None
     quotation_date: date
+    vehicle_type: Optional[str] = None
     tour_description: Optional[str] = None
+    notes: Optional[str] = None
     approx_km: Optional[float] = 0
     rate_per_km: Optional[float] = 0
     no_of_buses: Optional[int] = 1

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import Modal from "../../components/common/Modal";
 
 export default function VehicleEdit() {
   const { vehicle_number } = useParams();
@@ -10,7 +11,15 @@ export default function VehicleEdit() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     vehicle_number: "",
+    vehicle_type: "seating",
+    seat_count: "",
   });
+
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   // Load existing vehicle data
   useEffect(() => {
@@ -19,11 +28,13 @@ export default function VehicleEdit() {
       .then((res) => {
         setFormData({
           vehicle_number: res.data.vehicle_number,
+          vehicle_type: res.data.vehicle_type || "seating",
+          seat_count: res.data.seat_count ? String(res.data.seat_count) : "",
         });
         setLoading(false);
       })
       .catch(() => {
-        alert("Failed to load vehicle");
+        showModal("Error", "Failed to load vehicle data");
         navigate("/vehicles");
       });
   }, [vehicle_number, navigate]);
@@ -31,11 +42,15 @@ export default function VehicleEdit() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/vehicles/${vehicle_number}`, formData);
-      alert("Vehicle updated successfully");
-      navigate(`/vehicles/${vehicle_number}`);
-    } catch {
-      alert("Failed to update vehicle");
+      const payload = {
+        vehicle_number: formData.vehicle_number,
+        vehicle_type: formData.vehicle_type || null,
+        seat_count: formData.seat_count ? Number(formData.seat_count) : null,
+      };
+      await api.put(`/vehicles/${vehicle_number}`, payload);
+      showModal("Success", "Vehicle updated successfully!", "success", () => navigate(`/vehicles/${formData.vehicle_number}`));
+    } catch (err) {
+      showModal("Error", err.response?.data?.detail || "Failed to update vehicle");
     }
   };
 
@@ -64,12 +79,39 @@ export default function VehicleEdit() {
               <input
                 type="text"
                 value={formData.vehicle_number}
-                disabled
-                className="w-full h-14 px-6 bg-slate-100 border border-slate-200 rounded-2xl text-xl font-black text-slate-400 cursor-not-allowed opacity-60"
+                onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
+                className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-xl font-black text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
               />
               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter ml-1 italic">
-                Vehicle number cannot be changed here
+                Update the vehicle registration number (caution: affects related records)
               </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Type</label>
+                <select
+                  value={formData.vehicle_type}
+                  onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
+                  className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                  required
+                >
+                  <option value="seating">Seating</option>
+                  <option value="sleeper">Sleeper</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">No. of Seats</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.seat_count}
+                  onChange={(e) => setFormData({ ...formData, seat_count: e.target.value })}
+                  className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  placeholder="e.g. 32"
+                  required
+                />
+              </div>
             </div>
           </div>
 
@@ -90,6 +132,14 @@ export default function VehicleEdit() {
           </div>
         </form>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? modal.onConfirm : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }

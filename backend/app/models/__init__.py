@@ -12,6 +12,7 @@ from app.models.trip import Trip  # noqa: F401
 from app.models.trip_driver_change import TripDriverChange  # noqa: F401
 from app.models.trip_pricing_item import TripPricingItem  # noqa: F401
 from app.models.trip_vehicle import TripVehicle  # noqa: F401
+from app.models.trip_vehicle_expense import TripVehicleExpense  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.vehicle import Vehicle  # noqa: F401
 from app.models.vehicle_note import VehicleNote  # noqa: F401

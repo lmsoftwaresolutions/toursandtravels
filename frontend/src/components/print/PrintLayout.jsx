@@ -13,14 +13,14 @@ export default function PrintLayout({ children, title }) {
         NATH KRUPA
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 print:p-0 relative z-10 flex flex-col min-h-[95vh] print:min-h-[280mm]">
+      <div className="max-w-4xl mx-auto px-6 print:px-2 print:py-0 relative z-10 flex flex-col min-h-0 print:min-h-0 print:h-auto">
         {/* Header */}
         <div className="flex justify-between items-start border-b-2 border-red-600 pb-3 mb-6">
           <div className="flex flex-col items-start gap-1">
             <img src={NathkrupaLogo} alt="Logo" className="h-20 w-auto object-contain" />
             <div className="bg-yellow-50 px-2 py-0.5 rounded border border-yellow-100">
               <p className="text-[9px] font-bold text-red-600 uppercase italic">
-                All type of busses available for marriage picnics and package tours
+                All type of Sleeper Coach and Seating busses available for marriage picnics and package tours
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export default function PrintLayout({ children, title }) {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 flex justify-between items-end border-t border-slate-100 pt-4 pb-2">
+        <div className="mt-8 print:mt-4 flex justify-between items-end border-t border-slate-100 pt-4 print:pt-2 pb-2">
           <div className="w-1/4 opacity-90">
              <img src={NathkrupaBus} alt="Bus" className="w-full h-auto object-contain" />
           </div>
@@ -89,6 +89,9 @@ export default function PrintLayout({ children, title }) {
           }
           .print-layout-container {
             min-height: auto !important;
+            transform: scale(0.94);
+            transform-origin: top left;
+            width: calc(100% / 0.94);
           }
           .no-print {
             display: none !important;
