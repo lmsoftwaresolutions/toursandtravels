@@ -60,8 +60,15 @@ export default function TripDetails() {
   const pricingLabel = trip.pricing_type === "package" ? "Package" : "Per KM";
   const pricingItems = (trip.pricing_items || []).filter(i => i.item_type !== "charge");
   const chargeItems = (trip.pricing_items || []).filter(i => i.item_type === "charge");
-  const fuelTotal = (trip.diesel_used ?? 0) + (trip.petrol_used ?? 0);
-  const fuelRate = trip.fuel_litres ? fuelTotal / trip.fuel_litres : 0;
+  const fuelTotal = (trip.vehicles || []).reduce(
+    (sum, v) => sum + Number(v.fuel_cost || 0),
+    0
+  );
+  const fuelRate = trip.fuel_litres ? ((trip.diesel_used ?? 0) + (trip.petrol_used ?? 0)) / trip.fuel_litres : 0;
+  const fuelVendors = Array.from(
+    new Set((trip.vehicles || []).map((v) => v.fuel_vendor).filter(Boolean))
+  );
+  const fuelVendorLabel = fuelVendors.length ? fuelVendors.join(", ") : (trip.vendor || "In-House");
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -127,7 +134,7 @@ export default function TripDetails() {
             <RowItem label="Driver" value={driverName || "N/A"} />
             <RowItem label="Customer" value={customerName || "N/A"} />
             <RowItem label="Distance" value={`${trip.distance_km} km`} highlight />
-            <RowItem label="Vendor" value={trip.vendor || "In-House"} />
+            <RowItem label="Fuel Vendor" value={fuelVendorLabel} />
           </div>
         </div>
 
@@ -141,9 +148,9 @@ export default function TripDetails() {
           </h2>
           <div className="grid grid-cols-2 gap-6 pb-8 border-b border-slate-100">
             <RowItem label="Pricing Type" value={pricingLabel} />
-            <RowItem label="Unit Velocity Cost" value={`₹${trip.cost_per_km}/KM`} />
-            <RowItem label="Toll Charged" value={`₹${trip.charged_toll_amount}`} />
-            <RowItem label="Parking Charged" value={`₹${trip.charged_parking_amount}`} />
+            <RowItem label="Rate per KM" value={`₹${trip.cost_per_km}/KM`} />
+            <RowItem label="Customer Toll" value={`₹${trip.charged_toll_amount}`} />
+            <RowItem label="Customer Parking" value={`₹${trip.charged_parking_amount}`} />
           </div>
           <div className="pt-8 space-y-4">
             <div className="flex justify-between items-center group/row">
@@ -205,11 +212,11 @@ export default function TripDetails() {
             <CostChip label="Toll" value={trip.toll_amount} color="slate" />
             <CostChip label="Parking" value={trip.parking_amount} color="slate" />
             <CostChip label="Other Expenses" value={trip.other_expenses} color="rose" />
-            <CostChip label="Driver Bhatta" value={trip.driver_bhatta} color="blue" />
+            <CostChip label="Driver Allowance" value={trip.driver_bhatta} color="blue" />
             <div className="col-span-2 mt-4 p-6 bg-slate-900 rounded-[2rem] flex justify-between items-center group overflow-hidden relative">
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8 blur-2xl group-hover:scale-150 transition-transform duration-700" />
               <div className="relative z-10">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Trip Cost</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Trip Expenses</p>
                 <p className="text-2xl font-black text-white tracking-tighter">₹{Number(trip.total_cost || 0).toLocaleString()}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center relative z-10">
@@ -241,4 +248,3 @@ function CostChip({ label, value, color }) {
     </div>
   );
 }
-

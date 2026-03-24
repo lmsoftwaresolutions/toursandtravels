@@ -6,18 +6,21 @@ class CustomerCreate(BaseModel):
     name: str
     phone: str | None = None
     email: str | None = None
+    address: str | None = None
 
 
 class CustomerUpdate(BaseModel):
     name: str
     phone: str | None = None
     email: str | None = None
+    address: str | None = None
 
 class CustomerResponse(BaseModel):
     id: int
     name: str
     phone: str | None = None
     email: str | None = None
+    address: str | None = None
     total_trips: int
     total_billed: float
     pending_balance: float

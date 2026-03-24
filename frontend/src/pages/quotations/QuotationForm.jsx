@@ -14,12 +14,13 @@ export default function QuotationForm() {
     customer_name: "",
     address: "",
     mobile: "",
+    vehicle_type: "",
     tour_description: "",
+    notes: "",
     approx_km: "",
     rate_per_km: "",
     no_of_buses: 1,
     trip_cost: 0,
-    mp_tax: 0,
     border_entry: 0,
     toll: 0,
     total_amount: 0,
@@ -49,7 +50,7 @@ export default function QuotationForm() {
     const rate = Number(form.rate_per_km || 0);
     const tripCost = km * rate;
     
-    const extraExp = Number(form.mp_tax || 0) + Number(form.border_entry || 0) + Number(form.toll || 0);
+    const extraExp = Number(form.border_entry || 0) + Number(form.toll || 0);
     const totalPerBus = tripCost + extraExp;
     const finalTotal = totalPerBus * Number(form.no_of_buses || 1);
 
@@ -59,7 +60,7 @@ export default function QuotationForm() {
       total_amount: finalTotal,
       amount_in_words: numberToWords(finalTotal)
     }));
-  }, [form.approx_km, form.rate_per_km, form.mp_tax, form.border_entry, form.toll, form.no_of_buses]);
+  }, [form.approx_km, form.rate_per_km, form.border_entry, form.toll, form.no_of_buses]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -114,6 +115,7 @@ export default function QuotationForm() {
             <Field label="Customer Name" name="customer_name" value={form.customer_name} onChange={handleChange} required />
             <Field label="Address" name="address" value={form.address} onChange={handleChange} className="md:col-span-2" />
             <Field label="Mobile Number" name="mobile" value={form.mobile} onChange={handleChange} />
+            <Field label="Vehicle Type" name="vehicle_type" value={form.vehicle_type} onChange={handleChange} />
           </div>
         </div>
 
@@ -132,6 +134,18 @@ export default function QuotationForm() {
               rows="3"
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
               placeholder="e.g. Ahmednagar - Ashti - Malegaon - Zambuwa - Back"
+            />
+          </div>
+
+          <div className="space-y-6">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Notes</label>
+            <textarea
+              name="notes"
+              value={form.notes}
+              onChange={handleChange}
+              rows="2"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
+              placeholder="Additional notes or terms..."
             />
           </div>
 
@@ -154,8 +168,7 @@ export default function QuotationForm() {
             Extra Expenses
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Field label="MP TAX" name="mp_tax" value={form.mp_tax} onChange={handleChange} type="number" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Field label="BORDER ENTRY" name="border_entry" value={form.border_entry} onChange={handleChange} type="number" />
             <Field label="TOLL (APROX)" name="toll" value={form.toll} onChange={handleChange} type="number" />
           </div>

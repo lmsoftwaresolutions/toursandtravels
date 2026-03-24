@@ -16,6 +16,25 @@ class TripVehicle(Base):
     distance_km = Column(Integer, nullable=True)
     driver_bhatta = Column(Float, default=0)
 
+    # NEW: Per-vehicle financials
+    fuel_cost = Column(Float, default=0)
+    fuel_litres = Column(Float, default=0)
+    diesel_used = Column(Float, default=0)
+    petrol_used = Column(Float, default=0)
+    fuel_price = Column(Float, default=0)
+    fuel_vendor = Column(String, nullable=True)
+    toll_amount = Column(Float, default=0)
+    parking_amount = Column(Float, default=0)
+    other_expenses = Column(Float, default=0)
+    bus_type = Column(String, nullable=True)
+
     trip = relationship("Trip", back_populates="vehicles")
     vehicle = relationship("Vehicle")
     driver = relationship("Driver")
+    
+    expenses = relationship(
+        "TripVehicleExpense",
+        back_populates="trip_vehicle",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )

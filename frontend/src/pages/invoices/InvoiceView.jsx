@@ -68,11 +68,11 @@ export default function InvoiceView() {
       : Number(trip.distance_km || 0) * Number(trip.cost_per_km || 0);
 
     const computedFareLabel = trip.pricing_type === "package" ? "Package Fare" : "Base Fare";
-    
+
     // For per_km, we show (total_distance / vehicles) to clarify it's per-vehicle distance
     // if that matches the quantity label logic.
     const distancePerVehicle = Number(trip.distance_km || 0) / vehicles;
-    
+
     const computedFareQuantity = trip.pricing_type === "package"
       ? `${tripDays} day(s) x ${vehicles} vehicle(s)`
       : `${distancePerVehicle.toFixed(1)} km x ${vehicles} vehicle(s)`;
@@ -219,25 +219,41 @@ export default function InvoiceView() {
 
       <PrintLayout>
         <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 border-y-2 border-slate-900 py-2">
-           TAX INVOICE
+          INVOICE
         </div>
 
         <div className="grid grid-cols-2 gap-8 mb-8 border-2 border-slate-900 p-6">
           <div className="border-r-2 border-slate-900 pr-6">
             <h2 className="text-[12px] font-black uppercase mb-3 text-red-600">Bill To:</h2>
             <p className="text-xl font-black text-slate-900 leading-tight">{customer.name}</p>
-            <p className="text-[12px] font-bold text-slate-700 mt-2">{customer.address || "No Address Provided"}</p>
-            {customer?.phone ? <p className="text-[12px] font-bold text-slate-700">Phone: {customer.phone}</p> : null}
+            <p className="text-[12px] font-bold text-slate-700 mt-2">{trip.customer_address || customer.address || "No Address Provided"}</p>
+            {(trip.customer_phone || customer?.phone) ? (
+              <p className="text-[12px] font-bold text-slate-700">Phone: {trip.customer_phone || customer.phone}</p>
+            ) : null}
           </div>
           <div className="pl-6 space-y-2">
             <div className="flex justify-between items-center bg-slate-100 p-2 px-4 rounded border border-slate-200">
-               <span className="font-black text-[10px] uppercase">Invoice No:</span>
-               <span className="font-black text-sm">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
+              <span className="font-black text-[10px] uppercase">Invoice No:</span>
+              <span className="font-black text-sm">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
             </div>
             <div className="flex justify-between items-center p-2 px-4">
-               <span className="font-black text-[10px] uppercase">Date:</span>
-               <span className="font-black text-sm">{formatDateDDMMYYYY(trip.trip_date)}</span>
+              <span className="font-black text-[10px] uppercase">Date:</span>
+              <span className="font-black text-sm">{formatDateDDMMYYYY(trip.trip_date)}</span>
             </div>
+            <div className="flex justify-between items-start p-2 px-4">
+              <span className="font-black text-[10px] uppercase text-slate-500">Route:</span>
+              <span className="font-black text-[11px] text-slate-800 text-right uppercase">
+                {trip.from_location} {trip.to_location ? `To ${trip.to_location}` : ""}
+              </span>
+            </div>
+            {trip.bus_type ? (
+              <div className="flex justify-between items-start p-2 px-4">
+                <span className="font-black text-[10px] uppercase text-slate-500">Vehicle Type:</span>
+                <span className="font-black text-[11px] text-slate-800 text-right uppercase">
+                  {trip.bus_type}
+                </span>
+              </div>
+            ) : null}
             {printTimestamp ? <p className="text-[8px] text-right text-slate-400 italic">Printed: {printTimestamp}</p> : null}
           </div>
         </div>
@@ -269,12 +285,12 @@ export default function InvoiceView() {
               })}
               {/* Filler Rows to maintain layout */}
               {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
-                <tr key={`filler-${i}`} className="h-10">
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td></td>
+                <tr key={`filler-${i}`} className="h-10 print:hidden">
+                  <td className="border-r-2 border-slate-100"></td>
+                  <td className="border-r-2 border-slate-100"></td>
+                  <td className="border-r-2 border-slate-100"></td>
+                  <td className="border-r-2 border-slate-100"></td>
+                  <td></td>
                 </tr>
               ))}
             </tbody>
@@ -288,26 +304,24 @@ export default function InvoiceView() {
         </div>
 
         <div className="grid grid-cols-2 gap-8">
-           <div className="p-4 border-2 border-slate-100 rounded-lg bg-slate-50/50">
-              <h3 className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Payment Summary</h3>
-              <div className="space-y-1">
-                 <div className="flex justify-between text-xs font-bold">
-                    <span>Paid Amount:</span>
-                    <span className="text-emerald-700">Rs. {totalPaid.toFixed(2)}</span>
-                 </div>
-                 <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-1">
-                    <span>Balance Due:</span>
-                    <span className="text-red-700 underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
-                 </div>
+          <div className="p-4 border-2 border-slate-100 rounded-lg bg-slate-50/50">
+            <h3 className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Payment Summary</h3>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs font-bold">
+                <span>Paid Amount:</span>
+                <span className="text-emerald-700">Rs. {totalPaid.toFixed(2)}</span>
               </div>
-           </div>
-           <div className="flex flex-col justify-end text-right italic text-slate-400 text-[10px]">
-              * This is a computer generated invoice and does not require signature unless printed for official use.
-           </div>
+              <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-1">
+                <span>Balance Due:</span>
+                <span className="text-red-700 underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col justify-end text-right italic text-slate-400 text-[10px]">
+            * This is a computer generated invoice and does not require signature unless printed for official use.
+          </div>
         </div>
       </PrintLayout>
     </div>
   );
 }
-
-

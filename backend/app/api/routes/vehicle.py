@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import SessionLocal
 from app.models.vehicle import Vehicle
-from app.schemas.vehicle import VehicleCreate, VehicleResponse
+from app.schemas.vehicle import VehicleCreate, VehicleResponse, VehicleUpdate
 from app.services.vehicle_service import (
     create_vehicle,
     get_all_vehicles,
@@ -63,6 +63,7 @@ def remove_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
 @router.put("/{vehicle_number}", response_model=VehicleResponse)
 def update_vehicle(
     vehicle_number: str,
+    update_data: VehicleUpdate,
     db: Session = Depends(get_db),
 ):
     vehicle = db.query(Vehicle).filter(
@@ -71,6 +72,31 @@ def update_vehicle(
 
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    new_number = update_data.vehicle_number
+
+    if new_number != vehicle_number:
+        # Check if new number already exists
+        existing = db.query(Vehicle).filter(Vehicle.vehicle_number == new_number).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="New vehicle number already exists")
+
+        # Update all related tables manually if not using ON UPDATE CASCADE
+        from app.models.trip import Trip
+        from app.models.fuel import Fuel
+        from app.models.maintenance import Maintenance
+
+        db.query(Trip).filter(Trip.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
+        db.query(Fuel).filter(Fuel.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
+        db.query(Maintenance).filter(Maintenance.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
+
+        vehicle.vehicle_number = new_number
+
+    if update_data.vehicle_type is not None:
+        vehicle.vehicle_type = update_data.vehicle_type
+
+    if update_data.seat_count is not None:
+        vehicle.seat_count = update_data.seat_count
 
     db.commit()
     db.refresh(vehicle)

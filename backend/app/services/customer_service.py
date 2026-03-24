@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from app.models.customer import Customer
 from app.models.trip import Trip
 
-def create_customer(db: Session, name: str, phone: str | None = None, email: str | None = None):
+def create_customer(db: Session, name: str, phone: str | None = None, email: str | None = None, address: str | None = None):
     normalized_name = name.strip() if name else ""
     if not normalized_name:
         raise HTTPException(status_code=400, detail="Customer name is required")
@@ -13,7 +13,7 @@ def create_customer(db: Session, name: str, phone: str | None = None, email: str
     if existing:
         return existing
 
-    customer = Customer(name=normalized_name, phone=phone, email=email)
+    customer = Customer(name=normalized_name, phone=phone, email=email, address=address)
     db.add(customer)
     try:
         db.commit()
@@ -33,13 +33,14 @@ def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.id == customer_id).first()
 
 
-def update_customer(db: Session, customer_id: int, name: str, phone: str | None = None, email: str | None = None):
+def update_customer(db: Session, customer_id: int, name: str, phone: str | None = None, email: str | None = None, address: str | None = None):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         return None
     customer.name = name
     customer.phone = phone
     customer.email = email
+    customer.address = address
     db.commit()
     db.refresh(customer)
     return customer

@@ -29,7 +29,7 @@ def get_db():
 
 @router.post("", response_model=CustomerResponse)
 def add_customer(data: CustomerCreate, db: Session = Depends(get_db)):
-    return create_customer(db, data.name, data.phone, data.email)
+    return create_customer(db, data.name, data.phone, data.email, data.address)
 
 @router.get("", response_model=list[CustomerResponse])
 def list_customers(db: Session = Depends(get_db)):
@@ -42,7 +42,7 @@ def customer_details(customer_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{customer_id}", response_model=CustomerResponse)
 def edit_customer(customer_id: int, data: CustomerUpdate, db: Session = Depends(get_db)):
-    customer = update_customer(db, customer_id, data.name, data.phone, data.email)
+    customer = update_customer(db, customer_id, data.name, data.phone, data.email, data.address)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer

@@ -103,6 +103,17 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
             "end_km": end_km,
             "distance_km": distance_km if distance_km is not None else derived_distance,
             "driver_bhatta": driver_bhatta or 0,
+            "fuel_cost": _get_entry_value(item, "fuel_cost", 0),
+            "fuel_litres": _get_entry_value(item, "fuel_litres", 0),
+            "diesel_used": _get_entry_value(item, "diesel_used", 0),
+            "petrol_used": _get_entry_value(item, "petrol_used", 0),
+            "fuel_price": _get_entry_value(item, "fuel_price", 0),
+            "fuel_vendor": _get_entry_value(item, "fuel_vendor", None),
+            "toll_amount": _get_entry_value(item, "toll_amount", 0),
+            "parking_amount": _get_entry_value(item, "parking_amount", 0),
+            "other_expenses": _get_entry_value(item, "other_expenses", 0),
+            "expenses": _get_entry_value(item, "expenses", []),
+            "driver_changes": _get_entry_value(item, "driver_changes", []),
         })
 
     if not validated:
@@ -135,8 +146,10 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
         db.delete(entry)
     db.flush()
 
+    from app.models.trip_vehicle_expense import TripVehicleExpense
+
     for entry in trip_vehicles:
-        db.add(TripVehicle(
+        tv = TripVehicle(
             trip_id=trip.id,
             vehicle_number=entry["vehicle_number"],
             driver_id=entry["driver_id"],
@@ -144,7 +157,40 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             end_km=entry["end_km"] or 0,
             distance_km=entry["distance_km"],
             driver_bhatta=entry["driver_bhatta"] or 0,
-        ))
+            fuel_cost=entry["fuel_cost"],
+            fuel_litres=entry["fuel_litres"],
+            diesel_used=entry.get("diesel_used", 0) if isinstance(entry, dict) else (entry.diesel_used or 0),
+            petrol_used=entry.get("petrol_used", 0) if isinstance(entry, dict) else (entry.petrol_used or 0),
+            fuel_price=entry.get("fuel_price", 0) if isinstance(entry, dict) else (entry.fuel_price or 0),
+            fuel_vendor=entry.get("fuel_vendor") if isinstance(entry, dict) else entry.fuel_vendor,
+            toll_amount=entry["toll_amount"],
+            parking_amount=entry["parking_amount"],
+            other_expenses=entry["other_expenses"],
+            bus_type=entry.get("bus_type") if isinstance(entry, dict) else entry.bus_type,
+        )
+        db.add(tv)
+        db.flush() # Get tv.id for nested expenses
+
+        # Save per-vehicle expenses
+        for exp in entry["expenses"]:
+            db.add(TripVehicleExpense(
+                trip_vehicle_id=tv.id,
+                expense_type=exp.expense_type if hasattr(exp, "expense_type") else exp.get("expense_type"),
+                amount=exp.amount if hasattr(exp, "amount") else exp.get("amount", 0),
+                notes=exp.notes if hasattr(exp, "notes") else exp.get("notes"),
+            ))
+        
+        # Save per-vehicle driver changes
+        for dc in entry["driver_changes"]:
+            db.add(TripDriverChange(
+                trip_id=trip.id,
+                driver_id=dc.driver_id if hasattr(dc, "driver_id") else dc.get("driver_id"),
+                start_time=dc.start_time if hasattr(dc, "start_time") else dc.get("start_time"),
+                end_time=dc.end_time if hasattr(dc, "end_time") else dc.get("end_time"),
+                vehicle_number=entry["vehicle_number"], # Linked by number
+                notes=dc.notes if hasattr(dc, "notes") else dc.get("notes"),
+            ))
+
         entry["vehicle"].total_trips += 1
         entry["vehicle"].total_km += (entry["distance_km"] or 0)
 
@@ -180,10 +226,11 @@ def _save_driver_changes(db: Session, trip_id: int, driver_changes):
     for dc in (driver_changes or []):
         db.add(TripDriverChange(
             trip_id=trip_id,
-            driver_id=dc.driver_id,
-            start_time=dc.start_time,
-            end_time=dc.end_time,
-            notes=dc.notes
+            driver_id=dc.driver_id if hasattr(dc, "driver_id") else dc.get("driver_id"),
+            start_time=dc.start_time if hasattr(dc, "start_time") else dc.get("start_time"),
+            end_time=dc.end_time if hasattr(dc, "end_time") else dc.get("end_time"),
+            vehicle_number=dc.vehicle_number if hasattr(dc, "vehicle_number") else dc.get("vehicle_number"),
+            notes=dc.notes if hasattr(dc, "notes") else dc.get("notes")
         ))
 
 
@@ -192,6 +239,13 @@ def create_trip(db: Session, trip_data: TripCreate):
         raise HTTPException(400, "Discount must be between ₹500 and ₹1000")
     if not trip_data.invoice_number or trip_data.invoice_number.strip() == "":
         raise HTTPException(400, "Invoice number is required")
+    existing_invoice = (
+        db.query(Trip)
+        .filter(Trip.invoice_number == trip_data.invoice_number.strip())
+        .first()
+    )
+    if existing_invoice:
+        raise HTTPException(400, "Invoice number already exists")
     if trip_data.pricing_type not in {"per_km", "package"}:
         raise HTTPException(400, "Invalid pricing type")
 
@@ -215,14 +269,13 @@ def create_trip(db: Session, trip_data: TripCreate):
     if not customer:
         raise HTTPException(404, "Customer not found")
 
-    total_cost = (
-        trip_data.diesel_used +
-        trip_data.petrol_used +
-        trip_data.toll_amount +
-        trip_data.parking_amount +
-        trip_data.other_expenses +
-        total_driver_bhatta
+    total_vehicle_expenses = sum(
+        entry["fuel_cost"] + entry["toll_amount"] + entry["parking_amount"] + entry["other_expenses"] + entry["driver_bhatta"] +
+        sum(exp.get("amount", 0) if isinstance(exp, dict) else (exp.amount or 0) for exp in entry["expenses"])
+        for entry in validated_trip_vehicles
     )
+
+    total_cost = total_vehicle_expenses
 
     pricing_items = trip_data.pricing_items or []
     charge_items = trip_data.charge_items or []
@@ -266,6 +319,8 @@ def create_trip(db: Session, trip_data: TripCreate):
         to_location=trip_data.to_location,
         route_details=trip_data.route_details,
         customer_id=trip_data.customer_id,
+        customer_phone=trip_data.customer_phone,
+        customer_address=trip_data.customer_address,
         bus_type=trip_data.bus_type,
         diesel_used=trip_data.diesel_used,
         petrol_used=trip_data.petrol_used,
@@ -334,6 +389,16 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
         raise HTTPException(400, "Discount must be between ₹500 and ₹1000")
     if data.pricing_type not in {"per_km", "package"}:
         raise HTTPException(400, "Invalid pricing type")
+    if not data.invoice_number or data.invoice_number.strip() == "":
+        raise HTTPException(400, "Invoice number is required")
+    if data.invoice_number.strip() != (trip.invoice_number or ""):
+        existing_invoice = (
+            db.query(Trip)
+            .filter(Trip.invoice_number == data.invoice_number.strip(), Trip.id != trip.id)
+            .first()
+        )
+        if existing_invoice:
+            raise HTTPException(400, "Invoice number already exists")
 
     uses_explicit_vehicle_entries = bool(data.vehicles)
     validated_trip_vehicles = _validate_trip_vehicles(db, _normalize_trip_vehicles(data))
@@ -354,6 +419,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     prior_total_charged = trip.total_charged
     prior_pending = trip.pending_amount
 
+    trip.invoice_number = data.invoice_number.strip()
     trip.trip_date = data.trip_date
     trip.departure_datetime = data.departure_datetime
     trip.return_datetime = data.return_datetime
@@ -361,6 +427,8 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     trip.to_location = data.to_location
     trip.route_details = data.route_details
     trip.customer_id = data.customer_id
+    trip.customer_phone = data.customer_phone
+    trip.customer_address = data.customer_address
     trip.bus_type = data.bus_type
     trip.diesel_used = data.diesel_used
     trip.petrol_used = data.petrol_used

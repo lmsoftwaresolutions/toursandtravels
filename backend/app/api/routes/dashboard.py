@@ -47,7 +47,11 @@ def dashboard_summary(
     # -------- TRIPS --------
     trip_query = db.query(Trip)
     if start_date and end_date:
-        trip_query = trip_query.filter(Trip.trip_date.between(start_date, end_date))
+        # Pivot: Use departure_datetime if available, else fallback to trip_date
+        # We compare just the date part of departure_datetime
+        trip_query = trip_query.filter(
+            func.coalesce(func.date(Trip.departure_datetime), Trip.trip_date).between(start_date, end_date)
+        )
     total_trips = trip_query.with_entities(func.count(Trip.id)).scalar() or 0
 
     # -------- REVENUE --------

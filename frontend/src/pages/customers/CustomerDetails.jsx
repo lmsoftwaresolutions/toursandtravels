@@ -33,7 +33,7 @@ export default function CustomerDetails() {
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center border-b border-slate-100 pb-8">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Client Intelligence</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Client Information</h1>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Relationship management and financial oversight</p>
         </div>
 
@@ -49,7 +49,7 @@ export default function CustomerDetails() {
             onClick={() => navigate("/customers")}
             className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 hover:scale-105 transition-all text-sm"
           >
-            Network Directory
+            Customer Directory
           </button>
         </div>
       </div>
@@ -62,6 +62,13 @@ export default function CustomerDetails() {
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Partner Client</p>
           <p className="text-2xl font-black text-slate-800 mt-2 tracking-tight">{customer.name}</p>
+          {(customer.phone || customer.email || customer.address) && (
+            <div className="mt-3 space-y-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              {customer.phone && <div>Phone: {customer.phone}</div>}
+              {customer.email && <div>Email: {customer.email}</div>}
+              {customer.address && <div>Address: {customer.address}</div>}
+            </div>
+          )}
           <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-blue-100">
             Enterprise Grade
           </div>
@@ -91,12 +98,12 @@ export default function CustomerDetails() {
         <div className="p-10 border-b border-slate-100 flex flex-col md:flex-row md:justify-between md:items-center gap-6">
           <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
             <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-            Mission Registry
+            Trip Info
           </h3>
           <div className="relative group w-full md:w-96">
             <input
               className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-              placeholder="Search by manifest number..."
+              placeholder="Search by Invoice number..."
               value={searchInvoice}
               onChange={(e) => setSearchInvoice(e.target.value)}
             />
@@ -110,12 +117,12 @@ export default function CustomerDetails() {
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Manifest ID</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Dispatched On</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Trajectory</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Customer ID</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Trip On</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Route</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Distance</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Valuation</th>
-                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Balance</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Total Cost</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Pending</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">

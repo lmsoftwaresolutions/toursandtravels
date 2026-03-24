@@ -5,13 +5,23 @@ import api from "../../services/api";
 export default function CustomerEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.get(`/customers/${id}`)
-      .then(res => setName(res.data.name))
+      .then(res => setFormData({
+        name: res.data.name || "",
+        phone: res.data.phone || "",
+        email: res.data.email || "",
+        address: res.data.address || "",
+      }))
       .catch(() => setError("Failed to load customer"));
   }, [id]);
 
@@ -19,7 +29,7 @@ export default function CustomerEdit() {
     e.preventDefault();
     setError("");
 
-    if (!name.trim()) {
+    if (!formData.name.trim()) {
       setError("Customer name is required");
       return;
     }
@@ -28,7 +38,12 @@ export default function CustomerEdit() {
       setLoading(true);
 
       // ✅ FIX: trailing slash added
-      await api.put(`/customers/${id}`, { name: name.trim() });
+      await api.put(`/customers/${id}`, {
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || null,
+        email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+      });
 
       navigate(`/customers/${id}`);
     } catch (err) {
@@ -60,9 +75,40 @@ export default function CustomerEdit() {
               <input
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                 placeholder="Client Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                <input
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="+91-0000000000"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email</label>
+                <input
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="name@company.com"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Address</label>
+              <input
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                placeholder="Street, City, Zip"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
           </div>

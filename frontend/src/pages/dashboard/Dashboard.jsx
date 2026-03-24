@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import Modal from "../../components/common/Modal";
 
 const formatDateWithDay = (dateStr) => {
   if (!dateStr) return "";
@@ -24,11 +25,16 @@ export default function Dashboard() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
   );
 
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const showModal = (title, message, type = "error") => setModal({ isOpen: true, title, message, type });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
+
   useEffect(() => {
     if (isAdmin) {
       api.get("/dashboard", { params: { month: dashboardMonth } })
         .then(res => setData(res.data))
-        .catch(() => alert("Failed to load dashboard"))
+        .catch(() => showModal("Error", "Failed to load dashboard data"))
         .finally(() => setLoading(false));
     } else {
       Promise.all([
@@ -41,7 +47,7 @@ export default function Dashboard() {
           setTrips(tripsRes.data || []);
           setDrivers(driversRes.data || []);
         })
-        .catch(() => alert("Failed to load dashboard"))
+        .catch(() => showModal("Error", "Failed to load dashboard data"))
         .finally(() => setLoading(false));
     }
   }, [isAdmin, dashboardMonth]);
@@ -123,6 +129,14 @@ export default function Dashboard() {
           />
         </div>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }
@@ -171,7 +185,11 @@ function TripScheduleChart({
     api.get("/trips").then(res => {
       setTrips(
         (res.data || []).sort(
-          (a, b) => new Date(a.trip_date) - new Date(b.trip_date)
+          (a, b) => {
+            const dateA = new Date(a.departure_datetime || a.trip_date);
+            const dateB = new Date(b.departure_datetime || b.trip_date);
+            return dateA - dateB;
+          }
         )
       );
     });
@@ -233,11 +251,18 @@ function TripScheduleChart({
   }, []);
 
   const tripsByDate = useMemo(() => {
-    const filteredTrips = trips.filter(t => t.trip_date?.startsWith(scheduleMonth));
     const grouped = {};
-    filteredTrips.forEach(t => {
-      if (!grouped[t.trip_date]) grouped[t.trip_date] = [];
-      grouped[t.trip_date].push(t);
+    trips.forEach(t => {
+      // Priority: departure_datetime > trip_date
+      let effectiveDate = t.trip_date;
+      if (t.departure_datetime) {
+        effectiveDate = t.departure_datetime.split("T")[0];
+      }
+
+      if (effectiveDate && effectiveDate.startsWith(scheduleMonth)) {
+        if (!grouped[effectiveDate]) grouped[effectiveDate] = [];
+        grouped[effectiveDate].push(t);
+      }
     });
     return grouped;
   }, [trips, scheduleMonth]);
