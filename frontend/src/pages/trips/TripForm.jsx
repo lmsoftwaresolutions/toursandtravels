@@ -40,6 +40,34 @@ const formatDateDDMMYYYY = (dateString) => {
   });
 };
 
+const createInitialFormState = () => ({
+  trip_date: new Date().toISOString().split("T")[0],
+  booking_id: "",
+  customer_id: "",
+  customer_name: "",
+  customer_phone: "",
+  customer_address: "",
+  from_location: "",
+  to_location: "",
+  route_details: "",
+  number_of_vehicles: 1,
+  bus_type: "",
+  bus_detail: "",
+  cost_per_km: "",
+  charged_toll_amount: "",
+  charged_parking_amount: "",
+  other_expenses: "",
+  discount_amount: "",
+  amount_received: "",
+  advance_payment: "", // Note: legacy field
+  pricing_type: "per_km",
+  package_amount: "",
+  vendor: "",
+  invoice_number: "",
+  departure_datetime: "",
+  return_datetime: "",
+});
+
 export default function TripForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -51,33 +79,7 @@ export default function TripForm() {
   const showModal = (title, message, type = "error") => setModal({ isOpen: true, title, message, type });
   const closeModal = () => setModal({ ...modal, isOpen: false });
 
-  const [form, setForm] = useState({
-    trip_date: new Date().toISOString().split("T")[0],
-    booking_id: "",
-    customer_id: "",
-    customer_name: "",
-    customer_phone: "",
-    customer_address: "",
-    from_location: "",
-    to_location: "",
-    route_details: "",
-    number_of_vehicles: 1,
-    bus_type: "",
-    bus_detail: "",
-    cost_per_km: "",
-    charged_toll_amount: "",
-    charged_parking_amount: "",
-    other_expenses: "",
-    discount_amount: "",
-    amount_received: "",
-    advance_payment: "", // Note: legacy field
-    pricing_type: "per_km",
-    package_amount: "",
-    vendor: "",
-    invoice_number: "",
-    departure_datetime: "",
-    return_datetime: "",
-  });
+  const [form, setForm] = useState(createInitialFormState());
 
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -105,6 +107,25 @@ export default function TripForm() {
 
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
+  const DRAFT_KEY = "tripFormDraft:new";
+
+  const saveDraft = () => {
+    const payload = {
+      form,
+      vehicleEntries,
+      pricingItems,
+      chargeItems,
+      driverChanges,
+      driverExpenses,
+      advancePayments,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+  };
 
   /* ============ DATA LOADING ============ */
   useEffect(() => {
@@ -125,6 +146,9 @@ export default function TripForm() {
         if (isEdit && id) {
           const tripRes = await api.get(`/trips/${id}`);
           const trip = tripRes.data;
+          const customerRecord =
+            trip.customer ||
+            (cRes.data || []).find((c) => c.id === trip.customer_id);
 
           setForm({
             trip_date: trip.trip_date ? trip.trip_date.split("T")[0] : "",
@@ -134,10 +158,10 @@ export default function TripForm() {
             from_location: trip.from_location || "",
             to_location: trip.to_location || "",
             route_details: trip.route_details || "",
-            customer_name: trip.customer?.name || "",
+            customer_name: customerRecord?.name || "",
             customer_id: String(trip.customer_id || ""),
-            customer_phone: trip.customer_phone || trip.customer?.phone || "",
-            customer_address: trip.customer_address || trip.customer?.address || "",
+            customer_phone: trip.customer_phone || customerRecord?.phone || "",
+            customer_address: trip.customer_address || customerRecord?.address || "",
             number_of_vehicles: trip.number_of_vehicles || 1,
             bus_type: trip.bus_type || "",
             bus_detail: trip.bus_detail || "",
@@ -183,6 +207,41 @@ export default function TripForm() {
     };
     loadData();
   }, [id, isEdit]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed?.form) setForm({ ...createInitialFormState(), ...parsed.form });
+      if (parsed?.vehicleEntries?.length) setVehicleEntries(parsed.vehicleEntries);
+      if (parsed?.pricingItems) setPricingItems(parsed.pricingItems);
+      if (parsed?.chargeItems) setChargeItems(parsed.chargeItems);
+      if (parsed?.driverChanges) setDriverChanges(parsed.driverChanges);
+      if (parsed?.driverExpenses) setDriverExpenses(parsed.driverExpenses);
+      if (parsed?.advancePayments) setAdvancePayments(parsed.advancePayments);
+    } catch (error) {
+      console.error("Error restoring draft:", error);
+    }
+  }, [isEdit]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const timer = setTimeout(() => {
+      saveDraft();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [
+    isEdit,
+    form,
+    vehicleEntries,
+    pricingItems,
+    chargeItems,
+    driverChanges,
+    driverExpenses,
+    advancePayments,
+  ]);
 
   useEffect(() => {
     if (!vehicles.length) return;
@@ -397,7 +456,7 @@ export default function TripForm() {
       const vendorName = form.vendor ? String(form.vendor).trim() : "";
       const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
       const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
-      const resolvedVehicleEntries = vehicleEntries.map(entry => {
+      const rawVehicleEntries = vehicleEntries.map(entry => {
         const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
         const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
         const derivedDistance = startKm !== null && endKm !== null ? Math.max(endKm - startKm, 0) : null;
@@ -435,9 +494,18 @@ export default function TripForm() {
         };
       });
 
+      const enteredVehicleEntries = rawVehicleEntries.filter(entry => entry.vehicle_number || entry.driver_id);
+      const invalidVehicleEntries = enteredVehicleEntries.filter(entry => !entry.vehicle_number || !entry.driver_id);
+      if (invalidVehicleEntries.length > 0) {
+        showModal("Validation Error", "Please select both Vehicle and Driver for assigned vehicles.");
+        return;
+      }
+
+      const resolvedVehicleEntries = enteredVehicleEntries.filter(entry => entry.vehicle_number && entry.driver_id);
       const primaryVehicle = resolvedVehicleEntries[0];
       const totalDistanceKm = resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.distance_km || 0), 0);
       const totalDriverBhatta = resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.driver_bhatta || 0), 0);
+      const numberOfVehicles = resolvedVehicleEntries.length || Number(form.number_of_vehicles || 1);
 
       const payload = {
         trip_date: form.trip_date,
@@ -452,7 +520,7 @@ export default function TripForm() {
         customer_id: Number(customer_id),
         customer_phone: form.customer_phone || null,
         customer_address: form.customer_address || null,
-        number_of_vehicles: resolvedVehicleEntries.length,
+        number_of_vehicles: numberOfVehicles,
         bus_type: form.bus_type || null,
         bus_detail: form.bus_detail || null,
         start_km: primaryVehicle?.start_km ?? null,
@@ -502,7 +570,7 @@ export default function TripForm() {
 
         // Save driver expenses
         for (const expense of driverExpenses) {
-          if (!expense.saved) {
+          if (!expense.saved && primaryVehicle?.driver_id) {
             await api.post("/driver-expenses", {
               trip_id: Number(tripId),
               driver_id: primaryVehicle?.driver_id,
@@ -526,6 +594,9 @@ export default function TripForm() {
           }
         }
 
+        if (!isEdit) {
+          clearDraft();
+        }
         navigate("/trips");
       } catch (error) {
         console.error("Save error:", error);
@@ -647,6 +718,33 @@ export default function TripForm() {
           </div>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Refactored Multi-Vehicle Form</p>
         </div>
+        {!isEdit && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="px-5 py-3 bg-white text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            >
+              Save Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearDraft();
+                setForm(createInitialFormState());
+                setVehicleEntries([createVehicleEntry()]);
+                setPricingItems([]);
+                setChargeItems([]);
+                setDriverChanges([]);
+                setDriverExpenses([]);
+                setAdvancePayments([]);
+              }}
+              className="px-5 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+            >
+              Clear Draft
+            </button>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 pb-20 max-w-7xl mx-auto">
@@ -779,6 +877,36 @@ export default function TripForm() {
                     />
                   </div>
 
+                </div>
+
+                {/* ROW 3: Pricing Model | Unit Rate */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pricing Model</label>
+                    <select
+                      name="pricing_type"
+                      value={form.pricing_type}
+                      onChange={handleChange}
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    >
+                      <option value="per_km">Per Kilometer Rate</option>
+                      <option value="package">Package Rate</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      {form.pricing_type === "package" ? "Package Amount (₹/Day)" : "Unit Rate (₹/KM)"}
+                    </label>
+                    <input
+                      type="number"
+                      name={form.pricing_type === "package" ? "package_amount" : "cost_per_km"}
+                      value={form.pricing_type === "package" ? form.package_amount : form.cost_per_km}
+                      onChange={handleChange}
+                      placeholder={form.pricing_type === "package" ? "0.00" : "0.00"}
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-start">

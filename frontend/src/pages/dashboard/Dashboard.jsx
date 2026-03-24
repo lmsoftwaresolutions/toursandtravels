@@ -322,7 +322,7 @@ function TripScheduleChart({
                             className="w-full text-left bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-100/50 hover:shadow-md hover:border-blue-200 transition-all group/item"
                           >
                             <div className="font-extrabold text-blue-900 text-xs truncate">
-                              {t.customer_id}
+                              {t.invoice_number || `INV-${String(t.id).padStart(4, "0")}`}
                             </div>
                             <div className="text-[10px] text-blue-600 font-bold mt-1 opacity-70 group-hover/item:opacity-100">
                               → {t.to_location}

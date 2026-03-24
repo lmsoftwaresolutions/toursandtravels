@@ -223,10 +223,24 @@ export default function Trips() {
                 filteredTrips.map(trip => (
                   <tr key={trip.id} className="group hover:bg-slate-50/40 transition-colors">
                     <td className="p-6">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black text-blue-600 tracking-tight">{trip.invoice_number || "PENDING"}</span>
-                        <span className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{formatDateDDMMYYYY(trip.trip_date)}</span>
-                      </div>
+                      {(() => {
+                        const hasVehicleAssigned = Boolean(trip.vehicle_number || (trip.vehicles && trip.vehicles.length));
+                        return (
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-blue-600 tracking-tight">{trip.invoice_number || "PENDING"}</span>
+                            <span className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{formatDateDDMMYYYY(trip.trip_date)}</span>
+                            <span
+                              className={`mt-2 inline-flex w-fit items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                hasVehicleAssigned
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                  : "bg-amber-50 text-amber-600 border-amber-200"
+                              }`}
+                            >
+                              {hasVehicleAssigned ? "Vehicle Assigned" : "Pending Vehicle"}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-6">
                       <div className="flex flex-col gap-1">
@@ -236,13 +250,15 @@ export default function Trips() {
                         <div className="flex items-center gap-1.5">
                           <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
                           <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            {drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id || "Variable Driver"}
+                            {trip.driver_id
+                              ? (drivers.find(d => d.id === trip.driver_id)?.name || trip.driver_id || "Assigned Driver")
+                              : "Pending Vehicle"}
                           </span>
                         </div>
                       </div>
                     </td>
                     <td className="p-6 hidden lg:table-cell text-right">
-                      <div className="text-sm font-bold text-slate-700">{trip.distance_km} KM</div>
+                      <div className="text-sm font-bold text-slate-700">{trip.distance_km ? `${trip.distance_km} KM` : "-"}</div>
                       <div className="text-[10px] text-slate-400 font-black uppercase">Distance</div>
                     </td>
                     <td className="p-6 hidden lg:table-cell text-right">
@@ -255,6 +271,12 @@ export default function Trips() {
                     </td>
                     <td className="p-6">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => navigate(`/booking-receipts/${trip.id}`)}
+                          className="px-3 py-2 text-[9px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-50 transition-all"
+                        >
+                          Booking Receipt
+                        </button>
                         <button onClick={() => navigate(`/trips/${trip.id}`)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </button>

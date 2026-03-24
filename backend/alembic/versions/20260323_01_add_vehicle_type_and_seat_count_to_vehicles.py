@@ -22,8 +22,8 @@ def upgrade() -> None:
     inspector = inspect(bind)
     if not inspector.has_table("vehicles"):
         return
-    op.add_column('vehicles', sa.Column('vehicle_type', sa.String(), nullable=True))
-    op.add_column('vehicles', sa.Column('seat_count', sa.Integer(), nullable=True))
+    op.execute("ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR")
+    op.execute("ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS seat_count INTEGER")
 
 
 def downgrade() -> None:
@@ -31,6 +31,5 @@ def downgrade() -> None:
     inspector = inspect(bind)
     if not inspector.has_table("vehicles"):
         return
-    with op.batch_alter_table('vehicles') as batch_op:
-        batch_op.drop_column('seat_count')
-        batch_op.drop_column('vehicle_type')
+    op.execute("ALTER TABLE vehicles DROP COLUMN IF EXISTS seat_count")
+    op.execute("ALTER TABLE vehicles DROP COLUMN IF EXISTS vehicle_type")

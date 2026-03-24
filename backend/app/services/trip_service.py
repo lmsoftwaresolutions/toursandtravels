@@ -38,7 +38,9 @@ def _calculate_pricing_items_total(pricing_items, number_of_vehicles):
 def _normalize_trip_vehicles(trip_data):
     if trip_data.vehicles:
         return trip_data.vehicles
-    if trip_data.vehicle_number and trip_data.driver_id:
+    if trip_data.vehicle_number or trip_data.driver_id:
+        if not trip_data.vehicle_number or not trip_data.driver_id:
+            raise HTTPException(400, "Vehicle and driver are required when assigning a vehicle")
         return [
             {
                 "vehicle_number": trip_data.vehicle_number,
@@ -49,7 +51,7 @@ def _normalize_trip_vehicles(trip_data):
                 "driver_bhatta": trip_data.driver_bhatta,
             }
         ]
-    raise HTTPException(400, "At least one vehicle entry is required")
+    return []
 
 
 def _get_entry_value(item, key, default=None):
@@ -61,6 +63,8 @@ def _get_entry_value(item, key, default=None):
 
 
 def _validate_trip_vehicles(db: Session, trip_vehicles):
+    if not trip_vehicles:
+        return []
     validated = []
     seen_vehicle_numbers = set()
 
@@ -116,13 +120,19 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
             "driver_changes": _get_entry_value(item, "driver_changes", []),
         })
 
-    if not validated:
-        raise HTTPException(400, "At least one vehicle entry is required")
-
     return validated
 
 
 def _assign_trip_primary_fields(trip: Trip, trip_vehicles, number_of_vehicles=None):
+    if not trip_vehicles:
+        trip.vehicle_number = None
+        trip.driver_id = None
+        trip.start_km = 0
+        trip.end_km = 0
+        trip.distance_km = None
+        trip.number_of_vehicles = number_of_vehicles or 1
+        trip.driver_bhatta = 0
+        return
     primary = trip_vehicles[0]
     total_distance = sum(entry["distance_km"] or 0 for entry in trip_vehicles)
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in trip_vehicles)
@@ -251,18 +261,23 @@ def create_trip(db: Session, trip_data: TripCreate):
 
     uses_explicit_vehicle_entries = bool(trip_data.vehicles)
     validated_trip_vehicles = _validate_trip_vehicles(db, _normalize_trip_vehicles(trip_data))
-    total_distance_km = sum(entry["distance_km"] or 0 for entry in validated_trip_vehicles)
+    has_vehicle_entries = len(validated_trip_vehicles) > 0
+    total_distance_km = (
+        sum(entry["distance_km"] or 0 for entry in validated_trip_vehicles)
+        if has_vehicle_entries
+        else (trip_data.distance_km or 0)
+    )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
     number_of_vehicles = (
         len(validated_trip_vehicles)
-        if uses_explicit_vehicle_entries
+        if uses_explicit_vehicle_entries and has_vehicle_entries
         else max(int(trip_data.number_of_vehicles or 1), 1)
     )
 
-    if trip_data.pricing_type == "per_km":
+    if trip_data.pricing_type == "per_km" and has_vehicle_entries:
         if total_distance_km <= 0:
             raise HTTPException(400, "Distance must be greater than zero for per-km pricing")
-    elif trip_data.package_amount <= 0:
+    elif trip_data.package_amount <= 0 and has_vehicle_entries:
         raise HTTPException(400, "Package amount must be greater than zero")
 
     customer = db.query(Customer).filter(Customer.id == trip_data.customer_id).first()
@@ -402,18 +417,23 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
 
     uses_explicit_vehicle_entries = bool(data.vehicles)
     validated_trip_vehicles = _validate_trip_vehicles(db, _normalize_trip_vehicles(data))
-    total_distance_km = sum(entry["distance_km"] or 0 for entry in validated_trip_vehicles)
+    has_vehicle_entries = len(validated_trip_vehicles) > 0
+    total_distance_km = (
+        sum(entry["distance_km"] or 0 for entry in validated_trip_vehicles)
+        if has_vehicle_entries
+        else (data.distance_km or 0)
+    )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
     number_of_vehicles = (
         len(validated_trip_vehicles)
-        if uses_explicit_vehicle_entries
+        if uses_explicit_vehicle_entries and has_vehicle_entries
         else max(int(data.number_of_vehicles or 1), 1)
     )
 
-    if data.pricing_type == "per_km":
+    if data.pricing_type == "per_km" and has_vehicle_entries:
         if total_distance_km <= 0:
             raise HTTPException(400, "Distance must be greater than zero for per-km pricing")
-    elif data.package_amount <= 0:
+    elif data.package_amount <= 0 and has_vehicle_entries:
         raise HTTPException(400, "Package amount must be greater than zero")
 
     prior_total_charged = trip.total_charged
@@ -501,7 +521,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
 def delete_trip(db: Session, trip_id: int):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
-        raise HTTPException(404, "Trip not found")
+        return {"message": "Trip already deleted"}
 
     customer = db.query(Customer).filter(Customer.id == trip.customer_id).first()
 
@@ -518,4 +538,5 @@ def delete_trip(db: Session, trip_id: int):
 
     db.delete(trip)
     db.commit()
+    return {"message": "Trip deleted successfully"}
     return {"message": "Trip deleted successfully"}

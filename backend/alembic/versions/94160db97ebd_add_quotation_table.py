@@ -48,6 +48,6 @@ def upgrade() -> None:
     )
 
 def downgrade() -> None:
-    op.drop_index("ix_quotations_quotation_no", table_name="quotations")
-    op.drop_index("ix_quotations_id", table_name="quotations")
-    op.drop_table("quotations")
+    op.execute("DROP INDEX IF EXISTS ix_quotations_quotation_no;")
+    op.execute("DROP INDEX IF EXISTS ix_quotations_id;")
+    op.execute("DROP TABLE IF EXISTS quotations;")

@@ -36,6 +36,8 @@ import PaymentHistory from "../pages/payments/PaymentHistory";
 
 import InvoiceList from "../pages/invoices/InvoiceList";
 import InvoiceView from "../pages/invoices/InvoiceView";
+import BookingReceiptList from "../pages/bookingReceipts/BookingReceiptList";
+import BookingReceipt from "../pages/bookingReceipts/BookingReceipt";
 
 import QuotationList from "../pages/quotations/QuotationList";
 import QuotationForm from "../pages/quotations/QuotationForm";
@@ -133,6 +135,8 @@ export default function AppRoutes() {
         {/* Invoices */}
         <Route path="/invoices" element={<InvoiceList />} />
         <Route path="/invoices/:id" element={<InvoiceView />} />
+        <Route path="/booking-receipts" element={<BookingReceiptList />} />
+        <Route path="/booking-receipts/:id" element={<BookingReceipt />} />
 
         {/* Quotations */}
         <Route path="/quotations" element={<QuotationList />} />

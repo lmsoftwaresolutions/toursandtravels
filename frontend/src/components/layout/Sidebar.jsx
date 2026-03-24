@@ -28,7 +28,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="no-print md:hidden flex items-center justify-between bg-slate-900 text-white p-4 shadow-lg">
+      <div className="no-print print:hidden md:hidden flex items-center justify-between bg-slate-900 text-white p-4 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="bg-white p-2.5 rounded-2xl shadow-lg shadow-blue-500/10">
             <img src={NathkrupaLogo} alt="Nathkrupa" className="h-7 w-auto" />
