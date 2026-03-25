@@ -212,8 +212,8 @@ class TripResponse(BaseModel):
     from_location: str
     to_location: str
     route_details: str | None
-    vehicle_number: str
-    driver_id: int
+    vehicle_number: str | None
+    driver_id: int | None
     customer_id: int
     customer_phone: Optional[str] = None
     customer_address: Optional[str] = None

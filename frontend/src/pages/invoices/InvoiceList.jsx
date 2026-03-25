@@ -34,9 +34,11 @@ export default function InvoiceList() {
     }
   };
 
-  let filteredTrips = filterCustomer
-    ? trips.filter(t => t.customer_id === Number(filterCustomer))
-    : trips;
+  let filteredTrips = trips;
+
+  if (filterCustomer) {
+    filteredTrips = filteredTrips.filter(t => t.customer_id === Number(filterCustomer));
+  }
 
   if (searchCustomer.trim()) {
     const query = searchCustomer.trim().toLowerCase();
@@ -138,6 +140,7 @@ export default function InvoiceList() {
                 filteredTrips.map(trip => {
                   const customer = customers.find(c => c.id === trip.customer_id);
                   const status = trip.pending_amount === 0 ? "Settled" : trip.pending_amount === trip.total_charged ? "Outstanding" : "Partial";
+                  const hasVehicleAssigned = Boolean(trip.vehicle_number || (trip.vehicles && trip.vehicles.length));
 
                   return (
                     <tr key={trip.id} className="group hover:bg-slate-50/40 transition-colors">
@@ -148,21 +151,24 @@ export default function InvoiceList() {
                         >
                           {trip.invoice_number || `INV-${trip.id}`}
                         </button>
-                        <div className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Vehicle: {trip.vehicle_number}</div>
                       </td>
                       <td className="p-6">
                         <div className="text-sm font-black text-slate-700">{customer?.name || "N/A"}</div>
                         <div className="text-[10px] text-slate-400 font-medium mt-0.5">{formatDateDDMMYYYY(trip.trip_date)}</div>
                       </td>
                       <td className="p-6 text-right">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border mb-2 shadow-sm transition-colors cursor-default"
-                          style={{
-                            backgroundColor: status === "Settled" ? "#ecfdf5" : status === "Outstanding" ? "#fef2f2" : "#fffbeb",
-                            color: status === "Settled" ? "#059669" : status === "Outstanding" ? "#dc2626" : "#d97706",
-                            borderColor: status === "Settled" ? "#d1fae5" : status === "Outstanding" ? "#fee2e2" : "#fef3c7"
-                          }}>
-                          {status}
-                        </div>
+                        {status !== "Partial" && status !== "Settled" && (
+                          <div
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border mb-2 shadow-sm transition-colors cursor-default"
+                            style={{
+                              backgroundColor: status === "Settled" ? "#ecfdf5" : "#fef2f2",
+                              color: status === "Settled" ? "#059669" : "#dc2626",
+                              borderColor: status === "Settled" ? "#d1fae5" : "#fee2e2"
+                            }}
+                          >
+                            {status}
+                          </div>
+                        )}
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-sm font-black text-slate-800 tracking-tight">₹{trip.total_charged?.toLocaleString()}</span>
                           <span className="text-[9px] font-bold text-slate-400 uppercase">Due: ₹{trip.pending_amount?.toLocaleString()}</span>
@@ -171,16 +177,17 @@ export default function InvoiceList() {
                       <td className="p-6">
                         <div className="flex items-center justify-end gap-3">
                           <button
-                            onClick={() => navigate(`/invoices/${trip.id}`)}
-                            className="p-3 bg-white text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                            onClick={() => hasVehicleAssigned && navigate(`/invoices/${trip.id}`)}
+                            disabled={!hasVehicleAssigned}
+                            className={`p-3 bg-white text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 transition-all shadow-sm active:scale-95 ${!hasVehicleAssigned ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-50"}`}
                           >
                             View Invoice
                           </button>
                           <button
-                            onClick={() => navigate(`/invoices/${trip.id}?print=true`)}
-                            className="p-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                            onClick={() => navigate(`/booking-receipts/${trip.id}`)}
+                            className="p-3 bg-white text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
                           >
-                            Print / PDF
+                            Booking Receipt
                           </button>
                         </div>
                       </td>

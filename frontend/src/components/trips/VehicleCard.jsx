@@ -89,7 +89,6 @@ export default function VehicleCard({
             value={entry.vehicle_number}
             onChange={(e) => handleVehicleSelect(e.target.value)}
             className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer"
-            required
           >
             <option value="">Select Vehicle</option>
             {vehicles.map(v => (
@@ -170,7 +169,6 @@ export default function VehicleCard({
             autoComplete="off"
             placeholder="Search or Enter Name"
             className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-            required
           />
           {matchingDrivers.length > 0 && !entry.driver_id && (
             <div className="absolute z-40 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">

@@ -24,8 +24,8 @@ def upgrade() -> None:
         from app.models.quotation import Quotation
         Quotation.__table__.create(bind, checkfirst=True)
         return
-    op.add_column('quotations', sa.Column('vehicle_type', sa.String(), nullable=True))
-    op.add_column('quotations', sa.Column('notes', sa.Text(), nullable=True))
+    op.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vehicle_type VARCHAR")
+    op.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS notes TEXT")
 
 
 def downgrade() -> None:
@@ -33,6 +33,5 @@ def downgrade() -> None:
     inspector = inspect(bind)
     if not inspector.has_table("quotations"):
         return
-    with op.batch_alter_table('quotations') as batch_op:
-        batch_op.drop_column('notes')
-        batch_op.drop_column('vehicle_type')
+    op.execute("ALTER TABLE quotations DROP COLUMN IF EXISTS notes")
+    op.execute("ALTER TABLE quotations DROP COLUMN IF EXISTS vehicle_type")

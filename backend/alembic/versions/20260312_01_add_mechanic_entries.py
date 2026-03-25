@@ -36,5 +36,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_mechanic_entries_id", table_name="mechanic_entries")
-    op.drop_table("mechanic_entries")
+    op.execute("DROP INDEX IF EXISTS ix_mechanic_entries_id;")
+    op.execute("DROP TABLE IF EXISTS mechanic_entries;")

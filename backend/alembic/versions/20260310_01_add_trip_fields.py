@@ -31,5 +31,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column('trips', 'bus_type')
-    op.drop_column('trips', 'number_of_vehicles')
+    op.execute("ALTER TABLE trips DROP COLUMN IF EXISTS bus_type")
+    op.execute("ALTER TABLE trips DROP COLUMN IF EXISTS number_of_vehicles")
