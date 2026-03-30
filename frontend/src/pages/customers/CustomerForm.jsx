@@ -6,6 +6,7 @@ export default function CustomerForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function CustomerForm() {
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || null,
+        address: address.trim() || null,
       });
 
       navigate("/customers");
@@ -88,6 +90,16 @@ export default function CustomerForm() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Address</label>
+              <input
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                placeholder="Street, City, Zip"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
             </div>
           </div>
 

@@ -85,18 +85,44 @@ export default function VendorDetails() {
 
         // Get trips with fuel for this vendor and convert to fuel entries
         const tripRes = await api.get("/trips");
+        const tripUsesVendor = (trip) => {
+          const tripVendorMatch = normalizeVendorName(trip.vendor) === vendorNameKey;
+          const vehicleVendorMatch = (trip.vehicles || []).some(
+            (v) => normalizeVendorName(v.fuel_vendor) === vendorNameKey
+          );
+          return tripVendorMatch || vehicleVendorMatch;
+        };
         const tripFuelEntries = tripRes.data
-          .filter(t => normalizeVendorName(t.vendor) === vendorNameKey && (t.diesel_used > 0 || t.petrol_used > 0))
+          .filter(t => tripUsesVendor(t) && (t.diesel_used > 0 || t.petrol_used > 0))
           .map(t => {
-            const totalCost = Number(t.diesel_used || 0) + Number(t.petrol_used || 0);
-            const litres = Number(t.fuel_litres || 0);
-            const rate = litres > 0 ? totalCost / litres : 0;
+            const matchingVehicles = (t.vehicles || []).filter(
+              (v) => normalizeVendorName(v.fuel_vendor) === vendorNameKey
+            );
+            const vehicleNumbers = matchingVehicles
+              .map((v) => v.vehicle_number || t.vehicle_number)
+              .filter(Boolean);
+
+            const diesel = matchingVehicles.length
+              ? matchingVehicles.reduce((sum, v) => sum + Number(v.diesel_used || 0), 0)
+              : Number(t.diesel_used || 0);
+            const petrol = matchingVehicles.length
+              ? matchingVehicles.reduce((sum, v) => sum + Number(v.petrol_used || 0), 0)
+              : Number(t.petrol_used || 0);
+            const litres = matchingVehicles.length
+              ? matchingVehicles.reduce((sum, v) => sum + Number(v.fuel_litres || 0), 0)
+              : Number(t.fuel_litres || 0);
+            const totalCost = matchingVehicles.length
+              ? matchingVehicles.reduce((sum, v) => sum + Number(v.fuel_cost || 0), 0)
+              : Number(t.diesel_used || 0) + Number(t.petrol_used || 0);
+
+            const rate = litres > 0 ? totalCost / litres : Number(matchingVehicles[0]?.fuel_price || 0);
+            const fuelType = diesel > 0 && petrol > 0 ? "diesel + petrol" : diesel > 0 ? "diesel" : petrol > 0 ? "petrol" : "fuel";
 
             return {
               id: `trip-${t.id}`,
               filled_date: t.trip_date,
-              vehicle_number: t.vehicle_number,
-              fuel_type: t.diesel_used > 0 ? "diesel" : "petrol",
+              vehicle_number: vehicleNumbers.length ? vehicleNumbers.join(", ") : t.vehicle_number,
+              fuel_type: fuelType,
               quantity: litres,
               rate_per_litre: Number(rate.toFixed(2)),
               total_cost: totalCost,
@@ -109,7 +135,7 @@ export default function VendorDetails() {
         setFuelHistory([...fuelEntries, ...tripFuelEntries]);
 
         // Also set trip history for trips tab
-        setTripHistory(tripRes.data.filter(t => normalizeVendorName(t.vendor) === vendorNameKey));
+        setTripHistory(tripRes.data.filter(t => tripUsesVendor(t)));
       }
 
       // Only load spare parts history for spare vendors

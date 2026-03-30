@@ -13,6 +13,7 @@ export default function InvoiceView() {
   const [customer, setCustomer] = useState(null);
   const [printTimestamp, setPrintTimestamp] = useState("");
   const [searchParams] = useSearchParams();
+  const hasVehicleAssigned = Boolean(trip?.vehicle_number || (trip?.vehicles || []).length);
 
   useEffect(() => {
     loadInvoiceData();
@@ -68,11 +69,11 @@ export default function InvoiceView() {
       : Number(trip.distance_km || 0) * Number(trip.cost_per_km || 0);
 
     const computedFareLabel = trip.pricing_type === "package" ? "Package Fare" : "Base Fare";
-    
+
     // For per_km, we show (total_distance / vehicles) to clarify it's per-vehicle distance
     // if that matches the quantity label logic.
     const distancePerVehicle = Number(trip.distance_km || 0) / vehicles;
-    
+
     const computedFareQuantity = trip.pricing_type === "package"
       ? `${tripDays} day(s) x ${vehicles} vehicle(s)`
       : `${distancePerVehicle.toFixed(1)} km x ${vehicles} vehicle(s)`;
@@ -179,14 +180,42 @@ export default function InvoiceView() {
   };
 
   useEffect(() => {
-    if (searchParams.get("print") === "true" && trip && customer) {
+    if (searchParams.get("print") === "true" && trip && customer && hasVehicleAssigned) {
       setPrintTimestamp(new Date().toLocaleString());
       setTimeout(() => handlePrint(), 150);
     }
-  }, [searchParams, trip, customer]);
+  }, [searchParams, trip, customer, hasVehicleAssigned]);
 
   if (!trip || !customer) {
     return <div className="p-4 md:p-6">Loading invoice...</div>;
+  }
+
+  if (!hasVehicleAssigned) {
+    return (
+      <div className="p-4 md:p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 no-print bg-slate-100/50 p-6 rounded-[2rem] border border-slate-100">
+          <button
+            onClick={() => navigate("/invoices")}
+            className="group flex items-center gap-2 text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest transition-all"
+          >
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" /></svg>
+            Back to Invoices
+          </button>
+          <button
+            onClick={() => navigate(`/trips/edit/${trip.id}`)}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all"
+          >
+            Add Vehicle to Generate Invoice
+          </button>
+        </div>
+
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-10 text-center">
+          <p className="text-sm font-black text-slate-500 uppercase tracking-widest">Invoice Pending</p>
+          <p className="text-2xl font-black text-slate-800 mt-3">Vehicle not assigned yet</p>
+          <p className="text-sm text-slate-500 mt-2">Add vehicle details to generate the invoice.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -218,96 +247,110 @@ export default function InvoiceView() {
       </div>
 
       <PrintLayout>
-        <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 border-y-2 border-slate-900 py-2">
-           TAX INVOICE
+        <div className="text-center font-black text-2xl tracking-widest uppercase mb-6 border-y-[1.5px] border-black py-2 text-red-600">
+          INVOICE
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-8 border-2 border-slate-900 p-6">
-          <div className="border-r-2 border-slate-900 pr-6">
-            <h2 className="text-[12px] font-black uppercase mb-3 text-red-600">Bill To:</h2>
-            <p className="text-xl font-black text-slate-900 leading-tight">{customer.name}</p>
-            <p className="text-[12px] font-bold text-slate-700 mt-2">{customer.address || "No Address Provided"}</p>
-            {customer?.phone ? <p className="text-[12px] font-bold text-slate-700">Phone: {customer.phone}</p> : null}
+        <div className="grid grid-cols-2 gap-8 mb-6 border-[1.5px] border-black p-4">
+          <div className="border-r-[1.5px] border-black pr-6">
+            <h2 className="text-[12px] font-black uppercase mb-2 text-red-600">Bill To:</h2>
+            <p className="text-[16px] font-black text-black leading-tight uppercase">{customer.name}</p>
+            <p className="text-[12px] font-bold text-black mt-1 uppercase">{trip.customer_address || customer.address || "No Address Provided"}</p>
+            {(trip.customer_phone || customer?.phone) ? (
+              <p className="text-[12px] font-bold text-black mt-1">Phone: {trip.customer_phone || customer.phone}</p>
+            ) : null}
           </div>
-          <div className="pl-6 space-y-2">
-            <div className="flex justify-between items-center bg-slate-100 p-2 px-4 rounded border border-slate-200">
-               <span className="font-black text-[10px] uppercase">Invoice No:</span>
-               <span className="font-black text-sm">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
+          <div className="pl-6 space-y-1">
+            <div className="flex justify-between items-center p-1.5 px-3">
+              <span className="font-black text-[11px] uppercase text-red-600">Invoice No:</span>
+              <span className="font-black text-[13px] text-black">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
             </div>
-            <div className="flex justify-between items-center p-2 px-4">
-               <span className="font-black text-[10px] uppercase">Date:</span>
-               <span className="font-black text-sm">{formatDateDDMMYYYY(trip.trip_date)}</span>
+            <div className="flex justify-between items-center p-1.5 px-3">
+              <span className="font-black text-[11px] uppercase text-red-600">Date:</span>
+              <span className="font-black text-[13px] text-black">{formatDateDDMMYYYY(trip.trip_date)}</span>
             </div>
-            {printTimestamp ? <p className="text-[8px] text-right text-slate-400 italic">Printed: {printTimestamp}</p> : null}
+            <div className="flex justify-between items-start p-1.5 px-3">
+              <span className="font-black text-[11px] uppercase text-red-600">Route:</span>
+              <span className="font-black text-[11px] text-black text-right uppercase">
+                {trip.from_location} {trip.to_location ? `To ${trip.to_location}` : ""}
+              </span>
+            </div>
+            {trip.bus_type ? (
+              <div className="flex justify-between items-start p-1.5 px-3">
+                <span className="font-black text-[11px] uppercase text-red-600">Vehicle:</span>
+                <span className="font-black text-[11px] text-black text-right uppercase">
+                  {trip.bus_type}
+                </span>
+              </div>
+            ) : null}
+            {printTimestamp ? <p className="text-[9px] text-right text-black font-bold mt-2">Printed: {printTimestamp}</p> : null}
           </div>
         </div>
 
-        <div className="border-2 border-slate-900 border-collapse mb-8 overflow-hidden rounded-sm">
+        <div className="border-[1.5px] border-black border-collapse mb-6 overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-900 text-white">
-                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest w-12 border-r border-slate-700">Sr.</th>
-                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700">Description</th>
-                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700 w-24">Qty / KM</th>
-                <th className="p-3 text-left font-black text-[10px] uppercase tracking-widest border-r border-slate-700 text-right w-32">Rate</th>
-                <th className="p-3 font-black text-[10px] uppercase tracking-widest text-right w-32">Total</th>
+              <tr className="bg-red-600 text-white border-b-[1.5px] border-black">
+                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest w-12 border-r-[1.5px] border-black">Sr.</th>
+                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black">Description</th>
+                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black w-28">Qty / KM</th>
+                <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black w-28">Rate</th>
+                <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest w-32">Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-slate-100">
+            <tbody className="divide-y-[1.5px] divide-black text-black">
               {invoiceRows.map((row, idx) => {
                 return (
-                  <tr key={row.key} className="hover:bg-slate-50">
-                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100">{idx + 1}</td>
-                    <td className="p-4 py-3 text-[12px] font-black text-slate-800 border-r-2 border-slate-100 uppercase">{row.description}</td>
-                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100 uppercase">{row.quantity}</td>
-                    <td className="p-4 py-3 text-[11px] font-bold text-slate-500 border-r-2 border-slate-100 text-right">{row.unitPrice}</td>
-                    <td className="p-4 py-3 text-[12px] font-black text-slate-900 text-right">
+                  <tr key={row.key} className="bg-white">
+                    <td className="p-2.5 text-[11px] font-bold border-r-[1.5px] border-black text-center">{idx + 1}</td>
+                    <td className="p-2.5 text-[11px] font-black uppercase border-r-[1.5px] border-black">{row.description}</td>
+                    <td className="p-2.5 text-[11px] font-bold uppercase border-r-[1.5px] border-black text-center">{row.quantity}</td>
+                    <td className="p-2.5 text-[11px] font-bold border-r-[1.5px] border-black text-right">{row.unitPrice}</td>
+                    <td className="p-2.5 text-[12px] font-black text-right">
                       {`${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`}
                     </td>
                   </tr>
                 );
               })}
-              {/* Filler Rows to maintain layout */}
+              {/* Filler Rows */}
               {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
-                <tr key={`filler-${i}`} className="h-10">
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td className="border-r-2 border-slate-100"></td>
-                   <td></td>
+                <tr key={`filler-${i}`} className="h-8 print:hidden divide-x-[1.5px] divide-black">
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-900 bg-slate-50">
-                <td colSpan="4" className="p-2 text-right font-black text-[9px] uppercase tracking-widest border-r-2 border-slate-900">Total Amount Due</td>
-                <td className="p-2 text-right text-base font-black text-red-600">Rs. {calculatedTotal.toFixed(2)}</td>
+              <tr className="border-t-[1.5px] border-black bg-white">
+                <td colSpan="4" className="p-2.5 text-right font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black text-red-600">Total Amount Due</td>
+                <td className="p-2.5 text-right text-[14px] font-black text-black">Rs. {calculatedTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
 
         <div className="grid grid-cols-2 gap-8">
-           <div className="p-4 border-2 border-slate-100 rounded-lg bg-slate-50/50">
-              <h3 className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Payment Summary</h3>
-              <div className="space-y-1">
-                 <div className="flex justify-between text-xs font-bold">
-                    <span>Paid Amount:</span>
-                    <span className="text-emerald-700">Rs. {totalPaid.toFixed(2)}</span>
-                 </div>
-                 <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-1">
-                    <span>Balance Due:</span>
-                    <span className="text-red-700 underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
-                 </div>
+          <div className="p-3 border-[1.5px] border-black text-black">
+            <h3 className="text-[11px] font-black uppercase text-red-600 mb-2 border-b-[1.5px] border-black pb-1 inline-block">Payment Summary</h3>
+            <div className="space-y-1.5 mt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span>Paid Amount:</span>
+                <span>Rs. {totalPaid.toFixed(2)}</span>
               </div>
-           </div>
-           <div className="flex flex-col justify-end text-right italic text-slate-400 text-[10px]">
-              * This is a computer generated invoice and does not require signature unless printed for official use.
-           </div>
+              <div className="flex justify-between text-[13px] font-black pt-1">
+                <span className="text-red-600">Balance Due:</span>
+                <span className="underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col justify-end text-right italic font-bold text-black text-[10px]">
+            * This is a computer generated invoice and does not require signature unless printed for official use.
+          </div>
         </div>
       </PrintLayout>
     </div>
   );
 }
-
-

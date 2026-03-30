@@ -28,11 +28,10 @@ export default function Layout() {
         <Navbar />
 
         {/* Page content */}
-        <main className="print-main p-8 md:p-12 overflow-y-auto flex-1 bg-white/50 backdrop-blur-sm">
+        <main className="print-main p-4 md:p-6 overflow-y-auto flex-1 bg-white/50 backdrop-blur-sm">
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
-

@@ -1,15 +1,32 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
+import VehicleCard from "../../components/trips/VehicleCard";
 
 const createVehicleEntry = () => ({
   vehicle_number: "",
   driver_id: "",
   driver_name: "",
+  vehicle_type: "",
+  seat_count: "",
+  vendor_category: "",
   start_km: "",
   end_km: "",
   distance_km: "",
   driver_bhatta: "",
+  // Nested data for backend
+  fuel_cost: 0,
+  fuel_litres: 0,
+  diesel_used: 0,
+  petrol_used: 0,
+  fuel_price: 0,
+  fuel_vendor: "",
+  toll_amount: 0,
+  parking_amount: 0,
+  other_expenses: 0,
+  expenses: [],
+  driver_changes: [],
 });
 
 // Utility function for date formatting
@@ -23,46 +40,46 @@ const formatDateDDMMYYYY = (dateString) => {
   });
 };
 
+const createInitialFormState = () => ({
+  trip_date: new Date().toISOString().split("T")[0],
+  booking_id: "",
+  customer_id: "",
+  customer_name: "",
+  customer_phone: "",
+  customer_address: "",
+  from_location: "",
+  to_location: "",
+  route_details: "",
+  number_of_vehicles: 1,
+  bus_type: "",
+  bus_detail: "",
+  cost_per_km: "",
+  charged_toll_amount: "",
+  charged_parking_amount: "",
+  other_expenses: "",
+  discount_amount: "",
+  amount_received: "",
+  advance_payment: "", // Note: legacy field
+  pricing_type: "per_km",
+  package_amount: "",
+  vendor: "",
+  invoice_number: "",
+  departure_datetime: "",
+  return_datetime: "",
+});
+
 export default function TripForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({
-    trip_date: new Date().toISOString().split("T")[0],
-    customer_id: "",
-    customer_name: "",
-    from_location: "",
-    to_location: "",
-    route_details: "",
-    vehicle_number: "",
-    driver_id: "",
-    driver_name: "",
-    number_of_vehicles: 1,
-    bus_type: "",
-    start_km: "",
-    end_km: "",
-    distance_km: "",
-    fuel_rate: "",
-    fuel_cost: "",
-    fuel_litres: "",
-    toll_amount: "",
-    parking_amount: "",
-    other_expenses: "",
-    driver_bhatta: "",
-    cost_per_km: "",
-    charged_toll_amount: "",
-    charged_parking_amount: "",
-    discount_amount: "",
-    amount_received: "",
-    pricing_type: "per_km",
-    package_amount: "",
-    vendor: "",
-    invoice_number: "",
-    departure_datetime: "",
-    return_datetime: "",
-  });
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const showModal = (title, message, type = "error") => setModal({ isOpen: true, title, message, type });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
+
+  const [form, setForm] = useState(createInitialFormState());
 
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -84,8 +101,31 @@ export default function TripForm() {
   const [newVendorForm, setNewVendorForm] = useState({ name: "", phone: "", category: "fuel" });
   const [savingVendor, setSavingVendor] = useState(false);
 
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", address: "" });
+  const [savingCustomer, setSavingCustomer] = useState(false);
+
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
+  const DRAFT_KEY = "tripFormDraft:new";
+
+  const saveDraft = () => {
+    const payload = {
+      form,
+      vehicleEntries,
+      pricingItems,
+      chargeItems,
+      driverChanges,
+      driverExpenses,
+      advancePayments,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+  };
 
   /* ============ DATA LOADING ============ */
   useEffect(() => {
@@ -106,31 +146,26 @@ export default function TripForm() {
         if (isEdit && id) {
           const tripRes = await api.get(`/trips/${id}`);
           const trip = tripRes.data;
+          const customerRecord =
+            trip.customer ||
+            (cRes.data || []).find((c) => c.id === trip.customer_id);
 
           setForm({
             trip_date: trip.trip_date ? trip.trip_date.split("T")[0] : "",
+            booking_id: trip.booking_id || "",
             departure_datetime: trip.departure_datetime ? trip.departure_datetime.slice(0, 16) : "",
             return_datetime: trip.return_datetime ? trip.return_datetime.slice(0, 16) : "",
             from_location: trip.from_location || "",
             to_location: trip.to_location || "",
             route_details: trip.route_details || "",
-            customer_name: trip.customer?.name || "",
+            customer_name: customerRecord?.name || "",
             customer_id: String(trip.customer_id || ""),
+            customer_phone: trip.customer_phone || customerRecord?.phone || "",
+            customer_address: trip.customer_address || customerRecord?.address || "",
             number_of_vehicles: trip.number_of_vehicles || 1,
             bus_type: trip.bus_type || "",
-            vehicle_number: trip.vehicle_number || "",
-            driver_id: trip.driver_id ? String(trip.driver_id) : "",
-            driver_name: trip.driver?.name || "",
-            start_km: trip.start_km || "",
-            end_km: trip.end_km || "",
-            distance_km: trip.distance_km || "",
-            fuel_rate: trip.fuel_rate || "",
-            fuel_litres: trip.fuel_litres || "",
-            fuel_cost: trip.diesel_used || trip.petrol_used || "",
-            toll_amount: trip.toll_amount || "",
-            parking_amount: trip.parking_amount || "",
+            bus_detail: trip.bus_detail || "",
             other_expenses: trip.other_expenses || "",
-            driver_bhatta: trip.driver_bhatta || "",
             cost_per_km: trip.cost_per_km || "",
             charged_toll_amount: trip.charged_toll_amount || "",
             charged_parking_amount: trip.charged_parking_amount || "",
@@ -142,11 +177,16 @@ export default function TripForm() {
             invoice_number: trip.invoice_number || "",
           });
 
-          if (trip.vehicle_entries?.length > 0) {
-            setVehicleEntries(trip.vehicle_entries.map(ve => ({
+          if (trip.vehicles?.length > 0) {
+            setVehicleEntries(trip.vehicles.map(ve => ({
               ...ve,
               driver_id: String(ve.driver_id || ""),
-              driver_name: ve.driver?.name || ""
+              driver_name: ve.driver?.name || "",
+              vehicle_type: ve.vehicle_type || "",
+              seat_count: ve.seat_count || "",
+              expenses: ve.expenses || [],
+              // Filter driver changes for THIS vehicle number
+              driver_changes: (trip.driver_changes || []).filter(dc => dc.vehicle_number === ve.vehicle_number)
             })));
           }
 
@@ -160,13 +200,66 @@ export default function TripForm() {
         }
       } catch (error) {
         console.error("Error loading trip data:", error);
-        alert("Failed to load data");
+        showModal("Load Error", "Failed to load trip data");
       } finally {
         setLoading(false);
       }
     };
     loadData();
   }, [id, isEdit]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed?.form) setForm({ ...createInitialFormState(), ...parsed.form });
+      if (parsed?.vehicleEntries?.length) setVehicleEntries(parsed.vehicleEntries);
+      if (parsed?.pricingItems) setPricingItems(parsed.pricingItems);
+      if (parsed?.chargeItems) setChargeItems(parsed.chargeItems);
+      if (parsed?.driverChanges) setDriverChanges(parsed.driverChanges);
+      if (parsed?.driverExpenses) setDriverExpenses(parsed.driverExpenses);
+      if (parsed?.advancePayments) setAdvancePayments(parsed.advancePayments);
+    } catch (error) {
+      console.error("Error restoring draft:", error);
+    }
+  }, [isEdit]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const timer = setTimeout(() => {
+      saveDraft();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [
+    isEdit,
+    form,
+    vehicleEntries,
+    pricingItems,
+    chargeItems,
+    driverChanges,
+    driverExpenses,
+    advancePayments,
+  ]);
+
+  useEffect(() => {
+    if (!vehicles.length) return;
+    setVehicleEntries((prev) => {
+      let changed = false;
+      const next = prev.map((entry) => {
+        if (!entry.vehicle_number) return entry;
+        const match = vehicles.find((v) => v.vehicle_number === entry.vehicle_number);
+        if (!match) return entry;
+        const nextType = entry.vehicle_type || match.vehicle_type || "";
+        const nextSeats = entry.seat_count || (match.seat_count ?? "");
+        if (nextType === entry.vehicle_type && nextSeats === entry.seat_count) return entry;
+        changed = true;
+        return { ...entry, vehicle_type: nextType, seat_count: nextSeats };
+      });
+      return changed ? next : prev;
+    });
+  }, [vehicles]);
 
   /* ============ CUSTOMER FILTERING ============ */
   useEffect(() => {
@@ -180,17 +273,70 @@ export default function TripForm() {
     }
   }, [form.customer_name, customers]);
 
-  /* ============ VEHICLE ENTRIES SYNC ============ */
-  useEffect(() => {
-    const count = Math.max(1, Number(form.number_of_vehicles) || 1);
-    setVehicleEntries((prev) => {
-      const next = [...prev];
-      while (next.length < count) {
-        next.push(createVehicleEntry());
+  /* ============ NESTED STATE HANDLERS ============ */
+  const addVehicleEntry = () => setVehicleEntries([...vehicleEntries, createVehicleEntry()]);
+  const removeVehicleEntry = (index) => {
+    if (vehicleEntries.length > 1) {
+      setVehicleEntries(vehicleEntries.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleVehicleEntryChange = (index, field, value) => {
+    setVehicleEntries(prev => prev.map((entry, i) => {
+      if (i !== index) return entry;
+      const updated = { ...entry, [field]: value };
+
+      // Auto-calculate distance if start/end KM change
+      if (field === "start_km" || field === "end_km") {
+        const start = updated.start_km !== "" ? Number(updated.start_km) : null;
+        const end = updated.end_km !== "" ? Number(updated.end_km) : null;
+        if (start !== null && end !== null) {
+          updated.distance_km = Math.max(end - start, 0);
+        }
       }
-      return next.slice(0, count);
-    });
-  }, [form.number_of_vehicles]);
+      return updated;
+    }));
+  };
+
+  const addDriverChangeToVehicle = (vIdx) => {
+    setVehicleEntries(prev => prev.map((entry, i) =>
+      i === vIdx ? { ...entry, driver_changes: [...entry.driver_changes, { driver_id: "", start_time: "", end_time: "", notes: "" }] } : entry
+    ));
+  };
+
+  const removeDriverChangeFromVehicle = (vIdx, dIdx) => {
+    setVehicleEntries(prev => prev.map((entry, i) =>
+      i === vIdx ? { ...entry, driver_changes: entry.driver_changes.filter((_, idx) => idx !== dIdx) } : entry
+    ));
+  };
+
+  const updateDriverChangeInVehicle = (vIdx, dIdx, field, value) => {
+    setVehicleEntries(prev => prev.map((entry, i) => {
+      if (i !== vIdx) return entry;
+      const changes = entry.driver_changes.map((dc, idx) => idx === dIdx ? { ...dc, [field]: value } : dc);
+      return { ...entry, driver_changes: changes };
+    }));
+  };
+
+  const addExpenseToVehicle = (vIdx) => {
+    setVehicleEntries(prev => prev.map((entry, i) =>
+      i === vIdx ? { ...entry, expenses: [...entry.expenses, { expense_type: "", amount: "", notes: "" }] } : entry
+    ));
+  };
+
+  const removeExpenseFromVehicle = (vIdx, eIdx) => {
+    setVehicleEntries(prev => prev.map((entry, i) =>
+      i === vIdx ? { ...entry, expenses: entry.expenses.filter((_, idx) => idx !== eIdx) } : entry
+    ));
+  };
+
+  const updateExpenseInVehicle = (vIdx, eIdx, field, value) => {
+    setVehicleEntries(prev => prev.map((entry, i) => {
+      if (i !== vIdx) return entry;
+      const expenses = entry.expenses.map((exp, idx) => idx === eIdx ? { ...exp, [field]: value } : exp);
+      return { ...entry, expenses };
+    }));
+  };
 
   /* ============ HANDLERS ============ */
   const handleChange = (e) => {
@@ -198,13 +344,10 @@ export default function TripForm() {
     setForm({ ...form, [name]: value });
   };
 
-  const handleVehicleEntryChange = (index, field, value) => {
-    setVehicleEntries(prev => prev.map((entry, i) => i === index ? { ...entry, [field]: value } : entry));
-  };
 
   const saveNewVendor = async () => {
     if (!newVendorForm.name.trim()) {
-      alert("Please enter a vendor name.");
+      showModal("Validation Error", "Please enter a vendor name.");
       return;
     }
 
@@ -220,7 +363,7 @@ export default function TripForm() {
       setShowNewVendorForm(false);
       setNewVendorForm({ name: "", phone: "", category: "fuel" });
     } catch (error) {
-      alert("Error creating vendor: " + (error.response?.data?.detail || error.message));
+      showModal("Vendor Error", "Error creating vendor: " + (error.response?.data?.detail || error.message));
     } finally {
       setSavingVendor(false);
     }
@@ -261,6 +404,38 @@ export default function TripForm() {
   };
   const removeDriverChange = (idx) => setDriverChanges(driverChanges.filter((_, i) => i !== idx));
 
+  const saveNewCustomer = async () => {
+    if (!newCustomerForm.name) {
+      showModal("Validation Error", "Customer Name is required.", "error");
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const payload = {
+        name: newCustomerForm.name,
+        phone: newCustomerForm.phone || "",
+        email: newCustomerForm.email || "",
+        address: newCustomerForm.address || ""
+      };
+      const res = await api.post("/customers", payload);
+      setCustomers([...customers, res.data]);
+      setForm({
+        ...form,
+        customer_name: res.data.name,
+        customer_id: String(res.data.id),
+        customer_phone: res.data.phone || "",
+        customer_address: res.data.address || "",
+      });
+      setShowNewCustomerForm(false);
+      setNewCustomerForm({ name: "", phone: "", email: "", address: "" });
+    } catch (err) {
+      console.error(err);
+      showModal("Error", err.response?.data?.detail || "Failed to save customer", "error");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
   /* ============ FORM SUBMISSION ============ */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -273,7 +448,7 @@ export default function TripForm() {
           customer_id = res.data.id;
           setCustomers(prev => [...prev, res.data]);
         } catch (err) {
-          alert("Error creating customer: " + (err.response?.data?.detail || err.message));
+          showModal("Customer Error", "Error creating customer: " + (err.response?.data?.detail || err.message));
           return;
         }
       }
@@ -281,69 +456,60 @@ export default function TripForm() {
       const vendorName = form.vendor ? String(form.vendor).trim() : "";
       const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
       const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
-      const resolvedVehicleEntries = [];
-      const createdDrivers = [];
-
-      for (const entry of vehicleEntries) {
-        if (!entry.vehicle_number) {
-          alert("Please select a vehicle for every vehicle section.");
-          return;
-        }
-
-        let resolvedDriverId = entry.driver_id;
-        if (!resolvedDriverId && entry.driver_name) {
-          try {
-            const res = await api.post("/drivers", {
-              name: entry.driver_name.trim(),
-              phone: "N/A",
-              license_number: "N/A",
-              joining_date: new Date().toISOString().split("T")[0],
-              monthly_salary: 0
-            });
-            resolvedDriverId = String(res.data.id);
-            createdDrivers.push(res.data);
-          } catch (err) {
-            alert("Error creating driver: " + (err.response?.data?.detail || err.message));
-            return;
-          }
-        }
-
-        if (!resolvedDriverId) {
-          alert("Please select or enter a driver for every vehicle section.");
-          return;
-        }
-
+      const rawVehicleEntries = vehicleEntries.map(entry => {
         const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
         const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
         const derivedDistance = startKm !== null && endKm !== null ? Math.max(endKm - startKm, 0) : null;
         const distanceKmValue = entry.distance_km !== "" ? Number(entry.distance_km) : derivedDistance;
 
-        resolvedVehicleEntries.push({
+        return {
           vehicle_number: entry.vehicle_number,
-          driver_id: Number(resolvedDriverId),
+          driver_id: Number(entry.driver_id),
           start_km: startKm,
           end_km: endKm,
           distance_km: distanceKmValue,
           driver_bhatta: Number(entry.driver_bhatta || 0),
-        });
+          bus_type: entry.bus_type || null,
+          bus_detail: entry.bus_detail || null,
+          fuel_cost: Number(entry.fuel_cost || 0),
+          fuel_litres: Number(entry.fuel_litres || 0),
+          diesel_used: Number(entry.diesel_used || 0),
+          petrol_used: Number(entry.petrol_used || 0),
+          fuel_price: Number(entry.fuel_price || 0),
+          fuel_vendor: entry.fuel_vendor || null,
+          toll_amount: Number(entry.toll_amount || 0),
+          parking_amount: Number(entry.parking_amount || 0),
+          other_expenses: Number(entry.other_expenses || 0),
+          expenses: entry.expenses.map(exp => ({
+            expense_type: exp.expense_type,
+            amount: Number(exp.amount || 0),
+            notes: exp.notes || null,
+          })),
+          driver_changes: entry.driver_changes.map(dc => ({
+            driver_id: Number(dc.driver_id),
+            start_time: dc.start_time || null,
+            end_time: dc.end_time || null,
+            notes: dc.notes || null,
+          })),
+        };
+      });
+
+      const enteredVehicleEntries = rawVehicleEntries.filter(entry => entry.vehicle_number || entry.driver_id);
+      const invalidVehicleEntries = enteredVehicleEntries.filter(entry => !entry.vehicle_number || !entry.driver_id);
+      if (invalidVehicleEntries.length > 0) {
+        showModal("Validation Error", "Please select both Vehicle and Driver for assigned vehicles.");
+        return;
       }
 
-      if (createdDrivers.length) {
-        setDrivers(prev => [...prev, ...createdDrivers]);
-      }
-
+      const resolvedVehicleEntries = enteredVehicleEntries.filter(entry => entry.vehicle_number && entry.driver_id);
       const primaryVehicle = resolvedVehicleEntries[0];
-      const totalDistanceKm = resolvedVehicleEntries.reduce(
-        (sum, entry) => sum + Number(entry.distance_km || 0),
-        0
-      );
-      const totalDriverBhatta = resolvedVehicleEntries.reduce(
-        (sum, entry) => sum + Number(entry.driver_bhatta || 0),
-        0
-      );
+      const totalDistanceKm = resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.distance_km || 0), 0);
+      const totalDriverBhatta = resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.driver_bhatta || 0), 0);
+      const numberOfVehicles = resolvedVehicleEntries.length || Number(form.number_of_vehicles || 1);
 
       const payload = {
         trip_date: form.trip_date,
+        booking_id: form.booking_id || null,
         departure_datetime: form.departure_datetime || null,
         return_datetime: form.return_datetime || null,
         from_location: form.from_location,
@@ -352,26 +518,29 @@ export default function TripForm() {
         vehicle_number: primaryVehicle?.vehicle_number || null,
         driver_id: primaryVehicle?.driver_id || null,
         customer_id: Number(customer_id),
-        number_of_vehicles: resolvedVehicleEntries.length,
+        customer_phone: form.customer_phone || null,
+        customer_address: form.customer_address || null,
+        number_of_vehicles: numberOfVehicles,
         bus_type: form.bus_type || null,
+        bus_detail: form.bus_detail || null,
         start_km: primaryVehicle?.start_km ?? null,
         end_km: primaryVehicle?.end_km ?? null,
         distance_km: totalDistanceKm || null,
-        diesel_used: fuelCostTotal,
-        petrol_used: 0,
-        fuel_litres: Number(form.fuel_litres || 0),
-        toll_amount: Number(form.toll_amount || 0),
-        parking_amount: Number(form.parking_amount || 0),
-        other_expenses: Number(form.other_expenses || 0),
+        diesel_used: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.diesel_used || 0), 0),
+        petrol_used: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.petrol_used || 0), 0),
+        fuel_litres: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.fuel_litres || 0), 0),
+        toll_amount: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.toll_amount || 0), 0),
+        parking_amount: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.parking_amount || 0), 0),
+        other_expenses: Number(form.other_expenses || 0) + resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.other_expenses || 0), 0),
         driver_bhatta: totalDriverBhatta,
         pricing_type: form.pricing_type,
         package_amount: Number(form.package_amount || 0),
         cost_per_km: Number(form.cost_per_km || 0),
-        charged_toll_amount: Number(form.charged_toll_amount || 0),
-        charged_parking_amount: Number(form.charged_parking_amount || 0),
+        charged_toll_amount: Number(totalToll || 0),
+        charged_parking_amount: Number(totalParking || 0),
         discount_amount: Number(form.discount_amount || 0),
         amount_received: Number(form.amount_received || 0),
-        vendor: vendorName || null,
+        vendor: form.vendor || null,
         invoice_number: form.invoice_number || null,
         pricing_items: pricingItems.map(i => ({
           description: i.description,
@@ -387,12 +556,6 @@ export default function TripForm() {
           amount: Number(i.amount || 0),
           item_type: "charge"
         })),
-        driver_changes: driverChanges.map(dc => ({
-          driver_id: Number(dc.driver_id),
-          start_time: dc.start_time || null,
-          end_time: dc.end_time || null,
-          notes: dc.notes || null
-        })),
         vehicles: resolvedVehicleEntries,
       };
 
@@ -407,7 +570,7 @@ export default function TripForm() {
 
         // Save driver expenses
         for (const expense of driverExpenses) {
-          if (!expense.saved) {
+          if (!expense.saved && primaryVehicle?.driver_id) {
             await api.post("/driver-expenses", {
               trip_id: Number(tripId),
               driver_id: primaryVehicle?.driver_id,
@@ -431,56 +594,67 @@ export default function TripForm() {
           }
         }
 
+        if (!isEdit) {
+          clearDraft();
+        }
         navigate("/trips");
       } catch (error) {
         console.error("Save error:", error);
-        alert("Error saving trip");
+        showModal("Save Error", "Error saving trip. Please check your inputs.");
       }
     } catch (error) {
       console.error("Submit error:", error);
-      alert("Error processing form");
+      showModal("Error", "Error processing form");
     }
+  };
+
+  const getTripDays = () => {
+    if (!form.departure_datetime || !form.return_datetime) return 1;
+    const start = new Date(form.departure_datetime);
+    const end = new Date(form.return_datetime);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays || 1;
   };
 
   /* ============ CALCULATIONS ============ */
   const pricingItemsTotal = pricingItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
   const chargeItemsTotal = chargeItems.reduce((sum, i) => sum + Number(i.amount || 0), 0);
-  const totalDriverExpenses = driverExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-  const getTripDays = () => {
-    if (form.departure_datetime && form.return_datetime) {
-      const start = new Date(`${form.departure_datetime.split("T")[0]}T00:00:00`);
-      const end = new Date(`${form.return_datetime.split("T")[0]}T00:00:00`);
-
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-        return 1;
-      }
-
-      return Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    }
-    return 1;
-  };
 
   const tripDays = getTripDays();
-  const vehicleDistanceTotal = vehicleEntries.reduce((sum, entry) => {
+  const totalDistance = vehicleEntries.reduce((sum, entry) => {
     const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
     const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
     const derivedDistance = startKm !== null && endKm !== null ? Math.max(endKm - startKm, 0) : 0;
     return sum + Number(entry.distance_km !== "" ? entry.distance_km : derivedDistance || 0);
   }, 0);
 
+  const totalToll = vehicleEntries.reduce((sum, entry) => sum + Number(entry.toll_amount || 0), 0);
+  const totalParking = vehicleEntries.reduce((sum, entry) => sum + Number(entry.parking_amount || 0), 0);
+
   const basePricing =
     (form.pricing_type === "package"
       ? Number(form.package_amount || 0) * tripDays
-      : vehicleDistanceTotal * Number(form.cost_per_km || 0)) * (form.pricing_type === "package" ? Number(form.number_of_vehicles || 1) : 1);
+      : totalDistance * Number(form.cost_per_km || 0)) * (form.pricing_type === "package" ? vehicleEntries.length : 1);
 
-  const pricingItemsCharged = pricingItemsTotal * Number(form.number_of_vehicles || 1);
+  const pricingItemsCharged = pricingItemsTotal * vehicleEntries.length;
+  const totalFuelCost = vehicleEntries.reduce((sum, entry) => sum + Number(entry.fuel_cost || 0), 0);
+
+  const totalExpenses = vehicleEntries.reduce((sum, entry) => {
+    const fuel = Number(entry.fuel_cost || 0);
+    const toll = Number(entry.toll_amount || 0);
+    const parking = Number(entry.parking_amount || 0);
+    const other = Number(entry.other_expenses || 0);
+    const bhatta = Number(entry.driver_bhatta || 0);
+    const extras = entry.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    return sum + fuel + toll + parking + other + bhatta + extras;
+  }, 0);
 
   const totalChargedValue =
     basePricing +
     pricingItemsCharged +
-    Number(form.charged_toll_amount || 0) +
-    Number(form.charged_parking_amount || 0) +
+    Number(totalToll || 0) +
+    Number(totalParking || 0) +
     chargeItemsTotal +
     Number(form.other_expenses || 0) -
     Number(form.discount_amount || 0);
@@ -489,9 +663,40 @@ export default function TripForm() {
   const totalReceived = Number(form.amount_received || 0) + totalAdvancePayments;
   const pending = Math.max(0, totalChargedValue - totalReceived);
   const totalBill = totalChargedValue;
+  const totalAdditionalCharges = pricingItemsCharged;
 
-  const displayedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
+  const displayedFuelCost = totalFuelCost;
   const stopWheel = (e) => e.currentTarget.blur();
+
+  const getTripDuration = (start, end) => {
+    if (!start || !end) return { text: "-", totalDays: null };
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return { text: "-", totalDays: null };
+    }
+    if (endDate < startDate) return { text: "-", totalDays: null };
+    const diffMs = endDate - startDate;
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const mins = totalMinutes % 60;
+    const parts = [];
+    if (days) parts.push(`${days} day${days !== 1 ? "s" : ""}`);
+    if (hours) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
+    if (mins || parts.length === 0) parts.push(`${mins} min${mins !== 1 ? "s" : ""}`);
+
+    const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    const dayDiff = Math.floor((endDay - startDay) / 86400000);
+    const totalDays = dayDiff + 1;
+    return { text: parts.join(" "), totalDays };
+  };
+
+  const { text: tripDurationText, totalDays: tripTotalDays } = getTripDuration(
+    form.departure_datetime,
+    form.return_datetime
+  );
 
   if (loading) return <div className="p-8 text-center font-black animate-pulse">LOADING TRIP DATA...</div>;
 
@@ -511,88 +716,304 @@ export default function TripForm() {
             <h1 className="text-4xl font-black text-slate-800 tracking-tight">{isEdit ? "Edit Trip" : "Add New Trip"}</h1>
             {isEdit && <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-blue-100">Editing</div>}
           </div>
-          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Fill in the details below to manage your trip</p>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Refactored Multi-Vehicle Form</p>
         </div>
-
-        <div className="flex flex-col gap-1 items-end">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">Invoice Number</label>
-          <input
-            type="text"
-            name="invoice_number"
-            value={form.invoice_number}
-            onChange={handleChange}
-            placeholder="INV-XXXXXX"
-            required
-            className="h-14 px-6 bg-slate-900 text-white font-black text-lg rounded-2xl shadow-xl shadow-slate-900/20 outline-none focus:ring-4 focus:ring-blue-500/30 transition-all placeholder:text-slate-700 text-right"
-          />
-        </div>
+        {!isEdit && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="px-5 py-3 bg-white text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            >
+              Save Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearDraft();
+                setForm(createInitialFormState());
+                setVehicleEntries([createVehicleEntry()]);
+                setPricingItems([]);
+                setChargeItems([]);
+                setDriverChanges([]);
+                setDriverExpenses([]);
+                setAdvancePayments([]);
+              }}
+              className="px-5 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+            >
+              Clear Draft
+            </button>
+          </div>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8 pb-20">
-        <div className="w-full">
-          {/* JOURNEY PARAMETERS */}
-          <div className="space-y-8">
-            {/* TRIP DETAILS CARD */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
+      <form onSubmit={handleSubmit} className="space-y-8 pb-20 max-w-7xl mx-auto">
+        <div className="space-y-8">
+          <div className="w-full space-y-8">
+
+            {/* JOURNEY & CUSTOMER PARAMETERS */}
+            <div className="glass-card p-6 rounded-[2rem] border border-slate-100 relative overflow-hidden group">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10 text-blue-600">
                 <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-                Trip Details
+                1. Booking & Customer Details
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-8">
+                {/* ROW 1: Invoice | Booking | Invoice Date */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Invoice Number</label>
+                    <input
+                      type="text"
+                      name="invoice_number"
+                      value={form.invoice_number}
+                      onChange={handleChange}
+                      placeholder="INV-XXXXXX"
+                      required
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Booking</label>
+                    <input
+                      type="text"
+                      name="booking_id"
+                      value={form.booking_id}
+                      onChange={handleChange}
+                      placeholder="Booking Third party or Self"
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Invoice Date</label>
+                    <input
+                      type="date"
+                      name="trip_date"
+                      value={form.trip_date}
+                      onChange={handleChange}
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* ROW 2: Customer Name | Phone | Address */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="space-y-2 relative">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Customer / Party Name</label>
+                    <div className="relative group/input">
+                      <input
+                        type="text"
+                        name="customer_name"
+                        autoComplete="off"
+                        value={form.customer_name}
+                        onChange={(e) => {
+                          setForm({ ...form, customer_name: e.target.value, customer_id: "" });
+                          setShowCustomerList(true);
+                        }}
+                        onFocus={() => setShowCustomerList(true)}
+                        placeholder="Search party name..."
+                        className="w-full h-12 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                        required
+                      />
+                      <svg className="w-4 h-4 absolute left-4 top-4 text-slate-400 group-focus-within/input:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewCustomerForm(true)}
+                      className="text-[9px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-widest mt-1 flex items-center gap-1 transition-colors"
+                    >
+                      <span>+</span> Add New Customer
+                    </button>
+                    {showCustomerList && filteredCustomers.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 max-h-60 overflow-y-auto backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
+                        {filteredCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setForm({
+                                ...form,
+                                customer_name: c.name,
+                                customer_id: String(c.id),
+                                customer_phone: c.phone || "",
+                                customer_address: c.address || ""
+                              });
+                              setShowCustomerList(false);
+                            }}
+                            className="w-full px-5 py-3 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group"
+                          >
+                            <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700">{c.name}</span>
+                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{c.phone || "Select"}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Customer Phone</label>
+                    <input
+                      type="text"
+                      name="customer_phone"
+                      value={form.customer_phone}
+                      onChange={handleChange}
+                      placeholder="Enter phone number"
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Customer Address</label>
+                    <input
+                      type="text"
+                      name="customer_address"
+                      value={form.customer_address}
+                      onChange={handleChange}
+                      placeholder="Enter full address"
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                </div>
+
+                {/* ROW 3: Pricing Model | Unit Rate */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pricing Model</label>
+                    <select
+                      name="pricing_type"
+                      value={form.pricing_type}
+                      onChange={handleChange}
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    >
+                      <option value="per_km">Per Kilometer Rate</option>
+                      <option value="package">Package Rate</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      {form.pricing_type === "package" ? "Package Amount (₹/Day)" : "Unit Rate (₹/KM)"}
+                    </label>
+                    <input
+                      type="number"
+                      name={form.pricing_type === "package" ? "package_amount" : "cost_per_km"}
+                      value={form.pricing_type === "package" ? form.package_amount : form.cost_per_km}
+                      onChange={handleChange}
+                      placeholder={form.pricing_type === "package" ? "0.00" : "0.00"}
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-start">
+                  <div className="text-left">
+                    <p className="text-[13px] font-black uppercase tracking-widest text-emerald-500">Total Advance</p>
+                    <p className="text-base font-black text-emerald-700">₹{Number(totalReceived || 0).toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip Date</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Advance Payment Date</label>
                   <input
                     type="date"
-                    name="trip_date"
-                    value={form.trip_date}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                    required
+                    value={newAdvance.payment_date}
+                    onChange={(e) => setNewAdvance({ ...newAdvance, payment_date: e.target.value })}
+                    className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-mono"
                   />
-                </div>
-
-                <div className="space-y-2 relative">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Customer / Party Name</label>
-                  <input
-                    type="text"
-                    name="customer_name"
-                    value={form.customer_name}
-                    onChange={(e) => {
-                      setForm({ ...form, customer_name: e.target.value, customer_id: "" });
-                      setShowCustomerList(true);
-                    }}
-                    onFocus={() => setShowCustomerList(true)}
-                    autoComplete="off"
-                    placeholder="Search or Enter New Customer"
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                    required
-                  />
-                  {showCustomerList && filteredCustomers.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                      {filteredCustomers.map(c => (
-                        <div
-                          key={c.id}
-                          className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0"
-                          onClick={() => {
-                            setForm({ ...form, customer_name: c.name, customer_id: String(c.id) });
-                            setShowCustomerList(false);
-                          }}
-                        >
-                          {c.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {showCustomerList && form.customer_name && filteredCustomers.length === 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-xs font-bold text-blue-600">
-                      + New Customer Detected
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Departure Time</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Mode</label>
+                  <select
+                    value={newAdvance.payment_mode}
+                    onChange={(e) => setNewAdvance({ ...newAdvance, payment_mode: e.target.value })}
+                    className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Card">Card</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
+                  <div className="relative group/input">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold tracking-tight">₹</span>
+                    <input
+                      type="number"
+                      onWheel={stopWheel}
+                      step="0.01"
+                      value={newAdvance.amount}
+                      onChange={(e) => setNewAdvance({ ...newAdvance, amount: e.target.value })}
+                      className="w-full h-12 pl-8 pr-4 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference / Notes</label>
+                  <input
+                    type="text"
+                    value={newAdvance.notes}
+                    onChange={(e) => setNewAdvance({ ...newAdvance, notes: e.target.value })}
+                    className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                    placeholder="UPI ref, bank txn, remarks"
+                  />
+                </div>
+
+                <div className="md:col-span-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  {advancePayments.length === 0 && (
+                    <div className="flex-1 p-4 bg-white rounded-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      No advance payments added yet
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={addAdvancePayment}
+                    className="h-12 px-6 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                  >
+                    + Add Advance
+                  </button>
+                </div>
+              </div>
+              {advancePayments.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  {advancePayments.map((pay, idx) => (
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-white rounded-xl border border-slate-100">
+                      <div className="flex flex-wrap gap-4 items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatDateDDMMYYYY(pay.payment_date)}</span>
+                        <span className="text-xs font-black text-slate-700">{pay.payment_mode}</span>
+                        <span className="text-sm font-black text-emerald-700">₹{Number(pay.amount || 0).toFixed(2)}</span>
+                        {pay.notes ? <span className="text-xs font-bold text-slate-500">{pay.notes}</span> : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAdvancePayment(idx)}
+                        className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+
+
+              {/* ROW 3: Trip Start | Trip End */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip Start / Departure</label>
                   <input
                     type="datetime-local"
                     name="departure_datetime"
@@ -603,7 +1024,7 @@ export default function TripForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Return Time</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip End / Return</label>
                   <input
                     type="datetime-local"
                     name="return_datetime"
@@ -614,795 +1035,504 @@ export default function TripForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">From (Start Point)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Travel Time</label>
                   <input
-                    name="from_location"
-                    value={form.from_location}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                    required
-                    placeholder="Enter start location"
+                    type="text"
+                    value={tripDurationText}
+                    readOnly
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none"
+                    placeholder="-"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">To (End Point)</label>
-                  <input
-                    name="to_location"
-                    value={form.to_location}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                    required
-                    placeholder="Enter destination"
-                  />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Total Days: {tripTotalDays ?? "-"}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* ROW 4: Pickup Location | Drop Location */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Number of Vehicles</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pickup Location</label>
                   <input
-                    type="number"
-                    name="number_of_vehicles"
-                    value={form.number_of_vehicles}
+                    type="text"
+                    name="from_location"
+                    value={form.from_location}
                     onChange={handleChange}
-                    min="1"
+                    placeholder="Pickup address/city"
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Type (Bus/AC/Non-AC)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Drop Location</label>
                   <input
                     type="text"
-                    name="bus_type"
-                    value={form.bus_type}
+                    name="to_location"
+                    value={form.to_location}
                     onChange={handleChange}
-                    placeholder="e.g. 45 Seater AC"
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                    placeholder="Destination address/city"
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    required
                   />
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    Total Days: {tripTotalDays ?? "-"}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-8 space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip Route Details</label>
+              {/* ROW 6: Trip Route */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip Route & Additional Notes</label>
                 <textarea
                   name="route_details"
                   value={form.route_details}
                   onChange={handleChange}
-                  rows="3"
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
-                  placeholder="Enter route details, stops, etc..."
+                  rows="2"
+                  placeholder="Additional route points, stops, or client-specific notes..."
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-none"
                 />
+              </div>
+
+              {/* ROW 5: No of Bus | Vehicle Trip Type */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle details</label>
+                  <input
+                    type="text"
+                    name="bus_detail"
+                    value={form.bus_detail}
+                    onChange={handleChange}
+                    placeholder="e.g. 2 buses"
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Trip Type</label>
+                  <input
+                    type="text"
+                    name="to_location"
+                    value={form.to_location}
+                    onChange={handleChange}
+                    placeholder="e.g. AC Sleeper Coach"
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* VEHICLE ENTRIES */}
-            {vehicleEntries.map((entry, index) => {
-              const matchingDrivers = entry.driver_name
-                ? drivers.filter((d) => d.name.toLowerCase().includes(entry.driver_name.toLowerCase()))
-                : [];
-              const startKmValue = entry.start_km !== "" ? Number(entry.start_km) : null;
-              const endKmValue = entry.end_km !== "" ? Number(entry.end_km) : null;
-              const derivedDistanceValue =
-                startKmValue !== null && endKmValue !== null ? Math.max(endKmValue - startKmValue, 0) : null;
-              const distanceValue = entry.distance_km !== "" ? entry.distance_km : (derivedDistanceValue ?? "");
 
-              return (
-                <div key={index} className="space-y-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-black text-slate-800 tracking-tight">Vehicle {index + 1}</h3>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Per vehicle details</div>
+
+
+            {/* ADVANCE PAYMENTS
+                <div className="p-6 rounded-[2rem] border border-emerald-100 bg-emerald-50/40">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-6">
+                    <div>
+                      <h4 className="text-lg font-black text-slate-800">Advance Payments</h4>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Record advance payments received for this trip</p>
+                    </div>
+                    
+
+                
+              </div>
+            </div> */}
+
+            {/* BILLING CARD
+            <div className="glass-card p-10 rounded-[2.5rem] border border-emerald-100 relative overflow-hidden group bg-emerald-50/5">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10 text-emerald-600">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                2. Billing Details
+              </h3> */}
+
+
+            {/* VEHICLE SECTION HEADER */}
+            <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+                2. Vehicle Details
+              </h3>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">No of Bus / Vehicles</label>
+                <input
+                  type="number"
+                  onWheel={stopWheel}
+                  name="number_of_vehicles"
+                  value={vehicleEntries.length}
+                  readOnly
+                  className="w-full h-12 px-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 outline-none cursor-not-allowed"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addVehicleEntry}
+                className="h-11 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.1em] hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                + Add Vehicle
+              </button>
+            </div>
+            {/* VEHICLE LIST */}
+            <div className="space-y-6">
+              {vehicleEntries.map((entry, index) => (
+                <VehicleCard
+                  key={index}
+                  index={index}
+                  entry={entry}
+                  vehicles={vehicles}
+                  drivers={drivers}
+                  vendors={vendors}
+                  onEntryChange={handleVehicleEntryChange}
+                  onRemoveVehicle={() => removeVehicleEntry(index)}
+                  onAddDriverChange={addDriverChangeToVehicle}
+                  onRemoveDriverChange={removeDriverChangeFromVehicle}
+                  onDriverChangeUpdate={updateDriverChangeInVehicle}
+                  onAddExpense={addExpenseToVehicle}
+                  onRemoveExpense={removeExpenseFromVehicle}
+                  onExpenseUpdate={updateExpenseInVehicle}
+                  onAddNewVendor={() => setShowNewVendorForm(true)}
+                />
+              ))}
+
+              {vehicleEntries.length === 0 && (
+                <div className="p-20 border-2 border-dashed border-slate-200 rounded-[3rem] text-center bg-slate-50/50">
+                  <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
+                    <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
+                  <h4 className="text-xl font-black text-slate-800 tracking-tight mb-2">No Vehicles Added</h4>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest px-10">Click the "+ Add Vehicle" button above to start building your trip roster</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Vehicle <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={entry.vehicle_number}
-                        onChange={(e) => handleVehicleEntryChange(index, "vehicle_number", e.target.value)}
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select Vehicle</option>
-                        {vehicles.map(v => (
-                          <option key={v.vehicle_number} value={v.vehicle_number}>
-                            {v.vehicle_number}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+          {/* TRIP SUMMARY (At the end) */}
+          <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/5 mt-12">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+                Trip Summary & Billing
+              </h3>
+              <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicle Type:</span>
+                <span className="text-xs font-black text-blue-600 uppercase">{form.bus_type || "Standard"}</span>
+              </div>
+            </div>
 
-                    <div className="relative">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Driver <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={entry.driver_name}
-                        onChange={(e) => {
-                          handleVehicleEntryChange(index, "driver_name", e.target.value);
-                          handleVehicleEntryChange(index, "driver_id", "");
-                        }}
-                        autoComplete="off"
-                        placeholder="Search or Enter New Driver"
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                      {matchingDrivers.length > 0 && !entry.driver_id && (
-                        <div className="absolute z-40 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                          {matchingDrivers.map(d => (
-                            <div
-                              key={d.id}
-                              className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50 last:border-0"
-                              onClick={() => {
-                                handleVehicleEntryChange(index, "driver_name", d.name);
-                                handleVehicleEntryChange(index, "driver_id", String(d.id));
-                              }}
-                            >
-                              {d.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Distance (KM) {form.pricing_type === "per_km" && <span className="text-red-500">*</span>}
-                        {form.pricing_type === "package" && <span className="text-xs text-gray-500">(optional)</span>}
-                      </label>
-                      <input
-                        type="number"
-                        value={distanceValue}
-                        onChange={(e) => handleVehicleEntryChange(index, "distance_km", e.target.value)}
-                        onWheel={stopWheel}
-                        min="0"
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required={form.pricing_type === "per_km"}
-                        placeholder={form.pricing_type === "package" ? "Approx. distance for tracking" : "0"}
-                      />
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* BILLING COLUMN */}
+              <div className="lg:col-span-1 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-6 shadow-inner">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Bill Amount</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-black text-slate-400">₹</span>
+                    <span className="text-3xl font-black text-slate-800 tracking-tighter">
+                      {Number(totalBill).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Start KM</label>
-                      <input
-                        type="number"
-                        onWheel={stopWheel}
-                        step="0.1"
-                        min="0"
-                        value={entry.start_km}
-                        onChange={(e) => handleVehicleEntryChange(index, "start_km", e.target.value)}
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0"
-                      />
-                    </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Advance Received</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-black text-emerald-400">₹</span>
+                    <span className="text-2xl font-black text-emerald-600 tracking-tighter">
+                      {Number(totalReceived || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">End KM</label>
-                      <input
-                        type="number"
-                        onWheel={stopWheel}
-                        step="0.1"
-                        min="0"
-                        value={entry.end_km}
-                        onChange={(e) => handleVehicleEntryChange(index, "end_km", e.target.value)}
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0"
-                      />
-                    </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Balance Due</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-sm font-black ${Number(pending) > 0 ? "text-rose-400" : "text-emerald-400"}`}>₹</span>
+                    <span className={`text-4xl font-black tracking-tight ${Number(pending) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                      {Number(pending).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Driver Bhatta</label>
+              {/* STATS COLUMN */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Distance</span>
+                    <p className="text-sm font-black text-slate-700">{totalDistance} KM</p>
+                  </div>
+                  <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fuel Cost</span>
+                    <p className="text-sm font-black text-slate-700">₹{totalFuelCost.toFixed(0)}</p>
+                  </div>
+                  <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-blue-500">Total Toll</span>
+                    <p className="text-sm font-black text-blue-600">₹{totalToll.toFixed(0)}</p>
+                  </div>
+                  <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Total Parking</span>
+                    <p className="text-sm font-black text-emerald-600">₹{totalParking.toFixed(0)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">General Extra Expenses</label>
                       <input
                         type="number"
                         onWheel={stopWheel}
                         step="0.01"
-                        min="0"
-                        value={entry.driver_bhatta}
-                        onChange={(e) => handleVehicleEntryChange(index, "driver_bhatta", e.target.value)}
-                        className="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Rs 0.00"
+                        name="other_expenses"
+                        value={form.other_expenses}
+                        onChange={handleChange}
+                        className="w-full h-10 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                        placeholder="0.00"
                       />
                     </div>
+                    <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex justify-between items-center">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Expenses</span>
+                      <span className="text-sm font-black text-blue-400">₹{totalExpenses.toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
 
-            {/* PRICING DETAILS */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
-                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-                Pricing Details
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pricing Model</label>
-                  <select
-                    name="pricing_type"
-                    value={form.pricing_type}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
-                  >
-                    <option value="per_km">Per Kilometer Rate</option>
-                    <option value="package">Fix Rate (Package)</option>
-                  </select>
-                </div>
-
-                {form.pricing_type === "per_km" ? (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Unit Rate (₹/KM)</label>
-                    <input
-                      type="number"
-                      onWheel={stopWheel}
-                      step="0.01"
-                      name="cost_per_km"
-                      min="0"
-                      value={form.cost_per_km}
-                      onChange={handleChange}
-                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                      required
-                      placeholder="0.00"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Package Yield (₹)</label>
-                    <input
-                      type="number"
-                      onWheel={stopWheel}
-                      step="0.01"
-                      name="package_amount"
-                      min="0"
-                      value={form.package_amount}
-                      onChange={handleChange}
-                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                      required
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Direct Remittance (Received)</label>
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    name="amount_received"
-                    min="0"
-                    value={form.amount_received}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-bold text-emerald-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-emerald-200"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              {/* PRICING ITEMS */}
-              <div className="mt-10 p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100/50">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                  Custom Pricing Increments
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input
-                    className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                    placeholder="Yield Description"
-                    value={newPricingItem.description}
-                    onChange={e => setNewPricingItem({ ...newPricingItem, description: e.target.value })}
-                  />
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    min="0"
-                    className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 text-right"
-                    placeholder="Amount"
-                    value={newPricingItem.amount}
-                    onChange={e => setNewPricingItem({ ...newPricingItem, amount: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    onClick={addPricingItem}
-                    className="h-11 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-200"
-                  >
-                    Append Entry
-                  </button>
-                </div>
-
-                {pricingItems.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {pricingItems.map((item, idx) => (
-                      <div key={item.id || idx} className="flex items-center justify-between bg-white/50 p-3 rounded-xl border border-white backdrop-blur-sm group hover:border-blue-100 transition-all">
-                        <span className="text-xs font-bold text-slate-600">{item.description}</span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs font-black text-slate-800 tracking-tight">₹ {Number(item.amount || 0).toFixed(2)}</span>
-                          <button type="button" onClick={() => removePricingItem(idx)} className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition-all">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Toll (auto)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                          <input
+                            type="text"
+                            value={Number(totalToll || 0).toFixed(2)}
+                            readOnly
+                            className="w-full h-10 pl-7 pr-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 outline-none font-mono cursor-not-allowed"
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Parking (auto)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                          <input
+                            type="text"
+                            value={Number(totalParking || 0).toFixed(2)}
+                            readOnly
+                            className="w-full h-10 pl-7 pr-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 outline-none font-mono cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-            {/* EXPENSES */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
-                <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
-                Expenses
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Energy Rate (₹/L)</label>
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    name="fuel_rate"
-                    min="0"
-                    value={form.fuel_rate}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Energy Quota (Litres)</label>
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    name="fuel_litres"
-                    min="0"
-                    value={form.fuel_litres}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Logistics Vendor</label>
-                <div className="space-y-3">
-                  <select
-                    name="vendor"
-                    value={form.vendor}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
-                  >
-                    <option value="">Select Vendor</option>
-                    {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewVendorForm((prev) => !prev)}
-                    className="text-left text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors"
-                  >
-                    + Add New Vendor
-                  </button>
-
-                  {showNewVendorForm && (
-                    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <input
-                        type="text"
-                        placeholder="Vendor Name"
-                        value={newVendorForm.name}
-                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, name: e.target.value }))}
-                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Phone Number"
-                        value={newVendorForm.phone}
-                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, phone: e.target.value }))}
-                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                      />
-                      <select
-                        value={newVendorForm.category}
-                        onChange={(e) => setNewVendorForm((prev) => ({ ...prev, category: e.target.value }))}
-                        className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
                       >
-                        <option value="fuel">Fuel</option>
-                        <option value="spare_parts">Spare Parts</option>
-                        <option value="mechanic">Mechanic</option>
-                      </select>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={saveNewVendor}
-                          disabled={savingVendor}
-                          className="h-11 px-5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
-                        >
-                          {savingVendor ? "Saving..." : "Save Vendor"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowNewVendorForm(false);
-                            setNewVendorForm({ name: "", phone: "", category: "fuel" });
-                          }}
-                          className="h-11 px-5 bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-300 transition-all"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-8 space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Projected Energy Cost (₹)</label>
-                <div className="w-full h-12 px-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-500 flex items-center">
-                  {Number(displayedFuelCost || 0).toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            {/* DRIVER CHANGES */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10">
-                <div className="w-1.5 h-6 bg-slate-400 rounded-full" />
-                Driver Changes
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                <select
-                  className="h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
-                  value={newDriverChange.driver_id}
-                  onChange={e => setNewDriverChange({ ...newDriverChange, driver_id: e.target.value })}
-                >
-                  <option value="">Select Relay Pilot</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-                <input
-                  type="datetime-local"
-                  className="h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                  value={newDriverChange.start_time}
-                  onChange={e => setNewDriverChange({ ...newDriverChange, start_time: e.target.value })}
-                />
-                <input
-                  type="datetime-local"
-                  className="h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                  value={newDriverChange.end_time}
-                  onChange={e => setNewDriverChange({ ...newDriverChange, end_time: e.target.value })}
-                />
-                <input
-                  className="h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                  placeholder="Ops Signal/Notes"
-                  value={newDriverChange.notes}
-                  onChange={e => setNewDriverChange({ ...newDriverChange, notes: e.target.value })}
-                />
-                <button
-                  type="button"
-                  onClick={addDriverChange}
-                  className="h-11 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                >
-                  Approve Relay
-                </button>
-              </div>
-
-              {driverChanges.length > 0 && (
-                <div className="mt-6 space-y-2">
-                  {driverChanges.map((dc, idx) => (
-                    <div key={dc.id || idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-black uppercase tracking-tighter">R</div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-800 leading-none">
-                            {drivers.find(d => String(d.id) === String(dc.driver_id))?.name || "RESERVE PILOT"}
-                          </p>
-                          <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">
-                            {dc.start_time || "START"} → {dc.end_time || "TERMINAL"} {dc.notes && `• ${dc.notes}`}
-                          </p>
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => removeDriverChange(idx)} className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-400 rounded-lg transition-all">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                        {loading ? "Saving..." : (isEdit ? "Update Trip" : "Save Trip")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/trips")}
+                        className="px-6 h-12 bg-white text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+                      >
+                        Cancel
                       </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* DRIVER PAID EXPENSES */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-6 bg-red-500 rounded-full" />
-                Driver Paid Expenses
-              </h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Expenses paid by the driver during the trip</p>
-
-              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  <div className="md:col-span-5">
-                    <input
-                      type="text"
-                      placeholder="Expense Allocation (e.g. State Tolls)"
-                      value={newExpense.description}
-                      onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all placeholder:text-slate-300 w-full"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <input
-                      type="number"
-                      onWheel={stopWheel}
-                      step="0.01"
-                      min="0"
-                      placeholder="Debit Amount"
-                      value={newExpense.amount}
-                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all placeholder:text-slate-300 w-full text-right"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <input
-                      type="text"
-                      placeholder="Audit Notes"
-                      value={newExpense.notes}
-                      onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500 transition-all placeholder:text-slate-300 w-full"
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <button
-                      type="button"
-                      onClick={addDriverExpense}
-                      className="h-11 w-full bg-red-600 text-white rounded-xl flex items-center justify-center hover:bg-red-700 transition-all shadow-lg shadow-red-200"
-                    >
-                      <svg className="w-5 h-5 font-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                    </button>
                   </div>
                 </div>
               </div>
-
-              {driverExpenses.length > 0 && (
-                <div className="space-y-3">
-                  {driverExpenses.map((exp, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 group hover:border-red-100 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-800 leading-none">{exp.description}</p>
-                          {exp.notes && <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{exp.notes}</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <p className="text-xs font-black text-red-600">₹ {Number(exp.amount).toFixed(2)}</p>
-                        <button type="button" onClick={() => removeDriverExpense(idx)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 text-red-400 rounded-xl transition-all">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex justify-between items-center p-6 bg-red-50 rounded-2xl border border-red-100 mt-6">
-                    <p className="text-[10px] font-black text-red-800 uppercase tracking-widest">Total Driver Expenses</p>
-                    <p className="text-xl font-black text-red-600 tracking-tight">₹ {totalDriverExpenses.toFixed(2)}</p>
-                  </div>
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* ADVANCE PAYMENTS */}
-            <div className="glass-card p-10 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                Advance Payments
-              </h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Record advance payments received for this trip</p>
-
-              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  <div className="md:col-span-3">
-                    <input
-                      type="date"
-                      value={newAdvance.payment_date}
-                      onChange={(e) => setNewAdvance({ ...newAdvance, payment_date: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <select
-                      value={newAdvance.payment_mode}
-                      onChange={(e) => setNewAdvance({ ...newAdvance, payment_mode: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full appearance-none"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Online">Online / UPI</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Transfer">Bank Transfer</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <input
-                      type="number"
-                      onWheel={stopWheel}
-                      step="0.01"
-                      min="0"
-                      placeholder="Amount"
-                      value={newAdvance.amount}
-                      onChange={(e) => setNewAdvance({ ...newAdvance, amount: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full text-right"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <input
-                      type="text"
-                      placeholder="Reference/Notes"
-                      value={newAdvance.notes}
-                      onChange={(e) => setNewAdvance({ ...newAdvance, notes: e.target.value })}
-                      className="h-11 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all w-full"
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <button
-                      type="button"
-                      onClick={addAdvancePayment}
-                      className="h-11 w-full bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
-                    >
-                      <svg className="w-5 h-5 font-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {advancePayments.length > 0 && (
-                <div className="space-y-3">
-                  {advancePayments.map((p, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 group hover:border-emerald-100 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-800 leading-none">{p.payment_mode} Payment</p>
-                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">
-                            {formatDateDDMMYYYY(p.payment_date)} {p.notes && `• ${p.notes}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <p className="text-xs font-black text-emerald-600">₹ {Number(p.amount).toFixed(2)}</p>
-                        <button type="button" onClick={() => removeAdvancePayment(idx)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 text-red-400 rounded-xl transition-all">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex justify-between items-center p-6 bg-emerald-50 rounded-2xl border border-emerald-100 mt-6">
-                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Total Advance Received</p>
-                    <p className="text-xl font-black text-emerald-600 tracking-tight">₹ {totalAdvancePayments.toFixed(2)}</p>
-                  </div>
-                </div>
-              )}
+          <div className="px-6 py-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex items-center gap-4 group">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg group-hover:rotate-12 transition-transform">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div>
+              <h4 className="text-[9px] font-black text-blue-900 uppercase tracking-widest leading-none">Multi-Vehicle Support</h4>
+              <p className="text-[8px] font-bold text-blue-600/70 uppercase mt-1">Distance & Expenses aggregate per vehicle</p>
             </div>
           </div>
         </div>
       </form>
 
-      {/* TRIP SUMMARY - OUTSIDE FORM */}
-      <div className="space-y-8">
-        <div className="glass-card p-8 rounded-[3rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/10 sticky top-8">
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-3">
-            <div className="w-2 h-8 bg-blue-600 rounded-full" />
-            Trip Summary
-          </h3>
-
-          <div className="space-y-8">
-            <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Total Bill Amount</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-black text-slate-400">₹</span>
-                  <span className="text-3xl font-black text-slate-800 tracking-tighter">
-                    {Number(totalBill).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Total Amount Received</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-black text-emerald-400">₹</span>
-                  <span className="text-3xl font-black text-emerald-600 tracking-tighter">
-                    {totalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-200">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Balance Amount Due</span>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-sm font-black ${Number(pending) > 0 ? "text-rose-400" : "text-emerald-400"}`}>₹</span>
-                  <span className={`text-4xl font-black tracking-tight ${Number(pending) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                    {Number(pending).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
+      {/* NEW VENDOR MODAL */}
+      {showNewVendorForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+                Add New Vendor
+              </h3>
+              <button type="button" onClick={() => setShowNewVendorForm(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-200 rounded-full bg-slate-100">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-
-            <div className="space-y-6 px-2">
+            <div className="p-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Extra Expenses</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vendor Name</label>
                 <input
-                  type="number"
-                  onWheel={stopWheel}
-                  step="0.01"
-                  name="other_expenses"
-                  min="0"
-                  value={form.other_expenses}
-                  onChange={handleChange}
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                  placeholder="0.00"
+                  type="text"
+                  value={newVendorForm.name}
+                  onChange={(e) => setNewVendorForm({ ...newVendorForm, name: e.target.value })}
+                  placeholder="Enter vendor name..."
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-base font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 placeholder:font-bold"
+                  autoFocus
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Toll Yield</label>
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    name="charged_toll_amount"
-                    min="0"
-                    value={form.charged_toll_amount}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Parking Yield</label>
-                  <input
-                    type="number"
-                    onWheel={stopWheel}
-                    step="0.01"
-                    name="charged_parking_amount"
-                    min="0"
-                    value={form.charged_parking_amount}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-mono"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={newVendorForm.phone}
+                  onChange={(e) => setNewVendorForm({ ...newVendorForm, phone: e.target.value })}
+                  placeholder="Optional phone number..."
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-base font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 placeholder:font-bold"
+                />
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <button
-                  type="submit"
-                  className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vendor Category</label>
+                <select
+                  value={newVendorForm.category}
+                  onChange={(e) => setNewVendorForm({ ...newVendorForm, category: e.target.value })}
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-base font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                  {isEdit ? "Update Trip" : "Save Trip"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/trips")}
-                  className="w-full h-14 bg-white text-slate-400 font-black text-xs uppercase tracking-widest rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all"
-                >
-                  Cancel
-                </button>
-              </form>
+                  <option value="fuel">Fuel Vendor</option>
+                  <option value="spare_parts">Spare Parts Vendor</option>
+                  <option value="mechanic">Mechanic / Garage</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-4">
+              <button
+                type="button"
+                onClick={() => setShowNewVendorForm(false)}
+                className="flex-[1] h-14 bg-white border border-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveNewVendor}
+                disabled={savingVendor}
+                className="flex-[2] h-14 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingVendor ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  "Save Vendor"
+                )}
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* NEW CUSTOMER MODAL */}
+      {showNewCustomerForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 flex flex-col items-center">
+
+            <div className="w-full text-center pt-10 pb-4">
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Add Customer</h2>
+              <p className="text-slate-500 font-bold mt-2">Add a new customer to your records</p>
+            </div>
+
+            <div className="w-full p-8 max-w-lg space-y-6">
+
+              <div className="space-y-2 relative z-10">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Customer Name</label>
+                <input
+                  type="text"
+                  value={newCustomerForm.name}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                  placeholder="Enter customer name"
+                  className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 relative z-10">
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                    placeholder="+91-0000000000"
+                    className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Email</label>
+                  <input
+                    type="email"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                    placeholder="name@company.com"
+                    className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 relative z-10">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Address</label>
+                <input
+                  type="text"
+                  value={newCustomerForm.address}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+                  placeholder="Street, City, Zip"
+                  className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                />
+              </div>
+
+              <div className="flex gap-4 pt-6 mt-4 pb-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewCustomerForm(false)}
+                  className="flex-1 h-14 bg-slate-50 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveNewCustomer}
+                  disabled={savingCustomer}
+                  className="flex-[1.5] h-14 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-[0.1em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingCustomer ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    "Save Customer"
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+      />
     </div>
   );
 }
+
+

@@ -104,7 +104,7 @@ export default function Notes() {
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-5xl mx-auto">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Intelligence Ledger</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Notes</h1>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Centralized Tactical Observations & Directives</p>
         </div>
         <button
@@ -112,13 +112,13 @@ export default function Notes() {
           className="h-12 px-8 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-          New Directive
+          New Notes
         </button>
       </div>
 
       <div className="flex items-center gap-4 p-4 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/50 backdrop-blur-sm">
         <div className="flex items-center gap-3 px-3">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Temporal Filter</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter</span>
           <input
             type="month"
             value={selectedMonth}
@@ -132,8 +132,8 @@ export default function Notes() {
         <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-slate-50/50">
-              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Timestamp</th>
-              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Intel Content</th>
+              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Date</th>
+              <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Content</th>
               <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Control</th>
             </tr>
           </thead>
@@ -143,7 +143,7 @@ export default function Notes() {
                 <td colSpan={3} className="p-24 text-center">
                   <div className="flex flex-col items-center gap-4 opacity-20">
                     <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Silence in this sector</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">No Data Add Yet</p>
                   </div>
                 </td>
               </tr>

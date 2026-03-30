@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
 
 export default function MaintenanceForm() {
   const navigate = useNavigate();
@@ -19,6 +20,12 @@ export default function MaintenanceForm() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   const typeLabels = {
     emi: "EMI",
@@ -103,10 +110,9 @@ export default function MaintenanceForm() {
       } else {
         await api.post("/maintenance", payload);
       }
-      navigate(`/maintenance/${normalizedType}`);
+      showModal("Success", "Maintenance record saved!", "success", () => navigate(`/maintenance/${normalizedType}`));
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.detail || "Failed to save record");
+      showModal("Error", err.response?.data?.detail || "Failed to save record");
     } finally {
       setLoading(false);
     }
@@ -121,10 +127,10 @@ export default function MaintenanceForm() {
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
           <h1 className="text-4xl font-black text-slate-800 tracking-tight">
-            {id ? "Adjust Protocol" : "Register Mandate"}
+            {id ? "Edit Maintenance" : "Add Maintenance"}
           </h1>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">
-            Lifecycle Maintenance: {typeLabels[normalizedType]}
+            Maintenance Type: {typeLabels[normalizedType]}
           </p>
         </div>
       </div>
@@ -143,7 +149,7 @@ export default function MaintenanceForm() {
         <form className="space-y-8 relative z-10" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Asset Allocation</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Select Vehicle</label>
               <select
                 name="vehicle_number"
                 value={formData.vehicle_number}
@@ -161,7 +167,7 @@ export default function MaintenanceForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Mandate Valuation (Amount)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
                 <input
@@ -180,7 +186,7 @@ export default function MaintenanceForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Effective Date (Start)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Start Date</label>
               <input
                 type="date"
                 name="start_date"
@@ -192,7 +198,7 @@ export default function MaintenanceForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Terminal Date (End)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">End Date</label>
               <input
                 type="date"
                 name="end_date"
@@ -203,13 +209,13 @@ export default function MaintenanceForm() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Protocol Intelligence (Description)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Description</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="3"
-                placeholder="Annotate specific conditions or terms..."
+                placeholder="Add maintenance notes..."
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
               />
             </div>
@@ -233,6 +239,14 @@ export default function MaintenanceForm() {
           </div>
         </form>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? modal.onConfirm : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }

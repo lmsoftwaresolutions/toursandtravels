@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
 
 export default function DriverForm() {
   const [form, setForm] = useState({
@@ -15,21 +16,31 @@ export default function DriverForm() {
 
   const navigate = useNavigate();
 
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
+
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await api.post("/drivers", form);
-    navigate("/drivers");
+    try {
+      await api.post("/drivers", form);
+      showModal("Success", "Driver registered successfully!", "success", () => navigate("/drivers"));
+    } catch (error) {
+      showModal("Registration Error", "Failed to register driver. Please try again.");
+    }
   };
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Pilot Registration</h1>
-          <p className="text-slate-500 font-medium mt-1">Enlist new personnel into the active corps</p>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Driver Registration</h1>
+          <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Register a new driver</p>
         </div>
       </div>
 
@@ -41,10 +52,10 @@ export default function DriverForm() {
         <form className="space-y-8 relative z-10" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Identity</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Name</label>
               <input
                 name="name"
-                placeholder="Pilot Name"
+                placeholder="Driver Name"
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                 onChange={handleChange}
                 required
@@ -52,7 +63,7 @@ export default function DriverForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Comm Signal (Phone)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
               <input
                 name="phone"
                 placeholder="+91-0000000000"
@@ -63,7 +74,7 @@ export default function DriverForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pilot Credentials (License)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Driver License Number</label>
               <input
                 name="license_number"
                 placeholder="MH-00-0000000000"
@@ -74,7 +85,7 @@ export default function DriverForm() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Commission Date</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Joining Date</label>
               <input
                 type="date"
                 name="joining_date"
@@ -85,7 +96,7 @@ export default function DriverForm() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Monthly Base Retainer (₹)</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Monthly Salary (₹)</label>
               <input
                 type="number"
                 step="0.01"
@@ -117,6 +128,14 @@ export default function DriverForm() {
           </div>
         </form>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? modal.onConfirm : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }

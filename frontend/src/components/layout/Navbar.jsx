@@ -11,7 +11,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="no-print h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
+    <header className="no-print print:hidden h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
       <div>
         <h1 className="text-xl font-bold text-slate-800 tracking-tight">NATH KRUPA</h1>
         <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">TRAVEL SOLUTIONS</p>

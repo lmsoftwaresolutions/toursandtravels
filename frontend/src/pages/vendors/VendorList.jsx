@@ -6,11 +6,11 @@ import { authService } from "../../services/auth";
 const CATEGORY_OPTIONS = [
   { value: "fuel", label: "Fuel" },
   { value: "spare_parts", label: "Spare Parts" },
-  { value: "mechanic", label: "Mistry" },
+  { value: "mechanic", label: "Mechanic" },
 ];
 
 const formatCategoryLabel = (category) => {
-  if (category === "mechanic") return "Mistry";
+  if (category === "mechanic") return "Mechanic";
   return String(category || "")
     .split("_")
     .filter(Boolean)

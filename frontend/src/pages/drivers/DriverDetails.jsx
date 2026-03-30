@@ -254,7 +254,7 @@ export default function DriverDetails() {
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Pilot Portfolio</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Driver Information</h1>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Operational performance and financial settlement</p>
         </div>
 
@@ -264,13 +264,13 @@ export default function DriverDetails() {
             className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all text-sm print:hidden"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-            Print Dossier
+            Print 
           </button>
           <button
             onClick={() => navigate("/drivers")}
             className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 hover:scale-105 transition-all text-sm"
           >
-            Corps Directory
+            Drivers
           </button>
         </div>
       </div>
@@ -325,11 +325,11 @@ export default function DriverDetails() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Retainer</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Salary</p>
                 <p className="text-2xl font-black text-slate-800 tracking-tight">₹ {monthlySalary.toFixed(2)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expense Recovery</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TotalExpense </p>
                 <p className="text-2xl font-black text-slate-800 tracking-tight">₹ {monthlyExpensesTotal.toFixed(2)}</p>
               </div>
               <div className="space-y-1">
@@ -345,15 +345,15 @@ export default function DriverDetails() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Aggregate Liability</p>
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Total Due</p>
                   <p className="text-3xl font-black tracking-tight">₹ {monthlyTotalDue.toFixed(2)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Remittance Sealed</p>
+                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Salary Paid</p>
                   <p className="text-3xl font-black tracking-tight">₹ {monthlySalaryPaid.toFixed(2)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Outstanding Yield</p>
+                  <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Total Pending</p>
                   <p className={`text-4xl font-black tracking-tight ${monthlyPending > 0 ? "text-rose-500" : "text-emerald-400"}`}>
                     ₹ {monthlyPending.toFixed(2)}
                   </p>
@@ -512,7 +512,7 @@ export default function DriverDetails() {
           <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100 bg-white">
             <h3 className="text-lg font-black tracking-tight mb-6 flex items-center gap-2">
               <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
-              Manifest History
+              Trip History
             </h3>
             <div className="space-y-4">
               {trips.slice(0, 5).map((trip) => {

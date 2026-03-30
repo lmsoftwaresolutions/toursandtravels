@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
+import { useNavigate } from "react-router-dom";
 
 export default function FuelForm() {
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
+  
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
+  const showModal = (title, message, type = "error", onConfirm = null) => 
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
   const [form, setForm] = useState({
     vehicle_number: "",
     fuel_type: "diesel",
@@ -20,19 +29,23 @@ export default function FuelForm() {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    await api.post("/fuel", {
-      ...form,
-      quantity: Number(form.quantity),
-      rate_per_litre: Number(form.rate_per_litre)
-    });
-    alert("Fuel entry added");
+    try {
+      await api.post("/fuel", {
+        ...form,
+        quantity: Number(form.quantity),
+        rate_per_litre: Number(form.rate_per_litre)
+      });
+      showModal("Success", "Fuel entry recorded successfully!", "success", () => navigate(-1));
+    } catch (error) {
+      showModal("Error", "Failed to add fuel entry. Please try again.");
+    }
   };
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-2xl mx-auto">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Add Fuel Entry</h1>
+          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Record Fuel Purchase</h1>
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Add fuel details for a vehicle</p>
         </div>
       </div>
@@ -130,6 +143,14 @@ export default function FuelForm() {
           </div>
         </form>
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={modal.onConfirm ? modal.onConfirm : closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }
