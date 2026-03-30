@@ -10,6 +10,7 @@ export default function InvoiceView() {
   const [trip, setTrip] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [vehiclesLookup, setVehiclesLookup] = useState({});
+  const [payments, setPayments] = useState([]);
   const [printTimestamp, setPrintTimestamp] = useState("");
   const [searchParams] = useSearchParams();
   const hasVehicleAssigned = Boolean(trip?.vehicle_number || (trip?.vehicles || []).length);
@@ -21,13 +22,15 @@ export default function InvoiceView() {
   const loadInvoiceData = useCallback(async () => {
     try {
       const tripRes = await api.get(`/trips/${id}`);
-      const [customerRes, vehiclesRes] = await Promise.all([
+      const [customerRes, vehiclesRes, paymentsRes] = await Promise.all([
         api.get("/customers"),
         api.get("/vehicles").catch(() => ({ data: [] })),
+        api.get(`/payments/trip/${id}`).catch(() => ({ data: [] })),
       ]);
 
       setTrip(tripRes.data);
       setCustomer(customerRes.data.find((c) => c.id === tripRes.data.customer_id));
+      setPayments(paymentsRes.data || []);
 
       const nextLookup = {};
       (vehiclesRes.data || []).forEach((vehicle) => {
@@ -208,8 +211,13 @@ export default function InvoiceView() {
     return invoiceRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   }, [invoiceRows]);
 
-  const totalPaid = Number(trip?.amount_received || 0);
-  const balanceDue = Math.max(calculatedTotal - totalPaid, 0);
+  const totalAdvance = useMemo(() => {
+    const paymentSum = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    return paymentSum || Number(trip?.amount_received || 0);
+  }, [payments, trip]);
+
+  const balanceDue = Math.max(calculatedTotal - totalAdvance, 0);
+  const extraAmount = Math.max(totalAdvance - calculatedTotal, 0);
 
   const handlePrint = () => {
     setPrintTimestamp(new Date().toLocaleString());
@@ -487,9 +495,28 @@ export default function InvoiceView() {
               <div className="print-heading text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 text-right">Payment Summary</div>
               <div className="border border-black/40 px-3 py-2 space-y-1">
                 <div className="flex justify-between text-[11px] font-bold">
-                  <span>Paid Amount</span>
-                  <span className="tabular-nums">Rs. {totalPaid.toFixed(2)}</span>
+                  <span>Advance Paid</span>
+                  <span className="tabular-nums">Rs. {totalAdvance.toFixed(2)}</span>
                 </div>
+                {payments.length > 0 && (
+                  <div className="border-t border-black/10 pt-2 space-y-1">
+                    {payments.map((p, idx) => (
+                      <div key={p.id || idx} className="flex justify-between text-[10px] font-bold text-slate-600">
+                        <span>
+                          {p.payment_date ? formatDateDDMMYYYY(p.payment_date) : "Advance"}
+                          {p.payment_mode ? ` • ${p.payment_mode}` : ""}
+                        </span>
+                        <span className="tabular-nums">Rs. {Number(p.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {extraAmount > 0 && (
+                  <div className="flex justify-between text-[11px] font-bold text-emerald-700 pt-1">
+                    <span>Extra Amount Received</span>
+                    <span className="tabular-nums">Rs. {extraAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-[12px] font-black pt-1">
                   <span className="text-slate-600">Balance Due</span>
                   <span className="tabular-nums">Rs. {balanceDue.toFixed(2)}</span>

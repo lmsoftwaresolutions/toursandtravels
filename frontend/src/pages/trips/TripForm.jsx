@@ -112,6 +112,14 @@ export default function TripForm() {
   const [showCustomerList, setShowCustomerList] = useState(false);
   const DRAFT_KEY = "tripFormDraft:new";
 
+  const normalizeIndianPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits;
+  };
+
+  const isValidIndianPhone = (value) => /^[6-9]\d{9}$/.test(normalizeIndianPhone(value));
+
   const saveDraft = () => {
     const payload = {
       form,
@@ -391,12 +399,16 @@ export default function TripForm() {
       showModal("Validation Error", "Please enter a vendor name.");
       return;
     }
+    if (newVendorForm.phone && !isValidIndianPhone(newVendorForm.phone)) {
+      showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
+      return;
+    }
 
     setSavingVendor(true);
     try {
       const res = await api.post("/vendors", {
         name: newVendorForm.name.trim(),
-        phone: newVendorForm.phone.trim() || null,
+        phone: newVendorForm.phone ? normalizeIndianPhone(newVendorForm.phone) : null,
         category: newVendorForm.category,
       });
       setVendors((prev) => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -450,11 +462,15 @@ export default function TripForm() {
       showModal("Validation Error", "Customer Name is required.", "error");
       return;
     }
+    if (newCustomerForm.phone && !isValidIndianPhone(newCustomerForm.phone)) {
+      showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
+      return;
+    }
     setSavingCustomer(true);
     try {
       const payload = {
         name: newCustomerForm.name,
-        phone: newCustomerForm.phone || "",
+        phone: newCustomerForm.phone ? normalizeIndianPhone(newCustomerForm.phone) : "",
         email: newCustomerForm.email || "",
         address: newCustomerForm.address || ""
       };
@@ -483,11 +499,17 @@ export default function TripForm() {
     if (loading) return;
     setLoading(true);
     try {
+      if (form.customer_phone && !isValidIndianPhone(form.customer_phone)) {
+        showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
+        setLoading(false);
+        return;
+      }
+      const normalizedCustomerPhone = form.customer_phone ? normalizeIndianPhone(form.customer_phone) : null;
       let customer_id = form.customer_id;
 
       if (!customer_id && form.customer_name) {
         try {
-          const res = await api.post("/customers", { name: form.customer_name.trim(), phone: "N/A" });
+          const res = await api.post("/customers", { name: form.customer_name.trim(), phone: normalizedCustomerPhone || "N/A" });
           customer_id = res.data.id;
           setCustomers(prev => [...prev, res.data]);
         } catch (err) {
@@ -580,7 +602,7 @@ export default function TripForm() {
         vehicle_number: primaryVehicle?.vehicle_number || null,
         driver_id: primaryVehicle?.driver_id || null,
         customer_id: Number(customer_id),
-        customer_phone: form.customer_phone || null,
+        customer_phone: normalizedCustomerPhone,
         customer_address: form.customer_address || null,
         number_of_vehicles: numberOfVehicles,
         bus_type: form.bus_type || null,
@@ -749,6 +771,26 @@ export default function TripForm() {
 
   const getEntryExtraExpenses = (entry) =>
     entry.expenses.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+
+  const getEntryBaseFare = (entry) => {
+    const distance = getEntryDistance(entry);
+    const rate = getEntryRate(entry);
+    const entryPricingType = getEntryPricingType(entry);
+    const packageValue = getEntryPackageValue(entry);
+    return entryPricingType === "package"
+      ? Number(packageValue || 0)
+      : Number(distance || 0) * Number(rate || 0);
+  };
+
+  const getEntryDescription = (entry, idx) => {
+    const seatCount = entry.seat_count ?? "";
+    const vehicleType = entry.vehicle_type || "";
+    const parts = [];
+    if (seatCount !== "") parts.push(`${seatCount} Seater`);
+    if (vehicleType) parts.push(`(${vehicleType})`);
+    if (parts.length) return parts.join(" ");
+    return entry.vehicle_number || `Vehicle ${idx + 1}`;
+  };
 
   const getEntryTotal = (entry) => {
     const distance = getEntryDistance(entry);
@@ -1197,8 +1239,8 @@ export default function TripForm() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Trip Type</label>
                   <input
                     type="text"
-                    name="to_location"
-                    value={form.to_location}
+                    name="bus_type"
+                    value={form.bus_type}
                     onChange={handleChange}
                     placeholder="e.g. AC Sleeper Coach"
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
@@ -1292,6 +1334,85 @@ export default function TripForm() {
             </div>
           </div>
 
+          {/* OTHER EXPENSES */}
+          <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                Other Expenses
+              </h3>
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                These items will be added to the invoice total
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
+              <div className="flex-1 w-full">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Expense Type</label>
+                <input
+                  type="text"
+                  value={newChargeItem.description}
+                  onChange={(e) => setNewChargeItem({ ...newChargeItem, description: e.target.value })}
+                  placeholder="Expense Type (e.g. Food)"
+                  className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                />
+              </div>
+              <div className="w-full lg:w-40">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
+                  <input
+                    type="number"
+                    onWheel={stopWheel}
+                    step="0.01"
+                    value={newChargeItem.amount}
+                    onChange={(e) => setNewChargeItem({ ...newChargeItem, amount: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full h-11 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={addChargeItem}
+                className="h-11 px-5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.1em] hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center gap-2"
+              >
+                + Add Other Expense
+              </button>
+            </div>
+
+            {chargeItems.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {chargeItems.map((item, idx) => (
+                  <div key={item.id || idx} className="flex items-center justify-between gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex-1">
+                      <div className="text-sm font-black text-slate-700">{item.description}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Other Expense</div>
+                    </div>
+                    <div className="text-sm font-black text-emerald-600">
+                      Rs. {Number(item.amount || 0).toFixed(2)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeChargeItem(idx)}
+                      className="h-9 w-9 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between px-3 pt-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Other Expenses Total</span>
+                  <span className="text-sm font-black text-emerald-700">Rs. {chargeItemsTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 p-6 text-center text-xs font-black uppercase tracking-widest text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+                No other expenses added yet
+              </div>
+            )}
+          </div>
+
           {/* TRIP SUMMARY (At the end) */}
           <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100 bg-white shadow-2xl shadow-blue-900/5 mt-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -1349,48 +1470,53 @@ export default function TripForm() {
             </div>
 
             <div className="space-y-6">
-              <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                <table className="w-full text-left text-[11px] font-bold text-slate-600">
-                  <thead className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3">Vehicle No</th>
-                      <th className="px-4 py-3">Distance</th>
-                      <th className="px-4 py-3">Pricing</th>
-                      <th className="px-4 py-3">Rate / Package</th>
-                      <th className="px-4 py-3">Toll</th>
-                      <th className="px-4 py-3">Parking</th>
-                                            <th className="px-4 py-3">Other</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {vehicleEntries.map((entry, idx) => {
-                      const distance = getEntryDistance(entry);
-                      const rate = getEntryRate(entry);
-                      const extras = getEntryExtraExpenses(entry);
-                      const rowTotal = getEntryTotal(entry);
-                      const vehicleLabel = entry.vehicle_number || `Vehicle ${idx + 1}`;
-                      const entryPricingType = getEntryPricingType(entry);
-                      const rateDisplay =
-                        entryPricingType === "package"
-                          ? Number(getEntryPackageValue(entry) || 0)
-                          : Number(rate || 0);
-                      const pricingLabel = entryPricingType === "package" ? "Package" : "Per KM";
-                      return (
-                        <tr key={idx} className="text-slate-700">
-                          <td className="px-4 py-3 font-black">{vehicleLabel}</td>
-                          <td className="px-4 py-3">{distance.toFixed(0)} KM</td>
-                          <td className="px-4 py-3">{pricingLabel}</td>
-                          <td className="px-4 py-3">Rs. {rateDisplay.toFixed(2)}</td>
-                          <td className="px-4 py-3">Rs. {Number(entry.toll_amount || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3">Rs. {Number(entry.parking_amount || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3">Rs. {Number((entry.other_expenses || 0) + extras).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right font-black">Rs. {Number(rowTotal || 0).toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                {vehicleEntries.map((entry, idx) => {
+                  const baseFare = getEntryBaseFare(entry);
+                  const toll = Number(entry.toll_amount || 0);
+                  const parking = Number(entry.parking_amount || 0);
+                  const extras = getEntryExtraExpenses(entry);
+                  const other = Number(entry.other_expenses || 0) + extras;
+                  const rowTotal = baseFare + toll + parking + other;
+                  const description = getEntryDescription(entry, idx);
+                  const vehicleLabel = entry.vehicle_number || `Vehicle ${idx + 1}`;
+                  return (
+                    <div key={idx} className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          Vehicle {idx + 1}
+                        </span>
+                        <span className="text-xs font-black text-slate-700 uppercase">{vehicleLabel}</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[11px] font-bold text-slate-600">
+                          <thead className="bg-white text-[10px] uppercase tracking-widest text-slate-400">
+                            <tr>
+                              <th className="px-4 py-3">Sr No</th>
+                              <th className="px-4 py-3">Description</th>
+                              <th className="px-4 py-3">Base Fare</th>
+                              <th className="px-4 py-3">Toll</th>
+                              <th className="px-4 py-3">Parking</th>
+                              <th className="px-4 py-3">Other</th>
+                              <th className="px-4 py-3 text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            <tr className="text-slate-700">
+                              <td className="px-4 py-3 font-black">{idx + 1}</td>
+                              <td className="px-4 py-3">{description}</td>
+                              <td className="px-4 py-3">Rs. {Number(baseFare || 0).toFixed(2)}</td>
+                              <td className="px-4 py-3">Rs. {toll.toFixed(2)}</td>
+                              <td className="px-4 py-3">Rs. {parking.toFixed(2)}</td>
+                              <td className="px-4 py-3">Rs. {other.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-right font-black">Rs. {Number(rowTotal || 0).toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1569,7 +1695,6 @@ export default function TripForm() {
                   <option value="fuel">Fuel Vendor</option>
                   <option value="spare_parts">Spare Parts Vendor</option>
                   <option value="mechanic">Mechanic / Garage</option>
-                  <option value="other">Other</option>
                 </select>
               </div>
             </div>
@@ -1700,5 +1825,3 @@ export default function TripForm() {
     </div>
   );
 }
-
-

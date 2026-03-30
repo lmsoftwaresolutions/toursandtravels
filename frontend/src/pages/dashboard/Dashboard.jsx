@@ -78,7 +78,8 @@ export default function Dashboard() {
             />
           </div>
           <button
-            onClick={() => window.dispatchEvent(new Event("open-add-note"))}
+            type="button"
+            onClick={() => navigate("/notes")}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,6 +128,7 @@ export default function Dashboard() {
           <TripScheduleChart
             vehicles={isAdmin ? data.vehicles : vehicles}
             scheduleMonth={dashboardMonth}
+            canWrite={canWrite}
           />
         </div>
       </div>
@@ -168,7 +170,8 @@ function KPI({ title, value, note, highlight }) {
 /* ================= TRIP SCHEDULE ================= */
 function TripScheduleChart({
   vehicles,
-  scheduleMonth
+  scheduleMonth,
+  canWrite
 }) {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
@@ -240,16 +243,18 @@ function TripScheduleChart({
 
   useEffect(() => {
     const open = () => {
+      const firstVehicle = (vehicles || [])[0];
+      const todayStr = new Date().toISOString().split("T")[0];
       setNoteText("");
-      setNoteDate("");
-      setNoteVehicleId(null);
-      setNoteVehicleNumber("");
+      setNoteDate(todayStr);
+      setNoteVehicleId(firstVehicle?.id || null);
+      setNoteVehicleNumber(firstVehicle?.vehicle_number || "");
       setEditingNoteId(null);
       setShowNoteModal(true);
     };
     window.addEventListener("open-add-note", open);
     return () => window.removeEventListener("open-add-note", open);
-  }, []);
+  }, [vehicles]);
 
   const tripsByDate = useMemo(() => {
     const grouped = {};
@@ -288,6 +293,63 @@ function TripScheduleChart({
   );
 
   const vehicleList = vehicles?.length ? vehicles : [];
+
+  const openAddNote = (date, vehicle) => {
+    if (!canWrite) return;
+    setEditingNoteId(null);
+    setNoteText("");
+    setNoteDate(date || "");
+    setNoteVehicleId(vehicle?.id || null);
+    setNoteVehicleNumber(vehicle?.vehicle_number || "");
+    setShowNoteModal(true);
+  };
+
+  const openEditNote = (note) => {
+    if (!canWrite) return;
+    const vehicleId = note?.vehicle_id;
+    const vehicle = (vehicleList || []).find(v => v.id === vehicleId);
+    setEditingNoteId(note?.id || null);
+    setNoteText(note?.note || "");
+    setNoteDate(note?.note_date || "");
+    setNoteVehicleId(vehicleId || null);
+    setNoteVehicleNumber(vehicle?.vehicle_number || "");
+    setShowNoteModal(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!canWrite) return;
+    if (!noteDate || !noteVehicleId || !noteText.trim()) {
+      alert("Please select date, vehicle, and enter a note.");
+      return;
+    }
+    try {
+      const payload = {
+        vehicle_id: Number(noteVehicleId),
+        note: noteText.trim(),
+        note_date: noteDate,
+      };
+      if (editingNoteId) {
+        await api.put(`/vehicle-notes/${editingNoteId}`, payload);
+      } else {
+        await api.post("/vehicle-notes", payload);
+      }
+      setShowNoteModal(false);
+      setEditingNoteId(null);
+      loadNotes();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to save note");
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (!canWrite || !noteId) return;
+    try {
+      await api.delete(`/vehicle-notes/${noteId}`);
+      loadNotes();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to delete note");
+    }
+  };
 
 
   return (
