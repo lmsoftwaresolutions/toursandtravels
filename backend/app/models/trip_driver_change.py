@@ -12,6 +12,7 @@ class TripDriverChange(Base):
 
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
+    vehicle_number = Column(String, nullable=True)  # Link to specific vehicle in multi-vehicle trip
     notes = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

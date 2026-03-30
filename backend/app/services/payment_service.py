@@ -15,8 +15,8 @@ def create_payment(db: Session, payment: PaymentCreate):
     received = trip.amount_received or 0
     remaining = (trip.total_charged or 0) - received
 
-    # 3️⃣ Prevent overpayment
-    if payment.amount > remaining:
+    # 3️⃣ Prevent overpayment (skip when booking has no billed total yet)
+    if (trip.total_charged or 0) > 0 and payment.amount > remaining:
         raise HTTPException(
             status_code=400,
             detail=f"Payment exceeds remaining balance (₹{remaining})"

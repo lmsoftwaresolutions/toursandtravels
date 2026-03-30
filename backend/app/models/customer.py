@@ -8,6 +8,7 @@ class Customer(Base):
     name = Column(String, unique=True, nullable=False)
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    address = Column(String, nullable=True)
 
     total_trips = Column(Integer, default=0)
     total_billed = Column(Float, default=0)
