@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const isAdmin = authService.isAdmin();
   const canWrite = !authService.hasLimitedAccess();
-  const canWrite = !authService.hasLimitedAccess();
+  // const canWrite = !authService.hasLimitedAccess();
   const today = new Date();
   const [dashboardMonth, setDashboardMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
