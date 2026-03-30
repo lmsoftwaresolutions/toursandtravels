@@ -6,6 +6,7 @@ import calendar
 from app.database.session import SessionLocal
 from app.models.vehicle_note import VehicleNote
 from app.schemas.vehicle_note import VehicleNoteCreate, VehicleNoteUpdate, VehicleNoteResponse
+from app.services.auth_service import require_write_access
 
 router = APIRouter(
     prefix="/vehicle-notes",
@@ -44,6 +45,7 @@ def update_vehicle_note(
     note_id: int,
     data: VehicleNoteUpdate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     note = db.query(VehicleNote).filter(VehicleNote.id == note_id).first()
     if not note:
@@ -59,6 +61,7 @@ def update_vehicle_note(
 def delete_vehicle_note(
     note_id: int,
     db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     note = db.query(VehicleNote).filter(VehicleNote.id == note_id).first()
     if not note:

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 export default function SparePartList() {
   const navigate = useNavigate();
@@ -9,6 +11,9 @@ export default function SparePartList() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [spareParts, setSpareParts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const canWrite = !authService.hasLimitedAccess();
 
   /* ---------------- LOAD VEHICLES ---------------- */
   useEffect(() => {
@@ -47,6 +52,15 @@ export default function SparePartList() {
     await api.delete(`/spare-parts/${id}`);
     loadAll();
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedVehicle, spareParts.length]);
+
+  const paginatedSpareParts = spareParts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="p-4 md:p-6">
@@ -116,7 +130,7 @@ export default function SparePartList() {
                   </td>
                 </tr>
               ) : (
-                spareParts.map(sp => (
+                paginatedSpareParts.map(sp => (
                   <tr key={sp.id} className="border-t hover:bg-gray-50">
                     <td className="p-2">
                       {formatDateDDMMYYYY(sp.replaced_date)}
@@ -143,18 +157,22 @@ export default function SparePartList() {
                       >
                         View
                       </button>
-                      <button
-                        onClick={() => navigate(`/spare-parts/edit/${sp.id}`)}
-                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => remove(sp.id)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Delete
-                      </button>
+                      {canWrite ? (
+                        <button
+                          onClick={() => navigate(`/spare-parts/edit/${sp.id}`)}
+                          className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {canWrite ? (
+                        <button
+                          onClick={() => remove(sp.id)}
+                          className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))
@@ -162,6 +180,12 @@ export default function SparePartList() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={spareParts.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
     </div>

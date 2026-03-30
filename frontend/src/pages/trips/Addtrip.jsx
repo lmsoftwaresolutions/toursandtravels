@@ -8,13 +8,37 @@ export default function AddTrip() {
     distance_km: "",
   });
 
+  const normalizeVehicleNumber = (value) =>
+    String(value || "").trim().toUpperCase().replace(/[\s-]/g, "");
+
+  const isValidVehicleNumber = (value) =>
+    /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/.test(normalizeVehicleNumber(value));
+
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const saveTrip = async () => {
+    const normalizedVehicleNumber = normalizeVehicleNumber(form.vehicle_number);
+    if (!normalizedVehicleNumber) {
+      alert("Vehicle number is required.");
+      return;
+    }
+    if (!isValidVehicleNumber(form.vehicle_number)) {
+      alert("Vehicle number must follow format like MH12AB1234.");
+      return;
+    }
+    if (!form.customer_name.trim()) {
+      alert("Customer name is required.");
+      return;
+    }
+    if (!form.distance_km || Number(form.distance_km) <= 0) {
+      alert("Distance must be greater than 0.");
+      return;
+    }
+
     await api.post("/trips", {
-      vehicle_number: form.vehicle_number,
-      customer_name: form.customer_name,
+      vehicle_number: normalizedVehicleNumber,
+      customer_name: form.customer_name.trim(),
       distance_km: Number(form.distance_km),
     });
     alert("Trip added successfully");
@@ -29,7 +53,7 @@ export default function AddTrip() {
           name="vehicle_number"
           placeholder="Vehicle Number (MH12AB1234)"
           className="border w-full px-3 py-2 rounded"
-          onChange={handleChange}
+          onChange={(e) => setForm({ ...form, vehicle_number: e.target.value.toUpperCase() })}
         />
 
         <input

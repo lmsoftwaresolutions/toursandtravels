@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
 from app.models.trip import Trip
 from app.schemas.trip import TripCreate, TripResponse, TripUpdate
+from app.services.auth_service import require_write_access
 from app.services.trip_service import (
     create_trip,
     get_trips_by_vehicle,
@@ -55,10 +56,19 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
 
 # ---------------- UPDATE TRIP ----------------
 @router.put("/{trip_id}", response_model=TripResponse)
-def edit_trip(trip_id: int, trip: TripUpdate, db: Session = Depends(get_db)):
+def edit_trip(
+    trip_id: int,
+    trip: TripUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return update_trip(db, trip_id, trip)
 
 # ---------------- DELETE TRIP ----------------
 @router.delete("/{trip_id}")
-def remove_trip(trip_id: int, db: Session = Depends(get_db)):
+def remove_trip(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return delete_trip(db, trip_id)

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 const TYPE_TABS = [
   { key: "all", label: "All" },
@@ -26,6 +28,9 @@ export default function MaintenanceList() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [addType, setAddType] = useState(activeType === "all" ? "emi" : activeType);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const canWrite = !authService.hasLimitedAccess();
 
   useEffect(() => {
     if (activeType !== "all") {
@@ -79,6 +84,15 @@ export default function MaintenanceList() {
   const sortedRows = useMemo(() => {
     return [...maintenances].sort((a, b) => String(b.start_date || "").localeCompare(String(a.start_date || "")));
   }, [maintenances]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortedRows.length, selectedVehicle, activeType]);
+
+  const paginatedRows = sortedRows.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -173,7 +187,7 @@ export default function MaintenanceList() {
                 {sortedRows.length === 0 ? (
                   <tr><td colSpan="5" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No records found</td></tr>
                 ) : (
-                  sortedRows.map((m) => {
+                  paginatedRows.map((m) => {
                     const rowType = String(m.maintenance_type || "").toLowerCase();
                     return (
                       <tr key={m.id} className="group hover:bg-slate-50/40 transition-colors">
@@ -197,18 +211,22 @@ export default function MaintenanceList() {
                         </td>
                         <td className="p-6">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => navigate(`/maintenance/${rowType || "emi"}/edit/${m.id}`)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(m.id)}
-                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                            </button>
+                            {canWrite ? (
+                              <button
+                                onClick={() => navigate(`/maintenance/${rowType || "emi"}/edit/${m.id}`)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                              </button>
+                            ) : null}
+                            {canWrite ? (
+                              <button
+                                onClick={() => handleDelete(m.id)}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -218,6 +236,14 @@ export default function MaintenanceList() {
               </tbody>
             </table>
           </div>
+        )}
+        {!loading && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={sortedRows.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
     </div>

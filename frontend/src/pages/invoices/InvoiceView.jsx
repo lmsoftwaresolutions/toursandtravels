@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import PrintLayout from "../../components/print/PrintLayout";
-import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 
 export default function InvoiceView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const printRef = useRef(null);
   const [trip, setTrip] = useState(null);
   const [customer, setCustomer] = useState(null);
+  const [vehiclesLookup, setVehiclesLookup] = useState({});
   const [printTimestamp, setPrintTimestamp] = useState("");
   const [searchParams] = useSearchParams();
   const hasVehicleAssigned = Boolean(trip?.vehicle_number || (trip?.vehicles || []).length);
@@ -22,12 +21,20 @@ export default function InvoiceView() {
   const loadInvoiceData = useCallback(async () => {
     try {
       const tripRes = await api.get(`/trips/${id}`);
-      setTrip(tripRes.data);
+      const [customerRes, vehiclesRes] = await Promise.all([
+        api.get("/customers"),
+        api.get("/vehicles").catch(() => ({ data: [] })),
+      ]);
 
-      const customerRes = await api.get("/customers");
-      setCustomer(
-        customerRes.data.find((c) => c.id === tripRes.data.customer_id)
-      );
+      setTrip(tripRes.data);
+      setCustomer(customerRes.data.find((c) => c.id === tripRes.data.customer_id));
+
+      const nextLookup = {};
+      (vehiclesRes.data || []).forEach((vehicle) => {
+        if (!vehicle?.vehicle_number) return;
+        nextLookup[String(vehicle.vehicle_number)] = vehicle;
+      });
+      setVehiclesLookup(nextLookup);
     } catch (error) {
       console.error("Error loading invoice:", error);
     }
@@ -49,119 +56,153 @@ export default function InvoiceView() {
     };
   }, [loadInvoiceData]);
 
-  const getTripDays = () => {
-    if (!trip || !trip.departure_datetime || !trip.return_datetime) return 1;
-    const start = new Date(`${trip.departure_datetime.split("T")[0]}T00:00:00`);
-    const end = new Date(`${trip.return_datetime.split("T")[0]}T00:00:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 1;
-    return Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-  };
-
-  const invoiceRows = useMemo(() => {
+    const invoiceRows = useMemo(() => {
     if (!trip) return [];
 
-    const tripDays = getTripDays();
     const pricingItems = (trip.pricing_items || []).filter((item) => item.item_type === "pricing");
     const chargeItems = (trip.pricing_items || []).filter((item) => item.item_type === "charge");
-    const vehicles = Number(trip.number_of_vehicles || 1);
-    const computedFareAmount = trip.pricing_type === "package"
-      ? Number(trip.package_amount || 0) * vehicles * tripDays
-      : Number(trip.distance_km || 0) * Number(trip.cost_per_km || 0);
+    const vehicleEntries = Array.isArray(trip.vehicles) ? trip.vehicles : [];
+    const hasVehicleEntries = vehicleEntries.length > 0;
 
-    const computedFareLabel = trip.pricing_type === "package" ? "Package Fare" : "Base Fare";
-
-    // For per_km, we show (total_distance / vehicles) to clarify it's per-vehicle distance
-    // if that matches the quantity label logic.
-    const distancePerVehicle = Number(trip.distance_km || 0) / vehicles;
-
-    const computedFareQuantity = trip.pricing_type === "package"
-      ? `${tripDays} day(s) x ${vehicles} vehicle(s)`
-      : `${distancePerVehicle.toFixed(1)} km x ${vehicles} vehicle(s)`;
-
-    const computedFareUnit = trip.pricing_type === "package"
-      ? `Rs. ${Number(trip.package_amount || 0).toFixed(2)}/day`
-      : `Rs. ${Number(trip.cost_per_km || 0).toFixed(2)}/km`;
     const rows = [];
 
-    rows.push({
-      key: "computed-fare",
-      description: computedFareLabel,
-      quantity: computedFareQuantity,
-      unitPrice: computedFareUnit,
-      total: computedFareAmount,
-      included: true,
-    });
+    const totals = {
+      baseFare: 0,
+      distance: 0,
+      toll: 0,
+      parking: 0,
+      other: 0,
+      pricingTypes: new Set(),
+      rates: new Set(),
+    };
+
+    if (hasVehicleEntries) {
+      vehicleEntries.forEach((entry) => {
+        const distance = Number(entry.distance_km || 0);
+        const pricingType = entry.pricing_type || trip.pricing_type || "per_km";
+        const packageAmount =
+          entry.package_amount == null ? Number(trip.package_amount || 0) : Number(entry.package_amount || 0);
+        const costPerKm =
+          entry.cost_per_km == null ? Number(trip.cost_per_km || 0) : Number(entry.cost_per_km || 0);
+
+        const baseAmount = pricingType === "package" ? Number(packageAmount || 0) : distance * Number(costPerKm || 0);
+        const tollAmount = Number(entry.toll_amount || 0);
+        const parkingAmount = Number(entry.parking_amount || 0);
+        const otherAmount = Number(entry.other_expenses || 0);
+
+        totals.pricingTypes.add(pricingType);
+        totals.rates.add(pricingType === "package" ? Number(packageAmount || 0) : Number(costPerKm || 0));
+        totals.distance += distance;
+        totals.baseFare += baseAmount;
+        totals.toll += tollAmount;
+        totals.parking += parkingAmount;
+        totals.other += otherAmount;
+
+        const vehicleMeta = vehiclesLookup[entry.vehicle_number || ""] || {};
+        const vehicleTypeLabel =
+          entry.bus_type ||
+          entry.vehicle_type ||
+          vehicleMeta.vehicle_type ||
+          trip.bus_type ||
+          trip.bus_detail ||
+          "";
+        const resolvedSeatCount =
+          entry.seat_count ?? (vehicleMeta.seat_count != null ? vehicleMeta.seat_count : null);
+        const seatLabel = resolvedSeatCount ? `${resolvedSeatCount} Seat` : "";
+        const vehicleLabelParts = [vehicleTypeLabel, seatLabel].filter(Boolean);
+
+        rows.push({
+          key: `vehicle-${entry.id || entry.vehicle_number || rows.length}`,
+          description: vehicleLabelParts.length ? vehicleLabelParts.join(" ") : "Vehicle",
+          baseFare: baseAmount,
+          toll: tollAmount,
+          parking: parkingAmount,
+          total: baseAmount + tollAmount + parkingAmount + otherAmount,
+        });
+      });
+    } else {
+      const distance = Number(trip.distance_km || 0);
+      const pricingType = trip.pricing_type || "per_km";
+      const packageAmount = Number(trip.package_amount || 0);
+      const costPerKm = Number(trip.cost_per_km || 0);
+      const baseAmount = pricingType === "package" ? packageAmount : distance * costPerKm;
+      const tollAmount = Number(trip.charged_toll_amount || trip.toll_amount || 0);
+      const parkingAmount = Number(trip.charged_parking_amount || trip.parking_amount || 0);
+      const otherAmount = Number(trip.other_expenses || 0);
+
+      totals.pricingTypes.add(pricingType);
+      totals.rates.add(pricingType === "package" ? packageAmount : costPerKm);
+      totals.distance += distance;
+      totals.baseFare += baseAmount;
+      totals.toll += tollAmount;
+      totals.parking += parkingAmount;
+      totals.other += otherAmount;
+
+      const vehicleMeta = vehiclesLookup[trip.vehicle_number || ""] || {};
+      const vehicleTypeLabel = trip.bus_type || trip.bus_detail || vehicleMeta.vehicle_type || "Vehicle";
+      const seatLabel = vehicleMeta.seat_count ? `${vehicleMeta.seat_count} Seat` : "";
+      rows.push({
+        key: "vehicle-single",
+        description: [vehicleTypeLabel, seatLabel].filter(Boolean).join(" "),
+        baseFare: baseAmount,
+        toll: tollAmount,
+        parking: parkingAmount,
+        total: baseAmount + tollAmount + parkingAmount + otherAmount,
+      });
+    }
+
+    const generalOther = Number(trip.other_expenses || 0);
+    if (hasVehicleEntries && generalOther > 0) {
+      rows.push({
+        key: "general-other",
+        description: "Other Expenses",
+        baseFare: null,
+        toll: null,
+        parking: null,
+        total: generalOther,
+      });
+      totals.other += generalOther;
+    }
 
     pricingItems.forEach((item, index) => {
       const itemAmount = Number(item.amount || 0);
       rows.push({
         key: `pricing-${index}`,
         description: item.description || "Pricing Item",
-        quantity: `${vehicles}`,
-        unitPrice: `Rs. ${itemAmount.toFixed(2)}`,
-        total: itemAmount * vehicles,
-        included: true,
+        baseFare: null,
+        toll: null,
+        parking: null,
+        total: itemAmount,
       });
     });
-
-    if (Number(trip.charged_toll_amount || 0) > 0) {
-      rows.push({
-        key: "charged-toll",
-        description: "Toll Charges",
-        quantity: "1",
-        unitPrice: `Rs. ${Number(trip.charged_toll_amount || 0).toFixed(2)}`,
-        total: Number(trip.charged_toll_amount || 0),
-        included: true,
-      });
-    }
-
-    if (Number(trip.charged_parking_amount || 0) > 0) {
-      rows.push({
-        key: "charged-parking",
-        description: "Parking Charges",
-        quantity: "1",
-        unitPrice: `Rs. ${Number(trip.charged_parking_amount || 0).toFixed(2)}`,
-        total: Number(trip.charged_parking_amount || 0),
-        included: true,
-      });
-    }
 
     chargeItems.forEach((item, index) => {
       const itemAmount = Number(item.amount || 0);
       rows.push({
         key: `charge-${index}`,
         description: item.description || "Extra Charge",
-        quantity: item.quantity ? String(item.quantity) : "1",
-        unitPrice: `Rs. ${itemAmount.toFixed(2)}`,
+        baseFare: null,
+        toll: null,
+        parking: null,
         total: itemAmount,
-        included: true,
       });
     });
-
-    if (Number(trip.other_expenses || 0) > 0) {
-      rows.push({
-        key: "other-expenses",
-        description: "Other Expenses Charged",
-        quantity: "1",
-        unitPrice: `Rs. ${Number(trip.other_expenses || 0).toFixed(2)}`,
-        total: Number(trip.other_expenses || 0),
-        included: true,
-      });
-    }
 
     if (Number(trip.discount_amount || 0) > 0) {
       rows.push({
         key: "discount",
         description: "Discount",
-        quantity: "1",
-        unitPrice: `- Rs. ${Number(trip.discount_amount || 0).toFixed(2)}`,
+        baseFare: null,
+        toll: null,
+        parking: null,
         total: -Number(trip.discount_amount || 0),
-        included: true,
       });
     }
 
     return rows;
-  }, [trip]);
+  }, [trip, vehiclesLookup]);
+
+
 
   const calculatedTotal = useMemo(() => {
     return invoiceRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
@@ -171,9 +212,7 @@ export default function InvoiceView() {
   const balanceDue = Math.max(calculatedTotal - totalPaid, 0);
 
   const handlePrint = () => {
-    if (!printTimestamp) {
-      setPrintTimestamp(new Date().toLocaleString());
-    }
+    setPrintTimestamp(new Date().toLocaleString());
     setTimeout(() => {
       window.print();
     }, 100);
@@ -185,6 +224,66 @@ export default function InvoiceView() {
       setTimeout(() => handlePrint(), 150);
     }
   }, [searchParams, trip, customer, hasVehicleAssigned]);
+
+  const billToAddress = trip?.customer_address || customer?.address || "";
+  const billToPhone = trip?.customer_phone || customer?.phone || "";
+  const billToEmail = customer?.email || "";
+  const routeNotes = trip?.route_details || trip?.route_notes || trip?.notes || "";
+  const primaryVehicleMeta = vehiclesLookup[trip?.vehicle_number || ""] || {};
+  const primaryVehicleEntry = Array.isArray(trip?.vehicles) ? trip.vehicles[0] : null;
+  const headerVehicleType =
+    primaryVehicleEntry?.bus_type ||
+    primaryVehicleEntry?.vehicle_type ||
+    trip?.bus_type ||
+    trip?.bus_detail ||
+    primaryVehicleMeta.vehicle_type ||
+    "";
+  const headerSeatCount =
+    primaryVehicleEntry?.seat_count ??
+    (primaryVehicleMeta.seat_count != null ? primaryVehicleMeta.seat_count : null);
+  const headerVehicleLabel = [headerVehicleType, headerSeatCount ? `${headerSeatCount} Seat` : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  const vehicleDetails = useMemo(() => {
+    if (!trip) return [];
+    const vehicleEntries = Array.isArray(trip.vehicles) ? trip.vehicles : [];
+    if (vehicleEntries.length) {
+      return vehicleEntries.map((entry, index) => {
+        const pricingType = entry.pricing_type || trip.pricing_type || "per_km";
+        const rateValue =
+          pricingType === "package"
+            ? Number(entry.package_amount ?? trip.package_amount ?? 0)
+            : Number(entry.cost_per_km ?? trip.cost_per_km ?? 0);
+        const vehicleMeta = vehiclesLookup[entry.vehicle_number || ""] || {};
+        return {
+          key: entry.id || `${entry.vehicle_number || "vehicle"}-${index}`,
+          name:
+            entry.bus_type ||
+            entry.vehicle_type ||
+            vehicleMeta.vehicle_type ||
+            entry.vehicle_number ||
+            "",
+          distance: Number(entry.distance_km ?? 0),
+          rate: rateValue,
+        };
+      });
+    }
+
+    const defaultPricingType = trip.pricing_type || "per_km";
+    const defaultRate =
+      defaultPricingType === "package"
+        ? Number(trip.package_amount || 0)
+        : Number(trip.cost_per_km || 0);
+    return [
+      {
+        key: "single-vehicle",
+        name: trip.bus_type || trip.vehicle_number || vehiclesLookup[trip.vehicle_number || ""]?.vehicle_type || "",
+        distance: Number(trip.distance_km ?? 0),
+        rate: defaultRate,
+      },
+    ];
+  }, [trip, vehiclesLookup]);
 
   if (!trip || !customer) {
     return <div className="p-4 md:p-6">Loading invoice...</div>;
@@ -230,7 +329,6 @@ export default function InvoiceView() {
         </button>
         <button
           onClick={() => {
-            setPrintTimestamp(new Date().toLocaleString());
             setTimeout(() => handlePrint(), 100);
           }}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all"
@@ -246,75 +344,127 @@ export default function InvoiceView() {
         </button>
       </div>
 
-      <PrintLayout>
-        <div className="text-center font-black text-2xl tracking-widest uppercase mb-6 border-y-[1.5px] border-black py-2 text-red-600">
-          INVOICE
-        </div>
-
-        <div className="grid grid-cols-2 gap-8 mb-6 border-[1.5px] border-black p-4">
-          <div className="border-r-[1.5px] border-black pr-6">
-            <h2 className="text-[12px] font-black uppercase mb-2 text-red-600">Bill To:</h2>
-            <p className="text-[16px] font-black text-black leading-tight uppercase">{customer.name}</p>
-            <p className="text-[12px] font-bold text-black mt-1 uppercase">{trip.customer_address || customer.address || "No Address Provided"}</p>
-            {(trip.customer_phone || customer?.phone) ? (
-              <p className="text-[12px] font-bold text-black mt-1">Phone: {trip.customer_phone || customer.phone}</p>
-            ) : null}
+      <PrintLayout printTimestamp={printTimestamp}>
+        <div className="invoice-print-area">
+          <div className="print-heading text-center font-black text-[20px] tracking-[0.35em] uppercase mb-4 text-slate-800">
+            INVOICE
           </div>
-          <div className="pl-6 space-y-1">
-            <div className="flex justify-between items-center p-1.5 px-3">
-              <span className="font-black text-[11px] uppercase text-red-600">Invoice No:</span>
-              <span className="font-black text-[13px] text-black">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
-            </div>
-            <div className="flex justify-between items-center p-1.5 px-3">
-              <span className="font-black text-[11px] uppercase text-red-600">Date:</span>
-              <span className="font-black text-[13px] text-black">{formatDateDDMMYYYY(trip.trip_date)}</span>
-            </div>
-            <div className="flex justify-between items-start p-1.5 px-3">
-              <span className="font-black text-[11px] uppercase text-red-600">Route:</span>
-              <span className="font-black text-[11px] text-black text-right uppercase">
-                {trip.from_location} {trip.to_location ? `To ${trip.to_location}` : ""}
-              </span>
-            </div>
-            {trip.bus_type ? (
-              <div className="flex justify-between items-start p-1.5 px-3">
-                <span className="font-black text-[11px] uppercase text-red-600">Vehicle:</span>
-                <span className="font-black text-[11px] text-black text-right uppercase">
-                  {trip.bus_type}
-                </span>
+
+          <div className="grid grid-cols-[1.2fr_1fr] gap-0 mb-4 border border-black/40">
+            <div className="border-r border-black/40 p-3">
+              <div className="mb-2 grid grid-cols-[90px_1fr] gap-y-1 text-left">
+                <span className="font-black text-[11px] uppercase text-slate-500">Invoice No:</span>
+                <span className="font-black text-[12px] text-black">{trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}</span>
+                <span className="font-black text-[11px] uppercase text-slate-500">Invoice Date:</span>
+                <span className="font-black text-[12px] text-black">{formatDateDDMMYYYY(trip.trip_date)}</span>
               </div>
-            ) : null}
-            {printTimestamp ? <p className="text-[9px] text-right text-black font-bold mt-2">Printed: {printTimestamp}</p> : null}
+              <h2 className="print-heading text-[11px] font-black uppercase mb-2 text-slate-600">Bill To</h2>
+              <p className="text-[15px] font-black text-black leading-tight uppercase">{customer.name}</p>
+              {billToAddress ? (
+                <p className="text-[11px] font-bold text-black mt-1 uppercase whitespace-pre-line break-words">
+                  {billToAddress}
+                </p>
+              ) : null}
+              {billToEmail ? (
+                <p className="text-[11px] font-bold text-black mt-1">Email: {billToEmail}</p>
+              ) : null}
+              {billToPhone ? (
+                <p className="text-[11px] font-bold text-black mt-1">Phone: {billToPhone}</p>
+              ) : null}
+            </div>
+            <div className="p-3">
+              <div className="grid grid-cols-[90px_1fr] gap-y-1.5 text-left">
+                <span className="font-black text-[11px] uppercase text-slate-500">Trip Start:</span>
+                <span className="font-black text-[11px] text-black">
+                  {trip.departure_datetime ? formatDateDDMMYYYY(trip.departure_datetime) : "-"}
+                </span>
+                <span className="font-black text-[11px] uppercase text-slate-500">Trip End:</span>
+                <span className="font-black text-[11px] text-black">
+                  {trip.return_datetime ? formatDateDDMMYYYY(trip.return_datetime) : "-"}
+                </span>
+                <span className="font-black text-[11px] uppercase text-slate-500">Route:</span>
+                <span className="font-black text-[11px] text-black uppercase">
+                  {trip.from_location} {trip.to_location ? `To ${trip.to_location}` : ""}
+                </span>
+                {headerVehicleLabel ? (
+                  <>
+                    <span className="font-black text-[11px] uppercase text-slate-500">Vehicle:</span>
+                    <span className="font-black text-[11px] text-black uppercase">{headerVehicleLabel}</span>
+                  </>
+                ) : null}
+                {routeNotes ? (
+                  <>
+                    <span className="font-black text-[11px] uppercase text-slate-500">Notes:</span>
+                    <span className="font-black text-[11px] text-black whitespace-pre-line break-words">
+                      {routeNotes}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </div>
+{/* 
+          <div className="border border-black/40 mb-4">
+            <div className="print-heading px-3 py-2 border-b border-black/30 text-[11px] font-black uppercase tracking-widest text-slate-600">
+              Vehicle Details
+            </div>
+            <table className="w-full table-fixed vehicle-table">
+              <thead>
+                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-black/30">
+                  <th className="p-2 text-left w-1/2">Vehicle</th>
+                  <th className="p-2 text-right w-1/4">Distance</th>
+                  <th className="p-2 text-right w-1/4">Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/20 text-black text-[11px]">
+                {vehicleDetails.map((entry) => {
+                  const distanceLabel = Number.isFinite(entry.distance) ? entry.distance.toFixed(1) : "";
+                  const rateLabel = Number.isFinite(entry.rate) ? entry.rate.toFixed(2) : "";
+                  return (
+                    <tr key={entry.key}>
+                      <td className="p-2 font-bold uppercase">{entry.name}</td>
+                      <td className="p-2 text-right font-bold">{distanceLabel}</td>
+                      <td className="p-2 text-right font-bold">{rateLabel}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div> */}
 
-        <div className="border-[1.5px] border-black border-collapse mb-6 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-red-600 text-white border-b-[1.5px] border-black">
-                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest w-12 border-r-[1.5px] border-black">Sr.</th>
-                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black">Description</th>
-                <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black w-28">Qty / KM</th>
-                <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black w-28">Rate</th>
-                <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest w-32">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y-[1.5px] divide-black text-black">
+          <div className="border border-black/40 border-collapse mb-3 overflow-hidden">
+            <table className="w-full table-fixed invoice-table">
+              <thead>
+                <tr className="bg-slate-100 text-slate-700 border-b border-black/40">
+                  <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest w-12 border-r border-black/30">Sr No</th>
+                  <th className="p-2 text-left font-black text-[11px] uppercase tracking-widest border-r border-black/30">Description</th>
+                  <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 w-28">Base Fare</th>
+                  <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 w-20">Toll</th>
+                  <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 w-24">Parking</th>
+                  <th className="p-2 text-right font-black text-[11px] uppercase tracking-widest w-28">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/30 text-black">
               {invoiceRows.map((row, idx) => {
+                const baseFareLabel = row.baseFare == null ? "-" : Number(row.baseFare).toFixed(2);
+                const tollLabel = row.toll == null ? "-" : Number(row.toll).toFixed(2);
+                const parkingLabel = row.parking == null ? "-" : Number(row.parking).toFixed(2);
+                const totalLabel = `${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`;
                 return (
                   <tr key={row.key} className="bg-white">
-                    <td className="p-2.5 text-[11px] font-bold border-r-[1.5px] border-black text-center">{idx + 1}</td>
-                    <td className="p-2.5 text-[11px] font-black uppercase border-r-[1.5px] border-black">{row.description}</td>
-                    <td className="p-2.5 text-[11px] font-bold uppercase border-r-[1.5px] border-black text-center">{row.quantity}</td>
-                    <td className="p-2.5 text-[11px] font-bold border-r-[1.5px] border-black text-right">{row.unitPrice}</td>
-                    <td className="p-2.5 text-[12px] font-black text-right">
-                      {`${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`}
-                    </td>
+                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-center">{idx + 1}</td>
+                    <td className="p-2 text-[11px] font-black uppercase border-r border-black/30">{row.description}</td>
+                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{baseFareLabel}</td>
+                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{tollLabel}</td>
+                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{parkingLabel}</td>
+                    <td className="p-2.5 text-[12px] font-black text-right">{totalLabel}</td>
                   </tr>
                 );
               })}
               {/* Filler Rows */}
               {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
-                <tr key={`filler-${i}`} className="h-8 print:hidden divide-x-[1.5px] divide-black">
+                <tr key={`filler-${i}`} className="h-8 print:hidden divide-x divide-black/30">
+                  <td></td>
                   <td></td>
                   <td></td>
                   <td></td>
@@ -324,29 +474,31 @@ export default function InvoiceView() {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-[1.5px] border-black bg-white">
-                <td colSpan="4" className="p-2.5 text-right font-black text-[11px] uppercase tracking-widest border-r-[1.5px] border-black text-red-600">Total Amount Due</td>
+              <tr className="border-t border-black/40 bg-white">
+                <td colSpan="5" className="p-2.5 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 text-slate-600">Total Amount Due</td>
                 <td className="p-2.5 text-right text-[14px] font-black text-black">Rs. {calculatedTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
-          </table>
-        </div>
+            </table>
+          </div>
 
-        <div className="grid grid-cols-2 gap-8">
-          <div className="p-3 border-[1.5px] border-black text-black">
-            <h3 className="text-[11px] font-black uppercase text-red-600 mb-2 border-b-[1.5px] border-black pb-1 inline-block">Payment Summary</h3>
-            <div className="space-y-1.5 mt-1">
-              <div className="flex justify-between text-[11px] font-bold">
-                <span>Paid Amount:</span>
-                <span>Rs. {totalPaid.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-[13px] font-black pt-1">
-                <span className="text-red-600">Balance Due:</span>
-                <span className="underline underline-offset-2 decoration-2">Rs. {balanceDue.toFixed(2)}</span>
+          <div className="flex justify-end mb-2">
+            <div className="w-72 text-black">
+              <div className="print-heading text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 text-right">Payment Summary</div>
+              <div className="border border-black/40 px-3 py-2 space-y-1">
+                <div className="flex justify-between text-[11px] font-bold">
+                  <span>Paid Amount</span>
+                  <span className="tabular-nums">Rs. {totalPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[12px] font-black pt-1">
+                  <span className="text-slate-600">Balance Due</span>
+                  <span className="tabular-nums">Rs. {balanceDue.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>
-          <div className="flex flex-col justify-end text-right italic font-bold text-black text-[10px]">
+
+          <div className="text-right italic font-bold text-black text-[10px]">
             * This is a computer generated invoice and does not require signature unless printed for official use.
           </div>
         </div>

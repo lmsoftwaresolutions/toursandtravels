@@ -13,6 +13,7 @@ from app.services.spare_part_service import (
     update_spare_part,
     delete_spare_part
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/spare-parts", tags=["Spare Parts"])
 
@@ -36,12 +37,21 @@ def get_spares(vehicle_number: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{spare_id}", response_model=SparePartResponse)
-def edit_spare(spare_id: int, data: SparePartCreate, db: Session = Depends(get_db)):
+def edit_spare(
+    spare_id: int,
+    data: SparePartCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return update_spare_part(db, spare_id, data)
 
 
 @router.delete("/{spare_id}")
-def remove_spare(spare_id: int, db: Session = Depends(get_db)):
+def remove_spare(
+    spare_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return delete_spare_part(db, spare_id)
 
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import Pagination from "../../components/common/Pagination";
 
 export default function InvoiceList() {
   const navigate = useNavigate();
@@ -10,6 +11,8 @@ export default function InvoiceList() {
   const [filterCustomer, setFilterCustomer] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     loadTrips();
@@ -59,6 +62,15 @@ export default function InvoiceList() {
   const totalInvoiced = filteredTrips.reduce((sum, t) => sum + (t.total_charged || 0), 0);
   const totalPaid = filteredTrips.reduce((sum, t) => sum + (t.amount_received || 0), 0);
   const totalPending = filteredTrips.reduce((sum, t) => sum + (t.pending_amount || 0), 0);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterCustomer, searchCustomer, searchInvoice, trips.length]);
+
+  const paginatedTrips = filteredTrips.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -137,7 +149,7 @@ export default function InvoiceList() {
               {filteredTrips.length === 0 ? (
                 <tr><td colSpan="4" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No invoices found</td></tr>
               ) : (
-                filteredTrips.map(trip => {
+                paginatedTrips.map(trip => {
                   const customer = customers.find(c => c.id === trip.customer_id);
                   const status = trip.pending_amount === 0 ? "Settled" : trip.pending_amount === trip.total_charged ? "Outstanding" : "Partial";
                   const hasVehicleAssigned = Boolean(trip.vehicle_number || (trip.vehicles && trip.vehicles.length));
@@ -198,6 +210,12 @@ export default function InvoiceList() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredTrips.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

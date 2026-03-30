@@ -12,6 +12,7 @@ from app.services.vehicle_service import (
 )
 
 from app.services.vehicle_stats_service import vehicle_summary
+from app.services.auth_service import require_write_access
 
 router = APIRouter(
     prefix="/vehicles",
@@ -55,7 +56,11 @@ def get_vehicle_summary(vehicle_number: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{vehicle_id}")
-def remove_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
+def remove_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return soft_delete_vehicle(db, vehicle_id)
 
 
@@ -65,6 +70,7 @@ def update_vehicle(
     vehicle_number: str,
     update_data: VehicleUpdate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     vehicle = db.query(Vehicle).filter(
         Vehicle.vehicle_number == vehicle_number

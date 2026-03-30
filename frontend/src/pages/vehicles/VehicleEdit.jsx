@@ -21,6 +21,12 @@ export default function VehicleEdit() {
     setModal({ isOpen: true, title, message, type, onConfirm });
   const closeModal = () => setModal({ ...modal, isOpen: false });
 
+  const normalizeVehicleNumber = (value) =>
+    String(value || "").trim().toUpperCase().replace(/[\s-]/g, "");
+
+  const isValidVehicleNumber = (value) =>
+    /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/.test(normalizeVehicleNumber(value));
+
   // Load existing vehicle data
   useEffect(() => {
     api
@@ -42,10 +48,29 @@ export default function VehicleEdit() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const normalizedVehicleNumber = normalizeVehicleNumber(formData.vehicle_number);
+      const seatsValue = Number(formData.seat_count);
+      const isSeatCountValid = Number.isInteger(seatsValue) && seatsValue > 0;
+
+      if (!normalizedVehicleNumber) {
+        showModal("Validation Error", "Vehicle number is required.");
+        return;
+      }
+
+      if (!isValidVehicleNumber(formData.vehicle_number)) {
+        showModal("Validation Error", "Vehicle number must follow format like MH12AB1234.");
+        return;
+      }
+
+      if (!isSeatCountValid) {
+        showModal("Validation Error", "Seat count must be a whole number greater than 0.");
+        return;
+      }
+
       const payload = {
-        vehicle_number: formData.vehicle_number,
+        vehicle_number: normalizedVehicleNumber,
         vehicle_type: formData.vehicle_type || null,
-        seat_count: formData.seat_count ? Number(formData.seat_count) : null,
+        seat_count: seatsValue,
       };
       await api.put(`/vehicles/${vehicle_number}`, payload);
       showModal("Success", "Vehicle updated successfully!", "success", () => navigate(`/vehicles/${formData.vehicle_number}`));

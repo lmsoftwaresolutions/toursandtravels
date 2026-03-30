@@ -14,11 +14,31 @@ export default function VehicleForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const normalizedVehicleNumber = vehicleNumber.trim().toUpperCase().replace(/[\s-]/g, "");
+    const isVehicleNumberValid = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/.test(normalizedVehicleNumber);
+    const seatsValue = Number(seatCount);
+    const isSeatCountValid = Number.isInteger(seatsValue) && seatsValue > 0;
+
+    if (!normalizedVehicleNumber) {
+      showModal("Validation Error", "Vehicle number is required.");
+      return;
+    }
+
+    if (!isVehicleNumberValid) {
+      showModal("Validation Error", "Vehicle number must follow format like MH12AB1234.");
+      return;
+    }
+
+    if (!isSeatCountValid) {
+      showModal("Validation Error", "Seat count must be a whole number greater than 0.");
+      return;
+    }
+
     try {
       await api.post("/vehicles", {
-        vehicle_number: vehicleNumber,
+        vehicle_number: normalizedVehicleNumber,
         vehicle_type: vehicleType || null,
-        seat_count: seatCount ? Number(seatCount) : null,
+        seat_count: seatsValue,
       });
       showModal("Success", "Vehicle added successfully!", "success");
       setVehicleNumber("");
@@ -52,11 +72,13 @@ export default function VehicleForm() {
                 className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-black text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-300"
                 placeholder="Example: MH12AB1234"
                 value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value)}
+                onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
                 required
                 minLength={4}
+                maxLength={20}
+                inputMode="text"
               />
-              <svg className="absolute left-4 top-4.5 w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <svg className="absolute left-4 top-1/2 w-6 h-6 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter ml-1 italic">Use the vehicle registration number</p>
           </div>
@@ -83,7 +105,9 @@ export default function VehicleForm() {
                 className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                 placeholder="e.g. 32"
                 value={seatCount}
-                onChange={(e) => setSeatCount(e.target.value)}
+                onChange={(e) => setSeatCount(e.target.value.replace(/[^\d]/g, ""))}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
               />
             </div>

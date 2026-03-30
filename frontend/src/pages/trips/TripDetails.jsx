@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
 
 export default function TripDetails() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ export default function TripDetails() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const canWrite = !authService.hasLimitedAccess();
 
   useEffect(() => {
     const load = async () => {
@@ -93,13 +95,15 @@ export default function TripDetails() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={() => navigate(`/trips/edit/${trip.id}`)}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-            Edit Trip
-          </button>
+          {canWrite ? (
+            <button
+              onClick={() => navigate(`/trips/edit/${trip.id}`)}
+              className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              Edit Trip
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -116,6 +120,8 @@ export default function TripDetails() {
           <div className="grid grid-cols-2 gap-6">
             <RowItem label="Trip Date" value={formatDateDDMMYYYY(trip.trip_date)} />
             <RowItem label="Vehicle" value={trip.vehicle_number} />
+            <RowItem label="Trip Start" value={trip.departure_datetime ? formatDateDDMMYYYY(trip.departure_datetime) : "---"} />
+            <RowItem label="Trip End" value={trip.return_datetime ? formatDateDDMMYYYY(trip.return_datetime) : "---"} />
             <div className="col-span-2 flex items-center gap-4 py-4 px-6 bg-slate-50/50 rounded-2xl border border-slate-100">
               <div className="flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">From</p>

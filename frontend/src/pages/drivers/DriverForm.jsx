@@ -10,8 +10,6 @@ export default function DriverForm() {
     license_number: "",
     joining_date: "",
     monthly_salary: "",
-    joining_date: "",
-    monthly_salary: "",
   });
 
   const navigate = useNavigate();
@@ -25,10 +23,48 @@ export default function DriverForm() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  const normalizeIndianPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits;
+  };
+
+  const isValidIndianPhone = (value) => /^[6-9]\d{9}$/.test(normalizeIndianPhone(value));
+
+  const normalizeLicenseNumber = (value) =>
+    String(value || "").toUpperCase().replace(/[\s-]/g, "");
+
+  const isValidLicenseNumber = (value) =>
+    /^[A-Z]{2}\d{2}\d{4}\d{7}$/.test(normalizeLicenseNumber(value));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const trimmedName = form.name.trim();
+    const normalizedPhone = normalizeIndianPhone(form.phone);
+    const normalizedLicense = normalizeLicenseNumber(form.license_number);
+
+    if (!trimmedName) {
+      showModal("Validation Error", "Driver name is required.");
+      return;
+    }
+
+    if (!isValidIndianPhone(form.phone)) {
+      showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
+      return;
+    }
+
+    if (!isValidLicenseNumber(form.license_number)) {
+      showModal("Validation Error", "License number must follow format like MH14 20110012345.");
+      return;
+    }
+
     try {
-      await api.post("/drivers", form);
+      await api.post("/drivers", {
+        ...form,
+        name: trimmedName,
+        phone: normalizedPhone,
+        license_number: normalizedLicense,
+      });
       showModal("Success", "Driver registered successfully!", "success", () => navigate("/drivers"));
     } catch (error) {
       showModal("Registration Error", "Failed to register driver. Please try again.");
@@ -66,9 +102,11 @@ export default function DriverForm() {
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
               <input
                 name="phone"
-                placeholder="+91-0000000000"
+                placeholder="9876543210"
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
                 onChange={handleChange}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
               />
             </div>
@@ -77,9 +115,12 @@ export default function DriverForm() {
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Driver License Number</label>
               <input
                 name="license_number"
-                placeholder="MH-00-0000000000"
+                placeholder="MH14 20110012345"
                 className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                onChange={handleChange}
+                onChange={(e) =>
+                  setForm({ ...form, license_number: e.target.value.toUpperCase() })
+                }
+                maxLength={20}
                 required
               />
             </div>

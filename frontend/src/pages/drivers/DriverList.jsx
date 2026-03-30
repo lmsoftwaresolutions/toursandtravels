@@ -2,15 +2,27 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 export default function DriverList() {
   const [drivers, setDrivers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const navigate = useNavigate();
   const isAdmin = authService.isAdmin();
 
   useEffect(() => {
     api.get("/drivers").then((res) => setDrivers(res.data));
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [drivers.length]);
+
+  const paginatedDrivers = drivers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleDeleteDriver = async (driverId, driverName) => {
     if (!isAdmin) return;
@@ -57,7 +69,7 @@ export default function DriverList() {
             {drivers.length === 0 ? (
               <tr><td className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]" colSpan="3">No drivers added yet</td></tr>
             ) : (
-              drivers.map((d) => (
+              paginatedDrivers.map((d) => (
                 <tr key={d.id} className="group hover:bg-slate-50/40 transition-colors">
                   <td className="p-6">
                     <div className="flex items-center gap-4">
@@ -95,6 +107,12 @@ export default function DriverList() {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={drivers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

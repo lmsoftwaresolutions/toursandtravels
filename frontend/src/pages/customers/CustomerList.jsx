@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 export default function CustomerList() {
   const [customers, setCustomers] = useState([]);
@@ -9,8 +10,11 @@ export default function CustomerList() {
   const [searchName, setSearchName] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const navigate = useNavigate();
   const isAdmin = authService.isAdmin();
+  const canWrite = !authService.hasLimitedAccess();
 
   useEffect(() => {
     Promise.all([api.get("/customers"), api.get("/trips")])
@@ -44,6 +48,15 @@ export default function CustomerList() {
 
     return nameMatch && invoiceMatch && phoneMatch;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchName, searchInvoice, searchPhone, customers.length]);
+
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleDeleteCustomer = async (customerId, customerName) => {
     if (!isAdmin) return;
@@ -127,7 +140,7 @@ export default function CustomerList() {
             ) : filteredCustomers.length === 0 ? (
               <tr><td colSpan="3" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No matches found</td></tr>
             ) : (
-              filteredCustomers.map((c) => (
+              paginatedCustomers.map((c) => (
                 <tr key={c.id} className="group hover:bg-slate-50/40 transition-colors">
                   <td className="p-6">
                     <div className="flex items-center gap-4">
@@ -150,12 +163,14 @@ export default function CustomerList() {
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       </button>
-                      <button
-                        onClick={() => navigate(`/customers/edit/${c.id}`)}
-                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
+                      {canWrite ? (
+                        <button
+                          onClick={() => navigate(`/customers/edit/${c.id}`)}
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                      ) : null}
                       {isAdmin && (
                         <button
                           onClick={() => handleDeleteCustomer(c.id, c.name)}
@@ -172,6 +187,12 @@ export default function CustomerList() {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredCustomers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

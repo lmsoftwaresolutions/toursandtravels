@@ -10,6 +10,7 @@ from app.schemas.dashboard_note import (
     DashboardNoteUpdate,
     DashboardNoteResponse
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(
     prefix="/dashboard-notes",
@@ -69,6 +70,7 @@ def update_dashboard_note(
     note_id: int,
     data: DashboardNoteUpdate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     note = db.query(DashboardNote).filter(DashboardNote.id == note_id).first()
     if not note:
@@ -85,6 +87,7 @@ def update_dashboard_note(
 def delete_dashboard_note(
     note_id: int,
     db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     note = db.query(DashboardNote).filter(DashboardNote.id == note_id).first()
     if not note:

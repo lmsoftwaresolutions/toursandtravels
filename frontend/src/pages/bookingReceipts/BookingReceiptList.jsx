@@ -2,16 +2,28 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import Pagination from "../../components/common/Pagination";
 
 export default function BookingReceiptList() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     loadTrips();
     loadCustomers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [trips.length]);
+
+  const paginatedTrips = trips.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const loadTrips = async () => {
     try {
@@ -64,7 +76,7 @@ export default function BookingReceiptList() {
               {trips.length === 0 ? (
                 <tr><td colSpan="5" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No bookings found</td></tr>
               ) : (
-                trips.map((trip) => {
+                paginatedTrips.map((trip) => {
                   const customer = customers.find(c => c.id === trip.customer_id);
                   const bookingLabel = trip.booking_id || trip.invoice_number || `BKG-${trip.id}`;
                   const status = trip.vehicle_number ? "Vehicle Assigned" : "Pending Vehicle";
@@ -120,6 +132,12 @@ export default function BookingReceiptList() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={trips.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

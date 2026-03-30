@@ -140,3 +140,10 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if (current_user.role or "").lower() != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
+
+
+def require_write_access(current_user: User = Depends(get_current_user)) -> User:
+    role = (current_user.role or "").lower()
+    if role == "limited":
+        raise HTTPException(status_code=403, detail="Limited access: edit/delete not allowed")
+    return current_user

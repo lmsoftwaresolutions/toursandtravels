@@ -40,7 +40,7 @@ const getBookingType = (bookingLabel) => {
 const ReceiptField = ({ label, value, className = "" }) => (
   <div className={`flex items-baseline gap-2 mb-[6px] py-[2px] ${className}`}>
     <span className="whitespace-nowrap font-bold text-[12px] uppercase tracking-tight text-red-600">{label}</span>
-    <span className="flex-grow border-b-[1.5px] border-gray-600 border-dashed text-left text-black font-normal font-serif px-2 inline-block min-h-[16px] leading-[16px] text-[13px]">
+    <span className="flex-grow border-b-[1.5px] border-gray-600 border-dashed text-left text-black font-bold px-2 inline-block min-h-[16px] leading-[16px] text-[13px] whitespace-pre-line">
       {value}
     </span>
   </div>
@@ -98,12 +98,16 @@ export default function BookingReceipt() {
   );
 
   const vehicleAssigned = Boolean(trip?.vehicle_number || (trip?.vehicles || []).length);
-  const vehicleNumber =
-    trip?.bus_detail ||
-    trip?.vehicle_number ||
-    trip?.vehicles?.[0]?.vehicle_number ||
-    "-";
-  const vehicleType = trip?.bus_type || trip?.vehicles?.[0]?.bus_type || "-";
+  const vehicleList = Array.isArray(trip?.vehicles) ? trip.vehicles : [];
+  const vehicleNumberList = vehicleList
+    .map((v) => v?.vehicle_number || v?.registration_number || v?.vehicle_name)
+    .filter(Boolean);
+  const vehicleNumber = "-";
+  const vehicleType =
+    trip?.bus_type ||
+    vehicleList?.[0]?.bus_type ||
+    vehicleList?.[0]?.vehicle_type ||
+    (vehicleList?.[0]?.seat_count ? `${vehicleList[0].seat_count} Seat` : "-");
 
   const totalAdvance = useMemo(() => {
     const paymentSum = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -143,13 +147,13 @@ export default function BookingReceipt() {
       <BookingReceiptLayout>
         <div className="flex justify-between items-center mb-6 px-4">
           <div className="flex items-baseline gap-2">
-            <span className="font-bold text-[14px] mr-1 uppercase text-red-600">Invoice No.</span>
+            <span className="print-heading font-bold text-[14px] mr-1 uppercase text-red-600">Invoice No.</span>
             <span className="text-[22px] text-black font-normal font-serif leading-none tracking-wide">
               {trip.invoice_number || `INV-${String(trip.id).padStart(4, "0")}`}
             </span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-bold text-[14px] uppercase text-red-600">Booking Date</span>
+            <span className="print-heading font-bold text-[14px] uppercase text-red-600">Booking Date</span>
             <span className="font-normal font-serif text-black border-b-[1.5px] border-gray-600 border-dashed inline-block min-w-[100px] text-left px-1 leading-[16px] text-[14px]">
               {formatDateDDMMYYYY(trip.trip_date)}
             </span>

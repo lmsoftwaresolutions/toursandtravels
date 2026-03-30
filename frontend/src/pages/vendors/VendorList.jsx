@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 const CATEGORY_OPTIONS = [
   { value: "fuel", label: "Fuel" },
@@ -25,6 +26,8 @@ export default function VendorList() {
   const isAdmin = user?.role === "admin";
   const [allVendors, setAllVendors] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [form, setForm] = useState({ name: "", phone: "", category: "fuel" });
   const [filterCategory, setFilterCategory] = useState("");
 
@@ -76,6 +79,15 @@ export default function VendorList() {
     };
     init();
   }, [loadVendors]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [vendors.length, filterCategory, location.pathname]);
+
+  const paginatedVendors = vendors.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -206,7 +218,7 @@ export default function VendorList() {
             {vendors.length === 0 ? (
               <tr><td colSpan="4" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No vendor records found</td></tr>
             ) : (
-              vendors.map(v => (
+              paginatedVendors.map(v => (
                 <tr key={v.id} className="group hover:bg-slate-50/40 transition-colors">
                   <td className="p-6">
                     <div className="flex items-center gap-4">
@@ -248,6 +260,12 @@ export default function VendorList() {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={vendors.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

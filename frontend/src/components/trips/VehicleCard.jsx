@@ -157,6 +157,48 @@ export default function VehicleCard({
           />
         </div>
 
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pricing Model</label>
+          <select
+            value={entry.pricing_type || "per_km"}
+            onChange={(e) => onEntryChange(index, "pricing_type", e.target.value)}
+            className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+          >
+            <option value="per_km">Per Kilometer Rate</option>
+            <option value="package">Package Rate</option>
+          </select>
+        </div>
+
+        {entry.pricing_type === "package" ? (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Package Amount</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold tracking-tight">₹</span>
+              <input
+                type="number"
+                value={entry.package_amount}
+                onChange={(e) => onEntryChange(index, "package_amount", e.target.value)}
+                className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Rate / KM</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold tracking-tight">₹</span>
+              <input
+                type="number"
+                value={entry.cost_per_km}
+                onChange={(e) => onEntryChange(index, "cost_per_km", e.target.value)}
+                className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2 relative">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Primary Driver</label>
           <input
@@ -385,3 +427,4 @@ export default function VehicleCard({
     </div>
   );
 }
+

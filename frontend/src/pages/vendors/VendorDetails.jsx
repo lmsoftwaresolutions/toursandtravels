@@ -5,6 +5,7 @@ import { formatDateDDMMYYYY } from "../../utils/date";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 import { vendorEntryConfig } from "../../config/vendorEntryConfig";
+import { authService } from "../../services/auth";
 
 const normalizeVendorCategory = (category) => {
   const value = String(category || "").trim().toLowerCase();
@@ -44,6 +45,7 @@ export default function VendorDetails() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [entryForm, setEntryForm] = useState({});
+  const canWrite = !authService.hasLimitedAccess();
 
   const loadVendorData = useCallback(async () => {
     try {
@@ -614,13 +616,15 @@ export default function VendorDetails() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={handleDeleteVendor}
-            className="h-12 px-6 bg-white border border-rose-200 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 7h12m-9 0V5a2 2 0 012-2h2a2 2 0 012 2v2m2 0v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" /></svg>
-            Delete
-          </button>
+          {canWrite ? (
+            <button
+              onClick={handleDeleteVendor}
+              className="h-12 px-6 bg-white border border-rose-200 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 7h12m-9 0V5a2 2 0 012-2h2a2 2 0 012 2v2m2 0v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" /></svg>
+              Delete
+            </button>
+          ) : null}
           <button
             onClick={handlePrint}
             className="h-12 px-6 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"
@@ -950,12 +954,14 @@ export default function VendorDetails() {
                             >
                               View
                             </button>
-                            <button
-                              onClick={() => deletePayment(p.id)}
-                              className="h-10 px-4 bg-white border border-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
-                            >
-                              Delete
-                            </button>
+                            {canWrite ? (
+                              <button
+                                onClick={() => deletePayment(p.id)}
+                                className="h-10 px-4 bg-white border border-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                              >
+                                Delete
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

@@ -26,13 +26,9 @@ From repo root:
 docker compose --env-file .env -f docker-compose.yml up -d --build
 ```  
 ### Migration are already present then use this 
-
-```
 docker compose down
 docker compose build backend
 docker compose up
-```
-
 ## 4. Migrations (Automatic)
 The backend container runs migrations before app start:
 

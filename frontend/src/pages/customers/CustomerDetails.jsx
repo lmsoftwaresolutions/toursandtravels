@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
 
 export default function CustomerDetails() {
   const { id } = useParams();
@@ -10,6 +11,7 @@ export default function CustomerDetails() {
   const [trips, setTrips] = useState([]);
   const [searchInvoice, setSearchInvoice] = useState("");
   const [error, setError] = useState("");
+  const canWrite = !authService.hasLimitedAccess();
 
   useEffect(() => {
     api
@@ -38,13 +40,15 @@ export default function CustomerDetails() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={() => navigate(`/customers/edit/${id}`)}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            Edit Profile
-          </button>
+          {canWrite ? (
+            <button
+              onClick={() => navigate(`/customers/edit/${id}`)}
+              className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              Edit Profile
+            </button>
+          ) : null}
           <button
             onClick={() => navigate("/customers")}
             className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:shadow-slate-900/20 hover:scale-105 transition-all text-sm"

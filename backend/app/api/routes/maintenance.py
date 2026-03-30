@@ -17,6 +17,7 @@ from app.services.maintenance_service import (
     delete_maintenance,
     calculate_monthly_maintenance_cost
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(
     prefix="/maintenance",
@@ -70,14 +71,19 @@ def get_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
 def update_maintenance_record(
     maintenance_id: int,
     data: MaintenanceUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     return update_maintenance(db, maintenance_id, data)
 
 
 # ---------------- DELETE MAINTENANCE ----------------
 @router.delete("/{maintenance_id}")
-def delete_maintenance_record(maintenance_id: int, db: Session = Depends(get_db)):
+def delete_maintenance_record(
+    maintenance_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     return delete_maintenance(db, maintenance_id)
 
 

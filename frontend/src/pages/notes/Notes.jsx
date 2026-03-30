@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
 
 export default function Notes() {
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -9,6 +10,7 @@ export default function Notes() {
   });
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const canWrite = !authService.hasLimitedAccess();
 
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
@@ -46,6 +48,7 @@ export default function Notes() {
   };
 
   const openEditNote = (note) => {
+    if (!canWrite) return;
     setEditingNote(note);
     setNoteText(note.note || "");
     setNoteDate(note.note_date || "");
@@ -54,6 +57,7 @@ export default function Notes() {
 
   const handleSaveNote = () => {
     if (!noteDate || !noteText.trim()) return;
+    if (editingNote && !canWrite) return;
 
     const noteMonth = noteDate.slice(0, 7);
     const payload = {
@@ -157,20 +161,22 @@ export default function Notes() {
                     <p className="text-sm font-bold text-slate-700 leading-relaxed max-w-xl">{n.note}</p>
                   </td>
                   <td className="p-6">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEditNote(n)}
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-lg transition-all"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteNote(n.id)}
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:shadow-lg transition-all"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                      </button>
-                    </div>
+                    {canWrite ? (
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEditNote(n)}
+                          className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-lg transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNote(n.id)}
+                          className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:shadow-lg transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))
