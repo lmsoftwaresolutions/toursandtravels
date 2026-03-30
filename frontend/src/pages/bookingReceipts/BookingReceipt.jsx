@@ -102,8 +102,10 @@ export default function BookingReceipt() {
   const vehicleNumberList = vehicleList
     .map((v) => v?.vehicle_number || v?.registration_number || v?.vehicle_name)
     .filter(Boolean);
-  const vehicleNumber = "-";
-  const vehicleType =
+  const vehicleDetails =
+    trip?.bus_detail ||
+    (vehicleNumberList.length ? vehicleNumberList.join(", ") : "-");
+  const vehicleTripType =
     trip?.bus_type ||
     vehicleList?.[0]?.bus_type ||
     vehicleList?.[0]?.vehicle_type ||
@@ -176,8 +178,8 @@ export default function BookingReceipt() {
           <ReceiptField label="Trip Start" value={trip.departure_datetime ? formatDateDDMMYYYY(trip.departure_datetime) : "-"} />
           <ReceiptField label="Trip End" value={trip.return_datetime ? formatDateDDMMYYYY(trip.return_datetime) : "-"} />
           
-          <ReceiptField label="Vehicle Type" value={vehicleType} />
-          <ReceiptField label="Vehicle Details" value={vehicleNumber} />
+          <ReceiptField label="Vehicle Trip Type" value={vehicleTripType} />
+          <ReceiptField label="Vehicle Details" value={vehicleDetails} />
           
           <ReceiptField label="Travel Time" value={travelTime} />
           <ReceiptField label="Total Days" value={totalDays || "-"} />

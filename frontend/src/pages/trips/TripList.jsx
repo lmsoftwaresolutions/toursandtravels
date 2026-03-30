@@ -72,9 +72,19 @@ export default function Trips() {
 
     let filtered = trips;
     if (activeTab === "upcoming") {
-      filtered = trips.filter(t => t.trip_date >= today);
+      filtered = trips.filter(t => {
+        const effectiveDate = t.departure_datetime
+          ? String(t.departure_datetime).split("T")[0]
+          : t.trip_date;
+        return effectiveDate >= today;
+      });
     } else if (activeTab === "completed") {
-      filtered = trips.filter(t => t.trip_date < today);
+      filtered = trips.filter(t => {
+        const effectiveDate = t.departure_datetime
+          ? String(t.departure_datetime).split("T")[0]
+          : t.trip_date;
+        return effectiveDate < today;
+      });
     }
 
     if (searchInvoice.trim()) {

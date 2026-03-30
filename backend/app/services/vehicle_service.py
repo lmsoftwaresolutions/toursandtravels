@@ -5,12 +5,17 @@ from app.models.vehicle import Vehicle
 from app.schemas.vehicle import VehicleCreate
 
 
+def normalize_vehicle_number(value: str | None) -> str:
+    return str(value or "").upper().replace(" ", "").replace("-", "")
+
+
 # ---------------- CREATE ----------------
 def create_vehicle(db: Session, vehicle: VehicleCreate):
+    normalized_number = normalize_vehicle_number(vehicle.vehicle_number)
     existing = (
         db.query(Vehicle)
         .filter(
-            Vehicle.vehicle_number == vehicle.vehicle_number,
+            func.lower(Vehicle.vehicle_number) == func.lower(normalized_number),
             Vehicle.is_deleted == False
         )
         .first()
@@ -20,7 +25,7 @@ def create_vehicle(db: Session, vehicle: VehicleCreate):
         raise HTTPException(400, "Vehicle already exists")
 
     db_vehicle = Vehicle(
-        vehicle_number=vehicle.vehicle_number,
+        vehicle_number=normalized_number,
         vehicle_type=vehicle.vehicle_type,
         seat_count=vehicle.seat_count,
     )

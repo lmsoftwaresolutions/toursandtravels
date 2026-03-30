@@ -93,11 +93,29 @@ export default function VendorList() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const normalizeIndianPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits;
+  };
+
+  const isValidIndianPhone = (value) => /^[6-9]\d{9}$/.test(normalizeIndianPhone(value));
+
   const submit = async e => {
     e.preventDefault();
     if (!form.name.trim()) return;
 
-    const payload = { ...form, category: activeFormCategory };
+    const normalizedPhone = normalizeIndianPhone(form.phone);
+    if (form.phone && !isValidIndianPhone(form.phone)) {
+      alert("Phone number must be a valid 10-digit Indian mobile number.");
+      return;
+    }
+
+    const payload = {
+      ...form,
+      category: activeFormCategory,
+      phone: form.phone ? normalizedPhone : ""
+    };
     try {
       await api.post("/vendors", payload);
       setForm({ name: "", phone: "", category: activeFormCategory || "fuel" });

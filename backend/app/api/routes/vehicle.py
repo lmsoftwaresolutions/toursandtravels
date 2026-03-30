@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from app.database.session import SessionLocal
 from app.models.vehicle import Vehicle
@@ -8,7 +9,8 @@ from app.services.vehicle_service import (
     create_vehicle,
     get_all_vehicles,
     get_vehicle_by_number,
-    soft_delete_vehicle
+    soft_delete_vehicle,
+    normalize_vehicle_number
 )
 
 from app.services.vehicle_stats_service import vehicle_summary
@@ -43,7 +45,7 @@ def list_vehicles(db: Session = Depends(get_db)):
 
 @router.get("/{vehicle_number}", response_model=VehicleResponse)
 def vehicle_details(vehicle_number: str, db: Session = Depends(get_db)):
-    vehicle = get_vehicle_by_number(db, vehicle_number)
+    vehicle = get_vehicle_by_number(db, normalize_vehicle_number(vehicle_number))
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
     return vehicle
@@ -52,7 +54,7 @@ def vehicle_details(vehicle_number: str, db: Session = Depends(get_db)):
 # ✅ FIXED: trailing slash added
 @router.get("/{vehicle_number}/summary")
 def get_vehicle_summary(vehicle_number: str, db: Session = Depends(get_db)):
-    return vehicle_summary(db, vehicle_number)
+    return vehicle_summary(db, normalize_vehicle_number(vehicle_number))
 
 
 @router.delete("/{vehicle_id}")
@@ -72,18 +74,21 @@ def update_vehicle(
     db: Session = Depends(get_db),
     current_user=Depends(require_write_access),
 ):
+    normalized_current = normalize_vehicle_number(vehicle_number)
     vehicle = db.query(Vehicle).filter(
-        Vehicle.vehicle_number == vehicle_number
+        Vehicle.vehicle_number == normalized_current
     ).first()
 
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
 
-    new_number = update_data.vehicle_number
+    new_number = normalize_vehicle_number(update_data.vehicle_number)
 
-    if new_number != vehicle_number:
+    if new_number != normalized_current:
         # Check if new number already exists
-        existing = db.query(Vehicle).filter(Vehicle.vehicle_number == new_number).first()
+        existing = db.query(Vehicle).filter(
+            func.lower(Vehicle.vehicle_number) == func.lower(new_number)
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="New vehicle number already exists")
 
@@ -92,9 +97,9 @@ def update_vehicle(
         from app.models.fuel import Fuel
         from app.models.maintenance import Maintenance
 
-        db.query(Trip).filter(Trip.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
-        db.query(Fuel).filter(Fuel.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
-        db.query(Maintenance).filter(Maintenance.vehicle_number == vehicle_number).update({"vehicle_number": new_number})
+        db.query(Trip).filter(Trip.vehicle_number == normalized_current).update({"vehicle_number": new_number})
+        db.query(Fuel).filter(Fuel.vehicle_number == normalized_current).update({"vehicle_number": new_number})
+        db.query(Maintenance).filter(Maintenance.vehicle_number == normalized_current).update({"vehicle_number": new_number})
 
         vehicle.vehicle_number = new_number
 
