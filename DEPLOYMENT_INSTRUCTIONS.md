@@ -5,8 +5,8 @@ These steps deploy the production stack and apply database migrations automatica
 ## 1. PR 25 and 26
 ### Migration are already present then use this 
 ```
-git pull 
 docker compose down
+git pull
 docker compose build backend
 docker compose up --build -d
 ```
