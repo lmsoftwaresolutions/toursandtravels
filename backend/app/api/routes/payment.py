@@ -9,6 +9,7 @@ from app.services.payment_service import (
     get_all_payments,
     delete_payment
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(
     prefix="/payments",
@@ -35,7 +36,11 @@ def get_trip_payments(trip_id: int, db: Session = Depends(get_db)):
     return get_payments_by_trip(db, trip_id)
 
 @router.delete("/{payment_id}")
-def remove_payment(payment_id: int, db: Session = Depends(get_db)):
+def remove_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     payment = delete_payment(db, payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")

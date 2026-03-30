@@ -5,6 +5,7 @@ from app.database.session import SessionLocal
 from app.schemas.fuel import FuelCreate, FuelResponse
 from app.services.fuel_service import add_fuel, fuel_history_by_vehicle, get_all_fuel, get_fuel_by_id, update_fuel
 from app.models.fuel import Fuel
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/fuel", tags=["Fuel"])
 
@@ -33,7 +34,8 @@ def all_fuel(db: Session = Depends(get_db)):
 @router.delete("/{fuel_id}")
 def delete_fuel(
     fuel_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
 ):
     fuel = db.query(Fuel).filter(Fuel.id == fuel_id).first()
     if not fuel:
@@ -51,7 +53,12 @@ def get_single_fuel(fuel_id: int, db: Session = Depends(get_db)):
     return fuel
 
 @router.put("/{fuel_id}", response_model=FuelResponse)
-def edit_fuel(fuel_id: int, data: FuelCreate, db: Session = Depends(get_db)):
+def edit_fuel(
+    fuel_id: int,
+    data: FuelCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     fuel = update_fuel(db, fuel_id, data)
     if not fuel:
         raise HTTPException(status_code=404, detail="Fuel not found")

@@ -11,6 +11,7 @@ from app.services.mechanic_service import (
     update_mechanic_entry,
     delete_mechanic_entry,
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/mechanic", tags=["Mechanic"])
 
@@ -47,7 +48,12 @@ def get_mechanic_entry(entry_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{entry_id}", response_model=MechanicResponse)
-def edit_mechanic_entry(entry_id: int, data: MechanicCreate, db: Session = Depends(get_db)):
+def edit_mechanic_entry(
+    entry_id: int,
+    data: MechanicCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     entry = update_mechanic_entry(db, entry_id, data)
     if not entry:
         raise HTTPException(status_code=404, detail="Mechanic entry not found")
@@ -55,7 +61,11 @@ def edit_mechanic_entry(entry_id: int, data: MechanicCreate, db: Session = Depen
 
 
 @router.delete("/{entry_id}")
-def remove_mechanic_entry(entry_id: int, db: Session = Depends(get_db)):
+def remove_mechanic_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     entry = delete_mechanic_entry(db, entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Mechanic entry not found")

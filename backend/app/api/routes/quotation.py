@@ -5,7 +5,7 @@ from typing import List
 from app.database.session import SessionLocal
 from app.models.quotation import Quotation
 from app.schemas.quotation import QuotationCreate, QuotationResponse, QuotationUpdate
-from app.services.auth_service import get_current_user
+from app.services.auth_service import get_current_user, require_write_access
 
 router = APIRouter(
     prefix="/quotations",
@@ -44,7 +44,12 @@ def get_quotation(id: int, db: Session = Depends(get_db)):
 
 # ---------------- UPDATE QUOTATION ----------------
 @router.put("/{id}", response_model=QuotationResponse)
-def update_quotation(id: int, quotation_data: QuotationUpdate, db: Session = Depends(get_db)):
+def update_quotation(
+    id: int,
+    quotation_data: QuotationUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     db_quotation = db.query(Quotation).filter(Quotation.id == id, Quotation.is_deleted == False).first()
     if not db_quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")

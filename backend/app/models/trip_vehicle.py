@@ -15,6 +15,11 @@ class TripVehicle(Base):
     end_km = Column(Float, default=0)
     distance_km = Column(Integer, nullable=True)
     driver_bhatta = Column(Float, default=0)
+    vehicle_type = Column(String, nullable=True)
+    seat_count = Column(Integer, nullable=True)
+    pricing_type = Column(String, default="per_km")
+    package_amount = Column(Float, default=0)
+    cost_per_km = Column(Float, default=0)
 
     # NEW: Per-vehicle financials
     fuel_cost = Column(Float, default=0)

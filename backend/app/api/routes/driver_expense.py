@@ -4,6 +4,7 @@ from typing import List
 from app.database.session import SessionLocal
 from app.schemas.driver_expense import DriverExpenseCreate, DriverExpenseUpdate, DriverExpenseResponse
 from app.services.driver_expense_service import DriverExpenseService
+from app.services.auth_service import require_write_access
 
 
 router = APIRouter(
@@ -44,7 +45,12 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
     return expense
 
 @router.put("/{expense_id}", response_model=DriverExpenseResponse)
-def update_expense(expense_id: int, expense_update: DriverExpenseUpdate, db: Session = Depends(get_db)):
+def update_expense(
+    expense_id: int,
+    expense_update: DriverExpenseUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     service = DriverExpenseService(db)
     expense = service.update_expense(expense_id, expense_update)
     if not expense:
@@ -52,7 +58,11 @@ def update_expense(expense_id: int, expense_update: DriverExpenseUpdate, db: Ses
     return expense
 
 @router.delete("/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     service = DriverExpenseService(db)
     if not service.delete_expense(expense_id):
         raise HTTPException(status_code=404, detail="Expense not found")

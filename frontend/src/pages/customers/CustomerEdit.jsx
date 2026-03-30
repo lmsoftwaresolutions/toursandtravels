@@ -14,6 +14,14 @@ export default function CustomerEdit() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const normalizeIndianPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits;
+  };
+
+  const isValidIndianPhone = (value) => /^[6-9]\d{9}$/.test(normalizeIndianPhone(value));
+
   useEffect(() => {
     api.get(`/customers/${id}`)
       .then(res => setFormData({
@@ -34,13 +42,23 @@ export default function CustomerEdit() {
       return;
     }
 
+    if (!formData.phone.trim()) {
+      setError("Phone number is required");
+      return;
+    }
+
+    if (!isValidIndianPhone(formData.phone)) {
+      setError("Phone number must be a valid 10-digit Indian mobile number");
+      return;
+    }
+
     try {
       setLoading(true);
 
       // ✅ FIX: trailing slash added
       await api.put(`/customers/${id}`, {
         name: formData.name.trim(),
-        phone: formData.phone.trim() || null,
+        phone: normalizeIndianPhone(formData.phone),
         email: formData.email.trim() || null,
         address: formData.address.trim() || null,
       });
@@ -85,10 +103,12 @@ export default function CustomerEdit() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
                 <input
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                  placeholder="+91-0000000000"
+                  placeholder="9876543210"
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                 />
               </div>
               <div className="space-y-2">

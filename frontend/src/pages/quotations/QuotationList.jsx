@@ -3,12 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { quotationService } from "../../services/quotationService";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import Pagination from "../../components/common/Pagination";
 
 export default function QuotationList() {
   const navigate = useNavigate();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin] = useState(authService.isAdmin());
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const canWrite = !authService.hasLimitedAccess();
 
   useEffect(() => {
     loadQuotations();
@@ -37,6 +41,15 @@ export default function QuotationList() {
       }
     }
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [quotations.length]);
+
+  const paginatedQuotations = quotations.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -82,7 +95,7 @@ export default function QuotationList() {
               ) : quotations.length === 0 ? (
                 <tr><td colSpan="5" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No quotations found</td></tr>
               ) : (
-                quotations.map(q => (
+                paginatedQuotations.map(q => (
                   <tr key={q.id} className="group hover:bg-slate-50/40 transition-colors">
                     <td className="p-6">
                       <div className="text-sm font-black text-blue-600">{q.quotation_no}</div>
@@ -107,13 +120,15 @@ export default function QuotationList() {
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </button>
-                        <button
-                          onClick={() => navigate(`/quotations/edit/${q.id}`)}
-                          className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
-                          title="Edit"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        </button>
+                        {canWrite ? (
+                          <button
+                            onClick={() => navigate(`/quotations/edit/${q.id}`)}
+                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                            title="Edit"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          </button>
+                        ) : null}
                         {isAdmin && (
                           <button
                             onClick={() => handleDelete(q.id)}
@@ -131,6 +146,12 @@ export default function QuotationList() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={quotations.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ from app.services.driver_salary_service import (
     create_salary,
     delete_salary,
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/driver-salaries", tags=["Driver Salaries"])
 
@@ -30,7 +31,11 @@ def add_salary(data: DriverSalaryCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{salary_id}")
-def remove_salary(salary_id: int, db: Session = Depends(get_db)):
+def remove_salary(
+    salary_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     deleted = delete_salary(db, salary_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Salary record not found")

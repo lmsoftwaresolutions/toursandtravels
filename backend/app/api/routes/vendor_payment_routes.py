@@ -7,6 +7,7 @@ from app.services.vendor_payment_service import (
     create_vendor_payment,
     delete_vendor_payment,
 )
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/vendor-payments", tags=["Vendor Payments"])
 
@@ -30,7 +31,11 @@ def add_vendor_payment(data: VendorPaymentCreate, db: Session = Depends(get_db))
 
 
 @router.delete("/{payment_id}")
-def remove_vendor_payment(payment_id: int, db: Session = Depends(get_db)):
+def remove_vendor_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     deleted = delete_vendor_payment(db, payment_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Vendor payment not found")

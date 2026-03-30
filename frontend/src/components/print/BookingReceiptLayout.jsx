@@ -5,9 +5,9 @@ export default function BookingReceiptLayout({ children }) {
   return (
     <div className="w-full h-full border-[1.5px] border-black flex flex-col bg-white text-red-600 font-sans receipt-red-theme box-border overflow-hidden rounded-md">
       {/* Header spanning full width */}
-      <div className="flex items-stretch border-b-[1.5px] border-black w-full bg-white print:bg-transparent print:shadow-none min-h-[90px]">
+      <div className="flex items-stretch border-b-2 border-black w-full bg-white print:bg-transparent print:shadow-none min-h-[90px]">
         {/* Left Half: Logo */}
-        <div className="w-1/2 flex items-center justify-center p-3 border-r-[1.5px] border-black">
+        <div className="w-1/2 flex items-center justify-center p-3 border-r-2 border-black">
           <img src={NathkrupaReceiptLogo} alt="Nath Krupa Travels" className="max-h-[70px] w-auto object-contain" />
         </div>
         {/* Right Half: Address Details */}
@@ -15,11 +15,13 @@ export default function BookingReceiptLayout({ children }) {
           <div className="text-[14px] font-black text-black tracking-tight leading-snug">
             {COMPANY_ADDRESS}
           </div>
-          <div className="text-[12px] font-black mt-1.5 tracking-tight text-black whitespace-nowrap">
-            Phone: {COMPANY_CONTACT} | Email: {COMPANY_EMAIL}
+          <div className="text-[12px] font-black mt-1.5 tracking-tight text-black leading-snug">
+            <div>Phone: {COMPANY_CONTACT}</div>
+            <div>Email: {COMPANY_EMAIL}</div>
           </div>
         </div>
       </div>
+      <div className="w-full border-b-2 border-black" />
       
       {/* Body containing unified fields */}
       <div className="p-4 flex-grow flex flex-col bg-white">

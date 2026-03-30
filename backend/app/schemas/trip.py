@@ -47,6 +47,11 @@ class TripVehicleBase(BaseModel):
     end_km: float | None = None
     distance_km: int | None = None
     driver_bhatta: float = 0
+    vehicle_type: Optional[str] = None
+    seat_count: Optional[int] = None
+    pricing_type: str = "per_km"
+    package_amount: float = 0
+    cost_per_km: float = 0
 
 
 class TripVehicleCreate(TripVehicleBase):
@@ -118,6 +123,7 @@ class TripCreate(BaseModel):
 
     number_of_vehicles: int = 1
     bus_type: str | None = None
+    bus_detail: str | None = None
 
     pricing_type: str = "per_km"
     package_amount: float = 0
@@ -173,6 +179,7 @@ class TripUpdate(BaseModel):
 
     number_of_vehicles: int = 1
     bus_type: str | None = None
+    bus_detail: str | None = None
 
     pricing_type: str = "per_km"
     package_amount: float = 0
@@ -223,6 +230,7 @@ class TripResponse(BaseModel):
 
     number_of_vehicles: int
     bus_type: str | None
+    bus_detail: str | None
 
     pricing_type: str
     package_amount: float

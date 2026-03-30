@@ -5,6 +5,7 @@ from app.database.session import SessionLocal
 from app.schemas.vendor import VendorCreate, VendorResponse
 from app.services.vendor_service import add_vendor, list_vendors, delete_vendor
 from app.services.vendor_stats_service import vendor_summary
+from app.services.auth_service import require_write_access
 
 router = APIRouter(prefix="/vendors", tags=["Vendors"])
 
@@ -34,6 +35,10 @@ def get_vendor_summary(vendor_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{vendor_id}")
-def remove_vendor(vendor_id: int, db: Session = Depends(get_db)):
+def remove_vendor(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     delete_vendor(db, vendor_id)
     return {"message": "Vendor deleted"}

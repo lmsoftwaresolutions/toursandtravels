@@ -16,7 +16,7 @@ from app.services.customer_service import (
     update_customer,
     get_customer_with_trips,
 )
-from app.services.auth_service import require_admin
+from app.services.auth_service import require_admin, require_write_access
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
@@ -41,7 +41,12 @@ def customer_details(customer_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{customer_id}", response_model=CustomerResponse)
-def edit_customer(customer_id: int, data: CustomerUpdate, db: Session = Depends(get_db)):
+def edit_customer(
+    customer_id: int,
+    data: CustomerUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
     customer = update_customer(db, customer_id, data.name, data.phone, data.email, data.address)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")

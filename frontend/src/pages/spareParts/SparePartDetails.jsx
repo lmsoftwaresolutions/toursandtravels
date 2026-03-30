@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
+import { authService } from "../../services/auth";
 
 export default function SparePartDetails() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function SparePartDetails() {
   const [vehicles, setVehicles] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const canWrite = !authService.hasLimitedAccess();
   const [newEntry, setNewEntry] = useState({
     vehicle_number: "",
     part_name: "",
@@ -238,12 +240,14 @@ export default function SparePartDetails() {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteEntry(sp.id)}
-                      className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                    >
-                      Delete
-                    </button>
+                    {canWrite ? (
+                      <button
+                        onClick={() => handleDeleteEntry(sp.id)}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))

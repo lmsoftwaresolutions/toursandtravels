@@ -26,6 +26,7 @@ class Trip(Base):
 
     number_of_vehicles = Column(Integer, default=1)
     bus_type = Column(String, nullable=True)
+    bus_detail = Column(String, nullable=True)
 
     # 🔥 PHASE-2 FIELDS
     diesel_used = Column(Float, default=0)

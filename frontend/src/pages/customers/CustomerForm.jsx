@@ -11,12 +11,34 @@ export default function CustomerForm() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const normalizeIndianPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+    return digits;
+  };
+
+  const isValidIndianPhone = (value) => /^[6-9]\d{9}$/.test(normalizeIndianPhone(value));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const phoneDigits = normalizeIndianPhone(trimmedPhone);
+
+    if (!trimmedName) {
       setError("Customer name is required");
+      return;
+    }
+
+    if (!trimmedPhone) {
+      setError("Phone number is required");
+      return;
+    }
+
+    if (!isValidIndianPhone(trimmedPhone)) {
+      setError("Phone number must be a valid 10-digit Indian mobile number");
       return;
     }
 
@@ -25,8 +47,8 @@ export default function CustomerForm() {
 
       // ✅ TRAILING SLASH IS REQUIRED
       await api.post("/customers", {
-        name: name.trim(),
-        phone: phone.trim(),
+        name: trimmedName,
+        phone: phoneDigits,
         email: email.trim() || null,
         address: address.trim() || null,
       });
@@ -70,14 +92,16 @@ export default function CustomerForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
-                <input
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-                  placeholder="+91-0000000000"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
+              <input
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                placeholder="9876543210"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                required
+              />
               </div>
 
               <div className="space-y-2">

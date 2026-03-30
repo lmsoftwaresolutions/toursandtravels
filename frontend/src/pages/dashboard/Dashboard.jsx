@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const isAdmin = authService.isAdmin();
+  const canWrite = !authService.hasLimitedAccess();
   const today = new Date();
   const [dashboardMonth, setDashboardMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
@@ -77,7 +78,7 @@ export default function Dashboard() {
             />
           </div>
           <button
-            onClick={() => navigate("/notes")}
+            onClick={() => window.dispatchEvent(new Event("open-add-note"))}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-105 transition-all text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,6 +268,17 @@ function TripScheduleChart({
     return grouped;
   }, [trips, scheduleMonth]);
 
+  const getTripVehicleNumbers = (trip) => {
+    const list = [];
+    if (trip?.vehicle_number) list.push(trip.vehicle_number);
+    if (Array.isArray(trip?.vehicles)) {
+      trip.vehicles.forEach(v => {
+        if (v?.vehicle_number) list.push(v.vehicle_number);
+      });
+    }
+    return Array.from(new Set(list));
+  };
+
   /* ✅ GENERATE DATES FROM SELECTED MONTH (NEW) */
   const [year, month] = scheduleMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -311,7 +323,7 @@ function TripScheduleChart({
                   >
                     <div className="min-h-[60px] flex flex-col gap-2">
                       {(tripsByDate[date] || [])
-                        .filter(t => t.vehicle_number === v.vehicle_number)
+                        .filter(t => getTripVehicleNumbers(t).includes(v.vehicle_number))
                         .map(t => (
                           <div
                             key={t.id}
@@ -337,28 +349,30 @@ function TripScheduleChart({
                               <div className="text-xs text-amber-900 leading-relaxed font-medium">
                                 {n.note}
                               </div>
-                              <div className="flex justify-end gap-3 mt-2 opacity-0 group-hover/note:opacity-100 transition-opacity">
-                                <button
-                                  type="button"
-                                  className="text-[10px] font-black uppercase text-amber-600 hover:text-amber-800"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditNote(n);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteNote(n.id);
-                                  }}
-                                >
-                                  Delete
-                                </button>
-                              </div>
+                              {canWrite ? (
+                                <div className="flex justify-end gap-3 mt-2 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    className="text-[10px] font-black uppercase text-amber-600 hover:text-amber-800"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEditNote(n);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteNote(n.id);
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>

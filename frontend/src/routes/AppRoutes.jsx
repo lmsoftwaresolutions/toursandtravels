@@ -70,6 +70,16 @@ const RequireAdmin = ({ children }) => {
   return children;
 };
 
+const RequireWriteAccess = ({ children }) => {
+  if (!authService.isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  if (authService.hasLimitedAccess()) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -89,20 +99,26 @@ export default function AppRoutes() {
           <RequireAdmin><VehicleEfficiency /></RequireAdmin>
         } />
         <Route path="/vehicles/:vehicle_number" element={<VehicleDetails />} />
-        <Route path="/vehicles/:vehicle_number/edit" element={<VehicleEdit />} />
+        <Route path="/vehicles/:vehicle_number/edit" element={
+          <RequireWriteAccess><VehicleEdit /></RequireWriteAccess>
+        } />
 
         {/* Trips */}
         <Route path="/trips" element={<TripList />} />
         <Route path="/trips/add" element={<TripForm />} />
         <Route path="/trips/:id" element={<TripDetails />} />
-        <Route path="/trips/edit/:id" element={<TripForm />} />
+        <Route path="/trips/edit/:id" element={
+          <RequireWriteAccess><TripForm /></RequireWriteAccess>
+        } />
 
 
         {/* Customers */}
         <Route path="/customers" element={<CustomerList />} />
         <Route path="/customers/add" element={<CustomerForm />} />
         <Route path="/customers/:id" element={<CustomerDetails />} />
-        <Route path="/customers/edit/:id" element={<CustomerEdit />} />
+        <Route path="/customers/edit/:id" element={
+          <RequireWriteAccess><CustomerEdit /></RequireWriteAccess>
+        } />
 
         {/* Drivers */}
         <Route path="/drivers" element={<DriverList />} />
@@ -113,7 +129,9 @@ export default function AppRoutes() {
         <Route path="/fuel" element={<FuelForm />} />
         <Route path="/fuel/add" element={<FuelForm />} />
         <Route path="/fuel/history" element={<FuelHistory />} />
-        <Route path="/fuel/edit/:id" element={<FuelEdit />} />
+        <Route path="/fuel/edit/:id" element={
+          <RequireWriteAccess><FuelEdit /></RequireWriteAccess>
+        } />
 
 
 
@@ -124,7 +142,9 @@ export default function AppRoutes() {
         <Route path="/spare-parts" element={<SparePartList />} />
         <Route path="/spare-parts/add" element={<SparePartForm />} />
         <Route path="/spare-parts/:id" element={<SparePartDetails />} />
-        <Route path="/spare-parts/edit/:id" element={<SparePartForm />} />
+        <Route path="/spare-parts/edit/:id" element={
+          <RequireWriteAccess><SparePartForm /></RequireWriteAccess>
+        } />
 
 
 
@@ -141,14 +161,18 @@ export default function AppRoutes() {
         {/* Quotations */}
         <Route path="/quotations" element={<QuotationList />} />
         <Route path="/quotations/add" element={<QuotationForm />} />
-        <Route path="/quotations/edit/:id" element={<QuotationForm />} />
+        <Route path="/quotations/edit/:id" element={
+          <RequireWriteAccess><QuotationForm /></RequireWriteAccess>
+        } />
         <Route path="/quotations/view/:id" element={<QuotationView />} />
 
         {/* Maintenance */}
         <Route path="/maintenance" element={<Navigate to="/maintenance/all" replace />} />
         <Route path="/maintenance/:type" element={<MaintenanceList />} />
         <Route path="/maintenance/:type/add" element={<MaintenanceForm />} />
-        <Route path="/maintenance/:type/edit/:id" element={<MaintenanceForm />} />
+        <Route path="/maintenance/:type/edit/:id" element={
+          <RequireWriteAccess><MaintenanceForm /></RequireWriteAccess>
+        } />
 
         {/* Reports */}
         <Route path="/reports" element={

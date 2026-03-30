@@ -71,7 +71,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-3 px-6 overflow-y-auto h-[calc(100vh-160px)] custom-scrollbar pb-32">
+        <nav className="flex flex-col gap-3 px-6 overflow-y-auto h-[calc(100vh-160px)] no-scrollbar pb-32">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} onClick={() => setIsOpen(false)} className={linkClass}>
               <svg className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">

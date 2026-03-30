@@ -8,6 +8,7 @@ export default function QuotationView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [quotation, setQuotation] = useState(null);
+  const [printTimestamp, setPrintTimestamp] = useState("");
 
   useEffect(() => {
     loadQuotation();
@@ -23,7 +24,8 @@ export default function QuotationView() {
   };
 
   const handlePrint = () => {
-    window.print();
+    setPrintTimestamp(new Date().toLocaleString());
+    setTimeout(() => window.print(), 100);
   };
 
   if (!quotation) return <div className="p-8">Loading quotation...</div>;
@@ -48,8 +50,8 @@ export default function QuotationView() {
         </div>
       </div>
 
-      <PrintLayout>
-        <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 print:mb-4 border-y-2 border-slate-900 py-2">
+      <PrintLayout printTimestamp={printTimestamp}>
+        <div className="print-heading text-center font-black text-2xl tracking-widest uppercase mb-8 print:mb-4 border-y-2 border-slate-900 py-2">
            QUOTATION
         </div>
 

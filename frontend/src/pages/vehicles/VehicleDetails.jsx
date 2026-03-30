@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import { authService } from "../../services/auth";
 
 const normalizeVehicleNumber = (value) => String(value || "").trim().toLowerCase();
 
@@ -15,6 +16,7 @@ export default function VehicleDetails() {
   const [tripFuelEntries, setTripFuelEntries] = useState([]);
   const [spareEntries, setSpareEntries] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
+  const canWrite = !authService.hasLimitedAccess();
 
   const loadVehicleData = useCallback(async () => {
     try {
@@ -120,13 +122,15 @@ export default function VehicleDetails() {
           <p className="text-slate-500 font-medium mt-1 uppercase text-[10px] tracking-widest font-black">Vehicle summary and expense details</p>
         </div>
 
-        <button
-          onClick={() => navigate(`/vehicles/${vehicle_number}/edit`)}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:bg-black hover:scale-105 transition-all text-sm"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-          Edit Vehicle
-        </button>
+        {canWrite ? (
+          <button
+            onClick={() => navigate(`/vehicles/${vehicle_number}/edit`)}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/10 hover:bg-black hover:scale-105 transition-all text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            Edit Vehicle
+          </button>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">

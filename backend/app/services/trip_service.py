@@ -21,11 +21,29 @@ def _calculate_trip_days(departure_datetime, return_datetime):
 
 def _calculate_base_pricing(pricing_type, package_amount, trip_days, distance_km, cost_per_km, number_of_vehicles):
     base_amount = (
-        package_amount * trip_days
+        package_amount
         if pricing_type == "package"
         else (distance_km or 0) * cost_per_km
     )
     return base_amount * number_of_vehicles
+
+
+def _calculate_vehicle_base_pricing(trip_vehicles, default_pricing_type, default_package_amount, default_cost_per_km):
+    total = 0
+    for entry in trip_vehicles or []:
+        pricing_type = entry.get("pricing_type") or default_pricing_type
+        package_amount = entry.get("package_amount")
+        cost_per_km = entry.get("cost_per_km")
+        distance_km = entry.get("distance_km") or 0
+
+        package_value = default_package_amount if package_amount is None else package_amount
+        rate_value = default_cost_per_km if cost_per_km is None else cost_per_km
+
+        if pricing_type == "package":
+            total += package_value or 0
+        else:
+            total += (distance_km or 0) * (rate_value or 0)
+    return total
 
 
 def _calculate_pricing_items_total(pricing_items, number_of_vehicles):
@@ -49,6 +67,11 @@ def _normalize_trip_vehicles(trip_data):
                 "end_km": trip_data.end_km,
                 "distance_km": trip_data.distance_km,
                 "driver_bhatta": trip_data.driver_bhatta,
+                "vehicle_type": trip_data.bus_type,
+                "seat_count": None,
+                "pricing_type": trip_data.pricing_type,
+                "package_amount": trip_data.package_amount,
+                "cost_per_km": trip_data.cost_per_km,
             }
         ]
     return []
@@ -75,6 +98,11 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
         end_km = _get_entry_value(item, "end_km", None)
         distance_km = _get_entry_value(item, "distance_km", None)
         driver_bhatta = _get_entry_value(item, "driver_bhatta", 0)
+        vehicle_type = _get_entry_value(item, "vehicle_type", None)
+        seat_count = _get_entry_value(item, "seat_count", None)
+        pricing_type = _get_entry_value(item, "pricing_type", "per_km")
+        package_amount = _get_entry_value(item, "package_amount", 0)
+        cost_per_km = _get_entry_value(item, "cost_per_km", 0)
 
         if not vehicle_number:
             raise HTTPException(400, "Vehicle is required for every vehicle entry")
@@ -94,6 +122,12 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
         if not driver:
             raise HTTPException(404, f"Driver not found: {driver_id}")
 
+        # Backfill from master vehicle if missing or blank in the request
+        if not vehicle_type:
+            vehicle_type = vehicle.vehicle_type
+        if seat_count in (None, "", 0):
+            seat_count = vehicle.seat_count
+
         derived_distance = None
         if start_km is not None and end_km is not None:
             derived_distance = max(int(end_km - start_km), 0)
@@ -107,6 +141,11 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
             "end_km": end_km,
             "distance_km": distance_km if distance_km is not None else derived_distance,
             "driver_bhatta": driver_bhatta or 0,
+            "vehicle_type": vehicle_type,
+            "seat_count": seat_count,
+            "pricing_type": pricing_type or "per_km",
+            "package_amount": package_amount or 0,
+            "cost_per_km": cost_per_km or 0,
             "fuel_cost": _get_entry_value(item, "fuel_cost", 0),
             "fuel_litres": _get_entry_value(item, "fuel_litres", 0),
             "diesel_used": _get_entry_value(item, "diesel_used", 0),
@@ -167,6 +206,11 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             end_km=entry["end_km"] or 0,
             distance_km=entry["distance_km"],
             driver_bhatta=entry["driver_bhatta"] or 0,
+            vehicle_type=entry.get("vehicle_type"),
+            seat_count=entry.get("seat_count"),
+            pricing_type=entry.get("pricing_type", "per_km"),
+            package_amount=entry.get("package_amount", 0),
+            cost_per_km=entry.get("cost_per_km", 0),
             fuel_cost=entry["fuel_cost"],
             fuel_litres=entry["fuel_litres"],
             diesel_used=entry.get("diesel_used", 0) if isinstance(entry, dict) else (entry.diesel_used or 0),
@@ -297,13 +341,22 @@ def create_trip(db: Session, trip_data: TripCreate):
     trip_days = _calculate_trip_days(trip_data.departure_datetime, trip_data.return_datetime)
     base_pricing_vehicle_count = 1 if uses_explicit_vehicle_entries and trip_data.pricing_type == "per_km" else number_of_vehicles
 
-    base_pricing_total = _calculate_base_pricing(
-        trip_data.pricing_type,
-        trip_data.package_amount,
-        trip_days,
-        total_distance_km,
-        trip_data.cost_per_km,
-        base_pricing_vehicle_count,
+    base_pricing_total = (
+        _calculate_vehicle_base_pricing(
+            validated_trip_vehicles,
+            trip_data.pricing_type,
+            trip_data.package_amount,
+            trip_data.cost_per_km,
+        )
+        if has_vehicle_entries
+        else _calculate_base_pricing(
+            trip_data.pricing_type,
+            trip_data.package_amount,
+            trip_days,
+            total_distance_km,
+            trip_data.cost_per_km,
+            base_pricing_vehicle_count,
+        )
     )
     pricing_items_total = _calculate_pricing_items_total(
         pricing_items,
@@ -328,6 +381,7 @@ def create_trip(db: Session, trip_data: TripCreate):
     trip = Trip(
         invoice_number=trip_data.invoice_number,
         trip_date=trip_data.trip_date,
+        booking_id=trip_data.booking_id,
         departure_datetime=trip_data.departure_datetime,
         return_datetime=trip_data.return_datetime,
         from_location=trip_data.from_location,
@@ -337,6 +391,7 @@ def create_trip(db: Session, trip_data: TripCreate):
         customer_phone=trip_data.customer_phone,
         customer_address=trip_data.customer_address,
         bus_type=trip_data.bus_type,
+        bus_detail=trip_data.bus_detail,
         diesel_used=trip_data.diesel_used,
         petrol_used=trip_data.petrol_used,
         fuel_litres=trip_data.fuel_litres,
@@ -441,6 +496,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
 
     trip.invoice_number = data.invoice_number.strip()
     trip.trip_date = data.trip_date
+    trip.booking_id = data.booking_id
     trip.departure_datetime = data.departure_datetime
     trip.return_datetime = data.return_datetime
     trip.from_location = data.from_location
@@ -450,6 +506,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     trip.customer_phone = data.customer_phone
     trip.customer_address = data.customer_address
     trip.bus_type = data.bus_type
+    trip.bus_detail = data.bus_detail
     trip.diesel_used = data.diesel_used
     trip.petrol_used = data.petrol_used
     trip.fuel_litres = data.fuel_litres
@@ -479,13 +536,22 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     charge_items = data.charge_items or []
     trip_days = _calculate_trip_days(data.departure_datetime, data.return_datetime)
     base_pricing_vehicle_count = 1 if uses_explicit_vehicle_entries and data.pricing_type == "per_km" else number_of_vehicles
-    base_pricing_total = _calculate_base_pricing(
-        data.pricing_type,
-        data.package_amount,
-        trip_days,
-        total_distance_km,
-        data.cost_per_km,
-        base_pricing_vehicle_count,
+    base_pricing_total = (
+        _calculate_vehicle_base_pricing(
+            validated_trip_vehicles,
+            data.pricing_type,
+            data.package_amount,
+            data.cost_per_km,
+        )
+        if has_vehicle_entries
+        else _calculate_base_pricing(
+            data.pricing_type,
+            data.package_amount,
+            trip_days,
+            total_distance_km,
+            data.cost_per_km,
+            base_pricing_vehicle_count,
+        )
     )
     pricing_items_total = _calculate_pricing_items_total(pricing_items, number_of_vehicles)
     charges_total = sum(
