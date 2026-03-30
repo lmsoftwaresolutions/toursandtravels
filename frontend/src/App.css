@@ -1,8 +1,12 @@
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0.5rem;
   text-align: center;
+}
+
+body {
+  font-size: 23px;
 }
 
 .logo {
@@ -43,6 +47,11 @@
 
 /* Print styles: hide app chrome and print only content area */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   body {
     background: #fff;
   }
@@ -67,17 +76,20 @@
   .print-main,
   .print-main *,
   .invoice-print-area,
-  .invoice-print-area * {
+  .invoice-print-area *,
+  .booking-receipt-print-area,
+  .booking-receipt-print-area * {
     visibility: visible !important;
   }
 
   .print-main,
-  .invoice-print-area {
+  .invoice-print-area,
+  .booking-receipt-print-area {
     position: absolute;
     inset: 0;
     width: 100%;
     margin: 0;
-    padding: 1rem;
+    padding: 0.5rem;
     box-sizing: border-box;
     background: #fff;
   }
@@ -93,5 +105,52 @@
   #root > div.h-screen > .w-full > main {
     padding-top: 0 !important;
   }
+
+  .booking-receipt-print-area .receipt {
+    height: 50%;
+    page-break-inside: avoid;
+    border-bottom: 2px dashed red;
+    border-radius: 0;
+  }
+
+  .booking-receipt-print-area {
+    gap: 0;
+    border: none;
+    border-radius: 0;
+    padding: 0.5rem;
+  }
+
+  .booking-receipt-print-area .receipt:last-child {
+    border-bottom: none;
+  }
 }
 
+.booking-receipt-print-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.booking-receipt-print-area .receipt {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.receipt-red-theme, .receipt-red-theme * {
+    color: red !important;
+    border-color: red !important;
+}
+
+@media print {
+    .receipt-red-theme {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

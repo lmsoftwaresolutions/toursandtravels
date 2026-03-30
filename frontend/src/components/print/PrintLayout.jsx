@@ -1,86 +1,53 @@
-import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 import NathkrupaBus from "../../assets/nathkrupa-bus.png";
-import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME, COMPANY_WEB } from "../../constants/company";
+import NathkrupaReceiptLogo from "../../assets/nathkrupa-receipt-logo.jpeg";
+import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL } from "../../constants/company";
 
 export default function PrintLayout({ children, title }) {
   return (
-    <div className="print-layout-container min-h-screen bg-white text-slate-900 font-sans relative">
-      {/* Vertical Text on Far Right */}
-      <div className="fixed right-2 top-1/2 -translate-y-1/2 vertical-text text-[60px] font-black text-slate-100/50 select-none no-print">
-        NATH KRUPA
-      </div>
-      <div className="print:fixed print:right-[-40px] print:top-1/2 print:-translate-y-1/2 print:vertical-text print:text-[80px] print:font-black print:text-slate-100 print:opacity-30 print:block hidden uppercase">
-        NATH KRUPA
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 print:p-0 relative z-10 flex flex-col min-h-[95vh] print:min-h-[280mm]">
-        {/* Header */}
-        <div className="flex justify-between items-start border-b-2 border-red-600 pb-3 mb-6">
-          <div className="flex flex-col items-start gap-1">
-            <img src={NathkrupaLogo} alt="Logo" className="h-20 w-auto object-contain" />
-            <div className="bg-yellow-50 px-2 py-0.5 rounded border border-yellow-100">
-              <p className="text-[9px] font-bold text-red-600 uppercase italic">
-                All type of busses available for marriage picnics and package tours
-              </p>
-            </div>
+    <div className="print-layout-container min-h-screen bg-slate-50 text-black font-sans relative p-4 print:p-0">
+      <div className="w-full border-[1.5px] border-black flex flex-col bg-white text-black font-sans box-border overflow-hidden rounded-md min-h-[90vh] print:min-h-0 print:h-auto shadow-sm print:shadow-none">
+        
+        {/* Header spanning full width */}
+        <div className="flex items-stretch border-b-[1.5px] border-black w-full bg-white print:bg-transparent print:shadow-none min-h-[90px]">
+          {/* Left Half: Logo */}
+          <div className="w-1/2 flex items-center justify-center p-3 border-r-[1.5px] border-black">
+            <img src={NathkrupaReceiptLogo} alt="Nath Krupa Travels" className="max-h-[70px] w-auto object-contain" />
           </div>
-          <div className="text-right text-[10px] font-bold space-y-0.5 text-slate-700">
-            <div className="flex items-center justify-end gap-1">
-              <span className="text-blue-600">📍</span>
-              <span>{COMPANY_ADDRESS}</span>
+          {/* Right Half: Address Details */}
+          <div className="w-1/2 flex flex-col justify-center items-center text-center p-3 text-red-600">
+            <div className="text-[14px] font-black tracking-tight leading-snug">
+              {COMPANY_ADDRESS}
             </div>
-            <div className="flex items-center justify-end gap-1 font-black">
-              <span className="text-blue-600">☎️</span>
-              <span>Ph.: {COMPANY_CONTACT.split('/')[0]}</span>
-            </div>
-            <div className="flex items-center justify-end gap-1 font-black">
-              <span className="text-blue-600">📱</span>
-              <span>Mob.: {COMPANY_CONTACT.split('Mob.:')[1]?.trim() || "95 95 95 0 930"}</span>
-            </div>
-            <div className="flex items-center justify-end gap-1">
-              <span className="text-blue-600">✉️</span>
-              <span>Email: {COMPANY_EMAIL}</span>
-            </div>
-            <div className="flex items-center justify-end gap-1">
-              <span className="text-blue-600">🌐</span>
-              <span>Web : {COMPANY_WEB}</span>
+            <div className="text-[12px] font-black mt-1.5 tracking-tight whitespace-nowrap">
+              Phone: {COMPANY_CONTACT} | Email: {COMPANY_EMAIL}
             </div>
           </div>
         </div>
 
         {/* Body Content */}
-        <div className="content-area flex-grow">
+        <div className="content-area flex-grow flex flex-col pt-6 px-4 pb-2">
           {children}
-        </div>
 
-        {/* Footer */}
-        <div className="mt-8 flex justify-between items-end border-t border-slate-100 pt-4 pb-2">
-          <div className="w-1/4 opacity-90">
-             <img src={NathkrupaBus} alt="Bus" className="w-full h-auto object-contain" />
-          </div>
-          <div className="text-right">
-            <div className="flex flex-col items-end mb-8">
-               <div className="w-40 border-b border-slate-300 mb-1 h-8"></div>
-               <p className="text-[10px] font-black uppercase text-blue-900 tracking-widest">Authorized Signatory</p>
+          {/* Footer Signatures */}
+          <div className="flex justify-between items-end mt-auto pt-12 pb-4 text-red-600 w-full break-inside-avoid">
+            <div className="flex items-center justify-start h-[60px] w-[180px]">
+              <img src={NathkrupaBus} alt="Bus" className="h-[50px] object-contain opacity-80" />
             </div>
-            <div className="flex flex-col items-end">
-               <div className="font-extrabold text-blue-800 text-sm uppercase tracking-tighter">=NATH KRUPA TRAVELS</div>
-               <div className="text-[8px] font-bold text-slate-400 -mt-0.5">PREMIUM TRAVEL SOLUTIONS</div>
+            <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
+              <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Customer Signature</span>
+            </div>
+            <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
+              <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Authorized Signatory</span>
             </div>
           </div>
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .vertical-text {
-          writing-mode: vertical-rl;
-          text-orientation: mixed;
-          letter-spacing: 0.2em;
-        }
         @media print {
           @page {
             size: A4;
-            margin: 5mm 10mm 5mm 10mm;
+            margin: 5mm 5mm 5mm 5mm;
           }
           body {
             background: white !important;
@@ -89,6 +56,7 @@ export default function PrintLayout({ children, title }) {
           }
           .print-layout-container {
             min-height: auto !important;
+            padding: 0 !important;
           }
           .no-print {
             display: none !important;

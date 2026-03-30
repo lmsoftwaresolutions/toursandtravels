@@ -85,6 +85,13 @@ export default function VendorDetails() {
 
         // Get trips with fuel for this vendor and convert to fuel entries
         const tripRes = await api.get("/trips");
+        const tripUsesVendor = (trip) => {
+          const tripVendorMatch = normalizeVendorName(trip.vendor) === vendorNameKey;
+          const vehicleVendorMatch = (trip.vehicles || []).some(
+            (v) => normalizeVendorName(v.fuel_vendor) === vendorNameKey
+          );
+          return tripVendorMatch || vehicleVendorMatch;
+        };
         const tripFuelEntries = tripRes.data
           .filter(t => normalizeVendorName(t.vendor) === vendorNameKey && (t.diesel_used > 0 || t.petrol_used > 0))
           .map(t => {
@@ -95,8 +102,8 @@ export default function VendorDetails() {
             return {
               id: `trip-${t.id}`,
               filled_date: t.trip_date,
-              vehicle_number: t.vehicle_number,
-              fuel_type: t.diesel_used > 0 ? "diesel" : "petrol",
+              vehicle_number: vehicleNumbers.length ? vehicleNumbers.join(", ") : t.vehicle_number,
+              fuel_type: fuelType,
               quantity: litres,
               rate_per_litre: Number(rate.toFixed(2)),
               total_cost: totalCost,

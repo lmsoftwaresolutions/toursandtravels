@@ -1,19 +1,31 @@
 import { useState } from "react";
 import api from "../../services/api";
+import Modal from "../../components/common/Modal";
 
 export default function VehicleForm() {
   const [vehicleNumber, setVehicleNumber] = useState("");
+  const [vehicleType, setVehicleType] = useState("seating");
+  const [seatCount, setSeatCount] = useState("");
+
+  // Modal State
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const showModal = (title, message, type = "error") => setModal({ isOpen: true, title, message, type });
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await api.post("/vehicles", {
         vehicle_number: vehicleNumber,
+        vehicle_type: vehicleType || null,
+        seat_count: seatCount ? Number(seatCount) : null,
       });
-      alert("Vehicle added successfully");
+      showModal("Success", "Vehicle added successfully!", "success");
       setVehicleNumber("");
+      setVehicleType("seating");
+      setSeatCount("");
     } catch {
-      alert("Vehicle already exists");
+      showModal("Error", "Vehicle registration failed. It may already exist.");
     }
   };
 
@@ -49,6 +61,34 @@ export default function VehicleForm() {
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter ml-1 italic">Use the vehicle registration number</p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle Type</label>
+              <select
+                className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value)}
+                required
+              >
+                <option value="seating">Seating</option>
+                <option value="sleeper">Sleeper</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">No. of Seats</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                placeholder="e.g. 32"
+                value={seatCount}
+                onChange={(e) => setSeatCount(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
@@ -72,6 +112,14 @@ export default function VehicleForm() {
         <span className="text-[10px] font-black uppercase tracking-[0.3em]">Vehicle Details</span>
         <div className="h-px flex-1 bg-slate-100" />
       </div>
+      {/* MODAL */}
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={closeModal} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+      />
     </div>
   );
 }

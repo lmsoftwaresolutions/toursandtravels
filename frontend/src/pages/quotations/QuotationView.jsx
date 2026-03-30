@@ -29,7 +29,7 @@ export default function QuotationView() {
   if (!quotation) return <div className="p-8">Loading quotation...</div>;
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 print:p-0 print:space-y-4">
       <div className="no-print flex justify-between items-center bg-slate-100/50 p-6 rounded-[2rem] border border-slate-100 shadow-sm">
         <button
           onClick={() => navigate("/quotations")}
@@ -49,11 +49,11 @@ export default function QuotationView() {
       </div>
 
       <PrintLayout>
-        <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 border-y-2 border-slate-900 py-2">
+        <div className="text-center font-black text-2xl tracking-widest uppercase mb-8 print:mb-4 border-y-2 border-slate-900 py-2">
            QUOTATION
         </div>
 
-        <div className="grid grid-cols-2 gap-8 mb-8 border-2 border-slate-900 p-6">
+        <div className="grid grid-cols-2 gap-8 print:gap-4 mb-8 print:mb-4 border-2 border-slate-900 p-6 print:p-4">
           <div className="border-r-2 border-slate-900 pr-6">
             <h2 className="text-[12px] font-black uppercase mb-3 text-red-600">To:</h2>
             <p className="text-xl font-black text-slate-900">{quotation.customer_name}</p>
@@ -69,10 +69,16 @@ export default function QuotationView() {
                <span className="font-black text-[10px] uppercase">Date:</span>
                <span className="font-black text-sm">{formatDateDDMMYYYY(quotation.quotation_date)}</span>
             </div>
+            {quotation.vehicle_type ? (
+              <div className="flex justify-between items-center p-2 px-4">
+                <span className="font-black text-[10px] uppercase text-slate-500">Vehicle Type:</span>
+                <span className="font-black text-sm text-slate-800 uppercase">{quotation.vehicle_type}</span>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="border-2 border-slate-900 border-collapse mb-8 overflow-hidden rounded-sm">
+        <div className="border-2 border-slate-900 border-collapse mb-8 print:mb-4 overflow-hidden rounded-sm">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-900 text-white">
@@ -109,15 +115,9 @@ export default function QuotationView() {
                 <td className="p-3 text-right text-sm">₹ {quotation.trip_cost?.toLocaleString()}</td>
               </tr>
 
-              <tr className="border-t border-slate-200">
-                <td colSpan="2" className="border-r-2 border-slate-900"></td>
-                <td className="p-2 border-r-2 border-slate-100 text-[10px] font-black uppercase text-slate-400">Other Exp.</td>
-                <td className="p-2 border-r-2 border-slate-100 text-[10px] font-bold uppercase">MP Tax</td>
-                <td className="p-2 text-right text-[12px] font-black">₹ {quotation.mp_tax?.toLocaleString()}</td>
-              </tr>
               <tr className="border-t border-slate-100">
                 <td colSpan="2" className="border-r-2 border-slate-900"></td>
-                <td className="border-r-2 border-slate-100"></td>
+                <td className="p-2 border-r-2 border-slate-100 text-[10px] font-black uppercase text-slate-400">Other Exp.</td>
                 <td className="p-2 border-r-2 border-slate-100 text-[10px] font-bold uppercase">Border Entry</td>
                 <td className="p-2 text-right text-[12px] font-black">₹ {quotation.border_entry?.toLocaleString()}</td>
               </tr>
@@ -136,7 +136,14 @@ export default function QuotationView() {
           </table>
         </div>
 
-        <div className="border-2 border-slate-200 p-6 rounded-xl bg-slate-50/50 mb-8">
+        {quotation.notes ? (
+          <div className="border-2 border-emerald-100 p-4 rounded-xl bg-emerald-50/40 mb-6 print:mb-4">
+            <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Notes</div>
+            <div className="text-[12px] font-bold text-slate-700">{quotation.notes}</div>
+          </div>
+        ) : null}
+
+        <div className="border-2 border-slate-200 p-6 print:p-4 rounded-xl bg-slate-50/50 mb-8 print:mb-4">
            <div className="flex gap-4 items-center">
               <span className="font-black text-[10px] uppercase text-slate-400 tracking-widest min-w-[100px]">Amount in Words:</span>
               <span className="font-black text-sm uppercase text-slate-800">Rupees {quotation.amount_in_words} Only</span>
