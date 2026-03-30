@@ -30,6 +30,9 @@ const createVehicleEntry = () => ({
   cost_per_km: "",
   pricing_type: "per_km",
   package_amount: "",
+  cost_per_km: "",
+  pricing_type: "per_km",
+  package_amount: "",
 });
 
 // Utility function for date formatting
