@@ -164,6 +164,15 @@ export default function TripForm() {
             trip.customer ||
             (cRes.data || []).find((c) => c.id === trip.customer_id);
 
+          const perVehicleOtherTotal = (trip.vehicles || []).reduce(
+            (sum, v) => sum + Number(v.other_expenses || 0),
+            0
+          );
+          const generalOtherExpenses = Math.max(
+            Number(trip.other_expenses || 0) - perVehicleOtherTotal,
+            0
+          );
+
           setForm({
             ...createInitialFormState(),
             trip_date: trip.trip_date ? trip.trip_date.split("T")[0] : "",
@@ -180,7 +189,7 @@ export default function TripForm() {
             number_of_vehicles: trip.number_of_vehicles || 1,
             bus_type: trip.bus_type || "",
             bus_detail: trip.bus_detail || "",
-            other_expenses: trip.other_expenses || "",
+            other_expenses: generalOtherExpenses || "",
             cost_per_km: trip.cost_per_km || "",
             charged_toll_amount: trip.charged_toll_amount || "",
             charged_parking_amount: trip.charged_parking_amount || "",
@@ -226,7 +235,7 @@ export default function TripForm() {
               fuel_vendor: trip.fuel_vendor || "",
               toll_amount: trip.toll_amount ?? 0,
               parking_amount: trip.parking_amount ?? 0,
-              other_expenses: trip.other_expenses ?? 0,
+              other_expenses: 0,
               cost_per_km: trip.cost_per_km ?? "",
               pricing_type: trip.pricing_type || "per_km",
               package_amount: trip.package_amount ?? "",
@@ -530,8 +539,9 @@ export default function TripForm() {
       }
       const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
       const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
-      const advancePaymentsTotal = advancePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-      const normalizedAmountReceived = Math.max(Number(form.amount_received || 0), advancePaymentsTotal);
+      const isNewAdvancePayment = (pay) =>
+        !pay.id || typeof pay.id !== "number" || pay.id > 1000000000000;
+      const normalizedAmountReceived = Number(form.amount_received || 0);
       const rawVehicleEntries = vehicleEntries.map(entry => {
         const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
         const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
@@ -594,6 +604,12 @@ export default function TripForm() {
       const totalDriverBhatta = resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.driver_bhatta || 0), 0);
       const numberOfVehicles = Math.max(Number(form.number_of_vehicles || 0), resolvedVehicleEntries.length);
 
+      const vehicleOtherExpensesTotal = resolvedVehicleEntries.reduce((sum, entry) => {
+        const entryOther = Number(entry.other_expenses || 0);
+        const entryExtras = (entry.expenses || []).reduce((s, exp) => s + Number(exp.amount || 0), 0);
+        return sum + entryOther + entryExtras;
+      }, 0);
+
       const payload = {
         trip_date: form.trip_date,
         booking_id: form.booking_id || null,
@@ -618,7 +634,7 @@ export default function TripForm() {
         fuel_litres: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.fuel_litres || 0), 0),
         toll_amount: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.toll_amount || 0), 0),
         parking_amount: resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.parking_amount || 0), 0),
-        other_expenses: Number(form.other_expenses || 0) + resolvedVehicleEntries.reduce((sum, entry) => sum + Number(entry.other_expenses || 0), 0),
+        other_expenses: Number(form.other_expenses || 0) + vehicleOtherExpensesTotal,
         driver_bhatta: totalDriverBhatta,
         pricing_type: form.pricing_type,
         package_amount: Number(form.package_amount || 0),
@@ -670,7 +686,7 @@ export default function TripForm() {
 
         // Save advance payments
         for (const pay of advancePayments) {
-          if (!pay.id || typeof pay.id !== "number" || pay.id > 1000000000000) {
+          if (isNewAdvancePayment(pay)) {
             await api.post("/payments", {
               trip_id: Number(tripId),
               payment_date: pay.payment_date || new Date().toISOString(),
@@ -811,17 +827,28 @@ export default function TripForm() {
     return baseFare + toll + parking + other + extras;
   };
 
+  const totalVehicleOther = vehicleEntries.reduce((sum, entry) => {
+    const other = Number(entry.other_expenses || 0);
+    const extras = entry.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    return sum + other + extras;
+  }, 0);
+
   const totalChargedValue =
     basePricing +
     pricingItemsCharged +
     Number(totalToll || 0) +
     Number(totalParking || 0) +
     chargeItemsTotal +
+    totalVehicleOther +
     Number(form.other_expenses || 0) -
     Number(form.discount_amount || 0);
 
-  const totalAdvancePayments = advancePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalReceived = Math.max(Number(form.amount_received || 0), totalAdvancePayments);
+  const isNewAdvancePayment = (pay) =>
+    !pay.id || typeof pay.id !== "number" || pay.id > 1000000000000;
+  const newAdvancePaymentsTotal = advancePayments
+    .filter(isNewAdvancePayment)
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalReceived = Number(form.amount_received || 0) + newAdvancePaymentsTotal;
   const pending = Math.max(0, totalChargedValue - totalReceived);
   const totalBill = totalChargedValue;
   const totalAdditionalCharges = pricingItemsCharged;

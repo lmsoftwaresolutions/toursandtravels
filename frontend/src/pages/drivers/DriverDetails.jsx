@@ -282,8 +282,12 @@ export default function DriverDetails() {
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Driver</p>
           <p className="text-2xl font-black text-slate-800 mt-2 tracking-tight">{driver.name}</p>
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-emerald-100">
-            Active Status
+          <div className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+            driver.is_active
+              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+              : "bg-rose-50 text-rose-600 border-rose-100"
+          }`}>
+            {driver.is_active ? "Active" : "Inactive"}
           </div>
         </div>
 

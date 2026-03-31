@@ -41,6 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -76,7 +77,51 @@ def create_default_users() -> None:
         db.close()
 
 
+def ensure_driver_schema() -> None:
+    db = Session(bind=engine)
+    try:
+        db.execute(
+            text(
+                """
+                ALTER TABLE drivers
+                ADD COLUMN IF NOT EXISTS joining_date DATE;
+                """
+            )
+        )
+        db.execute(
+            text(
+                """
+                ALTER TABLE drivers
+                ADD COLUMN IF NOT EXISTS monthly_salary DOUBLE PRECISION;
+                """
+            )
+        )
+        db.execute(
+            text(
+                """
+                ALTER TABLE drivers
+                ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+                """
+            )
+        )
+        db.execute(
+            text(
+                """
+                UPDATE drivers
+                SET is_active = TRUE
+                WHERE is_active IS NULL;
+                """
+            )
+        )
+        db.commit()
+    except OperationalError:
+        db.rollback()
+    finally:
+        db.close()
+
+
 create_default_users()
+ensure_driver_schema()
 
 auth_dependency = [Depends(get_current_user)]
 

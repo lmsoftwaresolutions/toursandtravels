@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
 from app.models.trip import Trip
@@ -32,19 +32,50 @@ def vehicle_summary(db: Session, vehicle_number: str):
         or 0
     )
 
-    total_km = (
-        db.query(func.coalesce(func.sum(Trip.distance_km), 0))
+    vehicle_trips = (
+        db.query(Trip)
         .join(TripVehicle, TripVehicle.trip_id == Trip.id)
         .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
-        .scalar()
+        .options(selectinload(Trip.vehicles))
+        .all()
     )
 
-    trip_cost = (
-        db.query(func.coalesce(func.sum(Trip.total_charged), 0))
-        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
-        .scalar()
-    )
+    vehicle_key = vehicle_number.lower()
+    total_km = 0.0
+    trip_cost = 0.0
+    trip_fuel_cost = 0.0
+
+    for trip in vehicle_trips:
+        vehicles = list(trip.vehicles or [])
+        if not vehicles:
+            continue
+
+        subtotals = []
+        for v in vehicles:
+            pricing_type = (v.pricing_type or "per_km").lower()
+            base = (v.package_amount or 0) if pricing_type == "package" else (v.distance_km or 0) * (v.cost_per_km or 0)
+            subtotal = (base or 0) + (v.toll_amount or 0) + (v.parking_amount or 0) + (v.other_expenses or 0)
+            subtotals.append((v, subtotal))
+
+        sum_subtotal = sum(value for _, value in subtotals)
+        trip_total = trip.total_charged or 0
+        vehicle_count = len(subtotals) if subtotals else max(trip.number_of_vehicles or 1, 1)
+
+        for v, subtotal in subtotals:
+            if (v.vehicle_number or "").lower() != vehicle_key:
+                continue
+
+            total_km += v.distance_km or 0
+
+            vehicle_fuel_cost = v.fuel_cost or 0
+            if not vehicle_fuel_cost:
+                vehicle_fuel_cost = (v.diesel_used or 0) + (v.petrol_used or 0)
+            trip_fuel_cost += vehicle_fuel_cost
+
+            if sum_subtotal > 0:
+                trip_cost += subtotal + (trip_total - sum_subtotal) * (subtotal / sum_subtotal)
+            else:
+                trip_cost += trip_total / vehicle_count
 
     customers = (
         db.query(func.count(func.distinct(Trip.customer_id)))
@@ -59,13 +90,7 @@ def vehicle_summary(db: Session, vehicle_number: str):
     maintenance_cost = vehicle.total_maintenance_cost or 0
 
     # -------- FUEL COST (BY TYPE) --------
-    trip_fuel_cost = (
-        db.query(func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0))
-        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
-        .scalar()
-        or 0
-    )
+    trip_fuel_cost = trip_fuel_cost or 0
 
     fuel_by_type = (
         db.query(
