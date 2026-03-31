@@ -91,7 +91,9 @@ export default function InvoiceView() {
         const baseAmount = pricingType === "package" ? Number(packageAmount || 0) : distance * Number(costPerKm || 0);
         const tollAmount = Number(entry.toll_amount || 0);
         const parkingAmount = Number(entry.parking_amount || 0);
-        const otherAmount = Number(entry.other_expenses || 0);
+        const otherAmount =
+          Number(entry.other_expenses || 0) +
+          (entry.expenses || []).reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
 
         totals.pricingTypes.add(pricingType);
         totals.rates.add(pricingType === "package" ? Number(packageAmount || 0) : Number(costPerKm || 0));
@@ -155,15 +157,7 @@ export default function InvoiceView() {
     }
 
     const generalOther = Number(trip.other_expenses || 0);
-    if (hasVehicleEntries && generalOther > 0) {
-      rows.push({
-        key: "general-other",
-        description: "Other Expenses",
-        baseFare: null,
-        toll: null,
-        parking: null,
-        total: generalOther,
-      });
+    if (!hasVehicleEntries && generalOther > 0) {
       totals.other += generalOther;
     }
 
@@ -208,8 +202,11 @@ export default function InvoiceView() {
 
 
   const calculatedTotal = useMemo(() => {
+    if (trip?.total_charged != null) {
+      return Number(trip.total_charged || 0);
+    }
     return invoiceRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  }, [invoiceRows]);
+  }, [invoiceRows, trip]);
 
   const totalAdvance = useMemo(() => {
     const paymentSum = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);

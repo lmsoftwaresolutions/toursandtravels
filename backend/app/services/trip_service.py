@@ -451,10 +451,11 @@ def get_trips_by_driver(db: Session, driver_id: int):
     )
 
 
-def update_trip(db: Session, trip_id: int, data: TripUpdate):
+def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(404, "Trip not found")
+    is_admin = (getattr(current_user, "role", "") or "").lower() == "admin"
     if data.discount_amount and not (500 <= data.discount_amount <= 1000):
         raise HTTPException(400, "Discount must be between ₹500 and ₹1000")
     if data.pricing_type not in {"per_km", "package"}:
@@ -571,13 +572,17 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate):
     trip.pending_amount = max(trip.total_charged - data.amount_received, 0)
 
     _replace_trip_vehicles(db, trip, validated_trip_vehicles)
-    _save_pricing_items(db, trip.id, pricing_items, charge_items)
+    if is_admin:
+        _save_pricing_items(db, trip.id, pricing_items, charge_items)
     _save_driver_changes(db, trip.id, data.driver_changes or [])
 
     customer = db.query(Customer).filter(Customer.id == trip.customer_id).first()
-    if customer:
+    if customer and is_admin:
         customer.total_billed += trip.total_charged - prior_total_charged
         customer.pending_balance += trip.pending_amount - prior_pending
+    if not is_admin:
+        trip.total_charged = prior_total_charged
+        trip.pending_amount = prior_pending
 
     db.commit()
     db.refresh(trip)

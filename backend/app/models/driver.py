@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Float
+from sqlalchemy import Column, Integer, String, Date, Float, Boolean
 from app.database.base import Base
 
 class Driver(Base):
@@ -10,3 +10,4 @@ class Driver(Base):
     license_number = Column(String, nullable=True)
     joining_date = Column(Date, nullable=True)
     monthly_salary = Column(Float, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)

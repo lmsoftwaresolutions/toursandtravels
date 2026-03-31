@@ -45,6 +45,7 @@ export default function VendorDetails() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [entryForm, setEntryForm] = useState({});
+  const [entrySubmitting, setEntrySubmitting] = useState(false);
   const canWrite = !authService.hasLimitedAccess();
 
   const loadVendorData = useCallback(async () => {
@@ -143,7 +144,15 @@ export default function VendorDetails() {
       // Only load spare parts history for spare vendors
       if (supportsSpare) {
         const spareRes = await api.get("/spare-parts");
-        setSpareHistory(spareRes.data.filter(s => normalizeVendorName(s.vendor) === vendorNameKey));
+        const filtered = spareRes.data.filter(s => normalizeVendorName(s.vendor) === vendorNameKey);
+        const seen = new Set();
+        const unique = filtered.filter((s) => {
+          const key = s.id ?? `${s.replaced_date}|${s.vehicle_number}|${s.part_name}|${s.quantity}|${s.cost}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setSpareHistory(unique);
       }
 
       if (supportsMechanic) {
@@ -556,6 +565,7 @@ export default function VendorDetails() {
 
   const handleEntrySubmit = async (e) => {
     e.preventDefault();
+    if (entrySubmitting) return;
     const payload = {
       ...entryForm,
       vendor: vendor?.name,
@@ -563,12 +573,15 @@ export default function VendorDetails() {
     };
 
     try {
+      setEntrySubmitting(true);
       await api.post(activeCategoryConfig.endpoint, payload);
       alert("Entry added successfully");
       handleCloseModal();
       loadVendorData();
     } catch (error) {
       alert("Error adding entry: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setEntrySubmitting(false);
     }
   };
 
@@ -752,9 +765,10 @@ export default function VendorDetails() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] h-14 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/20"
+                  disabled={entrySubmitting}
+                  className="flex-[2] h-14 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Entry
+                  {entrySubmitting ? "Saving..." : "Save Entry"}
                 </button>
               </div>
             </form>

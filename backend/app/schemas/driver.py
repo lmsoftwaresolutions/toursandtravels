@@ -16,6 +16,7 @@ class DriverResponse(BaseModel):
     license_number: str | None
     joining_date: date | None
     monthly_salary: float | None
+    is_active: bool
 
     class Config:
         orm_mode = True

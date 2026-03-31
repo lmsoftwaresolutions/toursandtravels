@@ -62,7 +62,7 @@ def edit_trip(
     db: Session = Depends(get_db),
     current_user=Depends(require_write_access),
 ):
-    return update_trip(db, trip_id, trip)
+    return update_trip(db, trip_id, trip, current_user)
 
 # ---------------- DELETE TRIP ----------------
 @router.delete("/{trip_id}")

@@ -26,7 +26,7 @@ export default function DriverList() {
 
   const handleDeleteDriver = async (driverId, driverName) => {
     if (!isAdmin) return;
-    const confirmed = window.confirm(`Delete driver "${driverName}"?`);
+    const confirmed = window.confirm(`Deactivate driver "${driverName}"?`);
     if (!confirmed) return;
 
     try {
@@ -97,7 +97,7 @@ export default function DriverList() {
                           onClick={() => handleDeleteDriver(d.id, d.name)}
                           className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all border border-rose-100"
                         >
-                          Delete
+                          Deactivate
                         </button>
                       )}
                     </div>

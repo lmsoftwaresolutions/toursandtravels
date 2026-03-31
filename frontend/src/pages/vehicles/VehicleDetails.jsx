@@ -32,7 +32,14 @@ export default function VehicleDetails() {
       setSummary(summaryRes.data);
       setFuelEntries((fuelRes.data || []).filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber));
       setTripFuelEntries(
-        (tripsRes.data || []).filter((trip) => normalizeVehicleNumber(trip.vehicle_number) === targetVehicleNumber)
+        (tripsRes.data || []).filter((trip) => {
+          const directMatch = normalizeVehicleNumber(trip.vehicle_number) === targetVehicleNumber;
+          if (directMatch) return true;
+          const tripVehicles = Array.isArray(trip.vehicles) ? trip.vehicles : [];
+          return tripVehicles.some(
+            (v) => normalizeVehicleNumber(v.vehicle_number) === targetVehicleNumber
+          );
+        })
       );
       setSpareEntries((spareRes.data || []).filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber));
       setMaintenanceEntries(maintenanceRes.data || []);
@@ -243,10 +250,14 @@ export default function VehicleDetails() {
                         <td className="p-6 text-sm font-black text-slate-700 capitalize">{entry.fuel_type}</td>
                         <td className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">{entry.vendor || "-"}</td>
                         <td className="p-6 text-right font-black text-slate-700">
-                          {entry.source === "trip_usage" ? "-" : Number(entry.quantity || 0).toFixed(2)}
+                          {entry.quantity !== null && entry.quantity !== undefined && entry.quantity !== "-" 
+                            ? Number(entry.quantity || 0).toFixed(2)
+                            : "-"}
                         </td>
                         <td className="p-6 text-right font-black text-slate-500">
-                          {entry.source === "trip_usage" ? "-" : `Rs. ${formatMoney(entry.rate_per_litre)}`}
+                          {entry.rate_per_litre !== null && entry.rate_per_litre !== undefined
+                            ? `Rs. ${formatMoney(entry.rate_per_litre)}`
+                            : "-"}
                         </td>
                         <td className="p-6 text-right font-black text-orange-600">Rs. {formatMoney(entry.total_cost)}</td>
                       </tr>
