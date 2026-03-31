@@ -125,6 +125,29 @@ def create_user(
     return user
 
 
+def reset_password(
+    db: Session,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> None:
+    """
+    Reset current user's password after validating current password.
+    """
+    if not user.verify_password(current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if len((new_password or "").strip()) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+
+    if current_password == new_password:
+        raise HTTPException(status_code=400, detail="New password must be different from current password")
+
+    user.password_hash = User.hash_password(new_password)
+    db.add(user)
+    db.commit()
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
