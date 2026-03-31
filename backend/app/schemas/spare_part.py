@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import date
 from typing import Optional
+from app.schemas.date_validators import validate_reasonable_past_or_today_date
 
 
 class SparePartCreate(BaseModel):
@@ -10,6 +11,11 @@ class SparePartCreate(BaseModel):
     quantity: int = 1
     vendor: Optional[str] = None
     replaced_date: date
+
+    @field_validator("replaced_date")
+    @classmethod
+    def validate_replaced_date(cls, value: date) -> date:
+        return validate_reasonable_past_or_today_date(value, "Replaced date")
 
 
 class SparePartResponse(BaseModel):

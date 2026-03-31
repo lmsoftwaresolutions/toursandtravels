@@ -6,6 +6,7 @@ export default function VehicleForm() {
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [vehicleType, setVehicleType] = useState("seating");
   const [seatCount, setSeatCount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal State
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
@@ -14,6 +15,8 @@ export default function VehicleForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     const normalizedVehicleNumber = vehicleNumber.trim().toUpperCase().replace(/[\s-]/g, "");
     const isVehicleNumberValid = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/.test(normalizedVehicleNumber);
     const seatsValue = Number(seatCount);
@@ -34,6 +37,7 @@ export default function VehicleForm() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await api.post("/vehicles", {
         vehicle_number: normalizedVehicleNumber,
@@ -44,8 +48,32 @@ export default function VehicleForm() {
       setVehicleNumber("");
       setVehicleType("seating");
       setSeatCount("");
-    } catch {
-      showModal("Error", "Vehicle registration failed. It may already exist.");
+    } catch (error) {
+      const detail = error?.response?.data?.detail;
+      const status = error?.response?.status;
+
+      if (typeof detail === "string" && detail.toLowerCase().includes("already exists")) {
+        showModal("Error", "Vehicle already exists.");
+        return;
+      }
+
+      // If request failed after server commit (timeout/5xx), verify by fetching the created vehicle.
+      if (!status || status >= 500) {
+        try {
+          await api.get(`/vehicles/${normalizedVehicleNumber}`);
+          showModal("Success", "Vehicle was added successfully.", "success");
+          setVehicleNumber("");
+          setVehicleType("seating");
+          setSeatCount("");
+          return;
+        } catch {
+          // Ignore verification failure and show original error message below.
+        }
+      }
+
+      showModal("Error", detail || "Vehicle registration failed.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -116,9 +144,10 @@ export default function VehicleForm() {
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
-              className="flex-1 h-14 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95"
+              disabled={isSubmitting}
+              className="flex-1 h-14 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
             >
-              Save Vehicle
+              {isSubmitting ? "Saving..." : "Save Vehicle"}
             </button>
             <button
               type="button"

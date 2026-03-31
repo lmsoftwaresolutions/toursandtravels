@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { formatDateDDMMYYYY } from "../../utils/date";
+import {
+  formatDateDDMMYYYY,
+  getTodayISODate,
+  isReasonablePastOrTodayDate,
+  MIN_REASONABLE_DATE,
+} from "../../utils/date";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 import { vendorEntryConfig } from "../../config/vendorEntryConfig";
@@ -46,6 +51,7 @@ export default function VendorDetails() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [entryForm, setEntryForm] = useState({});
   const [entrySubmitting, setEntrySubmitting] = useState(false);
+  const todayISODate = useMemo(() => getTodayISODate(), []);
   const canWrite = !authService.hasLimitedAccess();
 
   const loadVendorData = useCallback(async () => {
@@ -571,6 +577,15 @@ export default function VendorDetails() {
       vendor: vendor?.name,
       vendor_id: Number(id),
     };
+    const invalidDateField = activeCategoryConfig?.fields?.find(
+      (field) =>
+        field.type === "date" &&
+        !isReasonablePastOrTodayDate(payload[field.name])
+    );
+    if (invalidDateField) {
+      alert(`${invalidDateField.label} must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`);
+      return;
+    }
 
     try {
       setEntrySubmitting(true);
@@ -747,7 +762,8 @@ export default function VendorDetails() {
                         onChange={(e) => handleEntryChange(field.name, field.type, e.target.value)}
                         placeholder={field.placeholder || ""}
                         {...sharedInputProps}
-                        min={field.type === "number" ? "0" : undefined}
+                        min={field.type === "date" ? MIN_REASONABLE_DATE : field.type === "number" ? "0" : undefined}
+                        max={field.type === "date" ? todayISODate : undefined}
                         step={field.type === "number" ? "0.01" : undefined}
                       />
                     )}
