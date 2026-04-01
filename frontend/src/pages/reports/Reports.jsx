@@ -48,9 +48,11 @@ export default function Reports() {
   const [spareEntries, setSpareEntries] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
   const [mechanicEntries, setMechanicEntries] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   const [filterVehicle, setFilterVehicle] = useState("");
   const [filterDriver, setFilterDriver] = useState("");
+  const [filterCustomer, setFilterCustomer] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -63,7 +65,7 @@ export default function Reports() {
 
   const loadData = async () => {
     try {
-      const [tripsRes, vehiclesRes, driversRes, customersRes, vendorsRes, fuelRes, spareRes, maintenanceRes, mechanicRes] = await Promise.all([
+      const [tripsRes, vehiclesRes, driversRes, customersRes, vendorsRes, fuelRes, spareRes, maintenanceRes, mechanicRes, paymentsRes] = await Promise.all([
         api.get("/trips"),
         api.get("/vehicles"),
         api.get("/drivers"),
@@ -73,6 +75,7 @@ export default function Reports() {
         api.get("/spare-parts"),
         api.get("/maintenance"),
         api.get("/mechanic"),
+        api.get("/payments"),
       ]);
       setTrips(tripsRes.data || []);
       setVehicles(vehiclesRes.data || []);
@@ -83,6 +86,7 @@ export default function Reports() {
       setSpareEntries(spareRes.data || []);
       setMaintenanceEntries(maintenanceRes.data || []);
       setMechanicEntries(mechanicRes.data || []);
+      setPayments(paymentsRes.data || []);
     } catch (error) {
       console.error("Error loading report data:", error);
     }
@@ -91,6 +95,12 @@ export default function Reports() {
   const customerNameById = useMemo(() => {
     const map = new Map();
     customers.forEach((c) => map.set(c.id, c.name || ""));
+    return map;
+  }, [customers]);
+
+  const customerPhoneById = useMemo(() => {
+    const map = new Map();
+    customers.forEach((c) => map.set(c.id, c.phone || c.mobile || ""));
     return map;
   }, [customers]);
 
@@ -113,16 +123,42 @@ export default function Reports() {
     return trips.filter((t) => {
       if (filterVehicle && t.vehicle_number !== filterVehicle) return false;
       if (filterDriver && t.driver_id !== Number(filterDriver)) return false;
+      if (filterCustomer && t.customer_id !== Number(filterCustomer)) return false;
       if (!inRange(t.trip_date, dateFrom, dateTo, monthFilter)) return false;
 
       const customerName = String(customerNameById.get(t.customer_id) || "").toLowerCase();
+      const customerPhone = String(customerPhoneById.get(t.customer_id) || "").toLowerCase();
       const invoice = String(t.invoice_number || "").toLowerCase();
 
-      if (searchCustomerQuery && !customerName.includes(searchCustomerQuery)) return false;
+      if (
+        searchCustomerQuery &&
+        !customerName.includes(searchCustomerQuery) &&
+        !customerPhone.includes(searchCustomerQuery)
+      ) return false;
       if (searchInvoiceQuery && !invoice.includes(searchInvoiceQuery)) return false;
       return true;
     });
-  }, [trips, filterVehicle, filterDriver, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById]);
+  }, [trips, filterVehicle, filterDriver, filterCustomer, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById, customerPhoneById]);
+
+  const paymentsByTrip = useMemo(() => {
+    const map = new Map();
+    payments.forEach((payment) => {
+      const tripId = Number(payment.trip_id);
+      if (!Number.isFinite(tripId)) return;
+      const running = Number(map.get(tripId) || 0);
+      map.set(tripId, running + Number(payment.amount || 0));
+    });
+    return map;
+  }, [payments]);
+
+  const getTripFinancials = (trip) => {
+    const totalCharged = Number(trip?.total_charged || 0);
+    const storedReceived = Number(trip?.amount_received || 0);
+    const paymentReceived = Number(paymentsByTrip.get(Number(trip?.id)) || 0);
+    const totalPaid = Math.max(storedReceived, paymentReceived);
+    const totalPending = Math.max(totalCharged - totalPaid, 0);
+    return { totalCharged, totalPaid, totalPending };
+  };
 
   const tripVehicleSet = useMemo(() => new Set(filteredTrips.map((t) => t.vehicle_number)), [filteredTrips]);
 
@@ -165,18 +201,10 @@ export default function Reports() {
   const totals = useMemo(() => {
     const totalTrips = filteredTrips.length;
     const totalDistance = filteredTrips.reduce((sum, t) => sum + Number(t.distance_km || 0), 0);
-    const totalRevenue = filteredTrips.reduce((sum, t) => sum + Number(t.total_charged || 0), 0);
-    const totalPaid = filteredTrips.reduce((sum, t) => sum + Number(t.amount_received || 0), 0);
-    const totalPending = filteredTrips.reduce((sum, t) => sum + Number(t.pending_amount || 0), 0);
+    const totalRevenue = filteredTrips.reduce((sum, t) => sum + getTripFinancials(t).totalCharged, 0);
+    const totalPaid = filteredTrips.reduce((sum, t) => sum + getTripFinancials(t).totalPaid, 0);
+    const totalPending = filteredTrips.reduce((sum, t) => sum + getTripFinancials(t).totalPending, 0);
 
-    const invoiceBaseFare = filteredTrips.reduce((sum, t) => {
-      const vehicles = Number(t.number_of_vehicles || 1);
-      if (t.pricing_type === "package") {
-        const tripDays = getTripDays(t.departure_datetime, t.return_datetime);
-        return sum + (Number(t.package_amount || 0) * tripDays * vehicles);
-      }
-      return sum + (Number(t.distance_km || 0) * Number(t.cost_per_km || 0) * vehicles);
-    }, 0);
     const invoiceCustomPricing = filteredTrips.reduce((sum, t) => {
       const vehicles = Number(t.number_of_vehicles || 1);
       const pricingItems = (t.pricing_items || []).filter((item) => item.item_type === "pricing");
@@ -190,6 +218,16 @@ export default function Reports() {
     }, 0);
     const invoiceOtherExpenses = filteredTrips.reduce((sum, t) => sum + Number(t.other_expenses || 0), 0);
     const invoiceDiscount = filteredTrips.reduce((sum, t) => sum + Number(t.discount_amount || 0), 0);
+    const invoiceBaseFare = Math.max(
+      totalRevenue -
+        invoiceCustomPricing -
+        invoiceChargedToll -
+        invoiceChargedParking -
+        invoiceExtraCharges -
+        invoiceOtherExpenses +
+        invoiceDiscount,
+      0
+    );
 
     const tripFuelExpenses = filteredTrips.reduce(
       (sum, t) => sum + Number(t.diesel_used || 0) + Number(t.petrol_used || 0),
@@ -229,7 +267,7 @@ export default function Reports() {
       totalOperatingExpense,
       netProfit,
     };
-  }, [filteredTrips, filteredFuelEntries, filteredSpareEntries, filteredMaintenance, filteredMechanicEntries]);
+  }, [filteredTrips, filteredFuelEntries, filteredSpareEntries, filteredMaintenance, filteredMechanicEntries, paymentsByTrip]);
 
   const monthlyExpenseBreakdown = useMemo(() => {
     const monthlyMap = new Map();
@@ -355,11 +393,11 @@ export default function Reports() {
           <tr>
             <td>${trip.invoice_number || `INV-${trip.id}`}</td>
             <td>${formatDateDDMMYYYY(trip.trip_date)}</td>
-            <td>${customerNameById.get(trip.customer_id) || "N/A"}</td>
+            <td>${customerNameById.get(trip.customer_id) || "N/A"}${customerPhoneById.get(trip.customer_id) ? ` (${customerPhoneById.get(trip.customer_id)})` : ""}</td>
             <td>${trip.from_location} to ${trip.to_location}</td>
-            <td class="num">${formatMoney(trip.total_charged)}</td>
-            <td class="num">${formatMoney(trip.amount_received)}</td>
-            <td class="num">${formatMoney(trip.pending_amount)}</td>
+            <td class="num">${formatMoney(getTripFinancials(trip).totalCharged)}</td>
+            <td class="num">${formatMoney(getTripFinancials(trip).totalPaid)}</td>
+            <td class="num">${formatMoney(getTripFinancials(trip).totalPending)}</td>
           </tr>
         `).join("")
       : `<tr><td colspan="7" class="empty">No trips found for the selected filters.</td></tr>`;
@@ -650,39 +688,46 @@ export default function Reports() {
   };
 
   return (
-    <div id="report-print-root" className="max-w-7xl mx-auto p-10 space-y-12 animate-in fade-in duration-700 print:text-slate-900">
+    <div
+      id="report-print-root"
+      className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 md:space-y-10 animate-in fade-in duration-700 print:text-slate-900"
+    >
 
       {/* ---------- HEADER ---------- */}
-      <div className="flex flex-col gap-8 md:flex-row md:justify-between md:items-center">
+      <div className="relative overflow-hidden rounded-[2.25rem] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 p-6 md:p-8 shadow-xl shadow-slate-200/50">
+        <div className="absolute -top-16 -right-12 h-44 w-44 rounded-full bg-blue-100/60 blur-2xl" />
+        <div className="absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-cyan-100/50 blur-2xl" />
+        <div className="relative flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
-          <div className="bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-white/50 inline-block mb-6 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-md p-3 rounded-2xl border border-white/60 inline-block mb-5 shadow-sm">
             <img src={NathkrupaLogo} alt="Nath Krupa Travels" className="h-12 w-auto" />
           </div>
-          <h1 className="text-5xl font-black text-slate-800 tracking-tight">Financial Reports</h1>
-          <p className="text-slate-500 font-medium mt-2 uppercase text-xs tracking-[0.2em]">Live business intelligence and expense tracking</p>
+          <h1 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight">Financial Reports</h1>
+          <p className="text-slate-500 font-semibold mt-2 uppercase text-[11px] tracking-[0.18em]">Live business intelligence and expense tracking</p>
         </div>
         <button
           onClick={handlePrint}
-          className="group flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 active:scale-95 no-print"
+          className="group flex items-center justify-center gap-3 px-6 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/20 active:scale-95 no-print"
         >
           <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
           Export Report
         </button>
       </div>
+      </div>
 
       {/* ---------- FILTERS (GLASSMORPHISM) ---------- */}
-      <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 no-print">
-        <div className="flex items-center gap-3 mb-10">
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 no-print">
+        <div className="flex items-center gap-3 mb-6">
           <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
           <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Filter Records</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5 md:gap-6">
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle</label>
             <select
               value={filterVehicle}
               onChange={(e) => setFilterVehicle(e.target.value)}
-              className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
             >
               <option value="">All Vehicles</option>
               {vehicles.map((v) => (
@@ -695,7 +740,7 @@ export default function Reports() {
             <select
               value={filterDriver}
               onChange={(e) => setFilterDriver(e.target.value)}
-              className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
             >
               <option value="">All Drivers</option>
               {drivers.map((d) => (
@@ -704,10 +749,25 @@ export default function Reports() {
             </select>
           </div>
           <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Customer</label>
+            <select
+              value={filterCustomer}
+              onChange={(e) => setFilterCustomer(e.target.value)}
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+            >
+              <option value="">All Customers</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.phone ? ` - ${c.phone}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Date Period</label>
             <div className="flex gap-2">
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full h-12 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full h-12 px-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
             </div>
           </div>
           <div className="space-y-3">
@@ -715,31 +775,31 @@ export default function Reports() {
             <input
               value={searchCustomer}
               onChange={(e) => setSearchCustomer(e.target.value)}
-              className="w-full h-14 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
-              placeholder="Customer name..."
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+              placeholder="Customer name or phone..."
             />
           </div>
         </div>
       </div>
 
       {/* ---------- STATS GRID ---------- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
         <StatCard title="Trips Completed" value={totals.totalTrips} icon="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         <StatCard title="Distance Traveled" value={`${totals.totalDistance} km`} icon="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0M5 17H3m13 0h2m-2 0a2 2 0 104 0" />
         <StatCard title="Total Revenue" value={`₹ ${totals.totalRevenue.toFixed(0)}`} color="text-emerald-600" bg="bg-emerald-50" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         <StatCard title="Pending Amount" value={`₹ ${totals.totalPending.toFixed(0)}`} color="text-amber-600" bg="bg-amber-50" icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </div>
 
-      <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-        <h3 className="text-2xl font-black text-slate-800 mb-10 flex items-center gap-3">
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40">
+        <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <div className="w-2 h-8 bg-emerald-600 rounded-full" />
           Revenue
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
           <ExpenseDetailCard label="Total Revenue" value={totals.totalRevenue} color="text-emerald-700" />
           <ExpenseDetailCard label="Total Paid" value={totals.totalPaid} color="text-blue-700" />
           <ExpenseDetailCard label="Total Pending" value={totals.totalPending} color="text-amber-700" />
-          <div className="p-8 bg-slate-900 rounded-[2rem] border border-slate-800 shadow-lg">
+          <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-lg">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Revenue Source</p>
             <p className="text-3xl font-black text-white tracking-tight">Invoice Total</p>
             <p className="text-[10px] font-medium text-slate-600 mt-4 uppercase tracking-widest">Uses trip.total_charged directly from backend</p>
@@ -747,33 +807,33 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <div className={`p-10 rounded-[2.5rem] border border-blue-100 relative overflow-hidden group transition-all duration-500 ${totals.netProfit >= 0 ? "bg-emerald-600 shadow-emerald-200" : "bg-rose-600 shadow-rose-200"} shadow-2xl`}>
-          <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:scale-110 transition-transform duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+        <div className={`p-7 md:p-8 rounded-[2rem] border relative overflow-hidden group transition-all duration-500 ${totals.netProfit >= 0 ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 shadow-emerald-200/70" : "bg-gradient-to-br from-rose-600 to-rose-700 border-rose-500 shadow-rose-200/70"} shadow-xl`}>
+          <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
             <svg className="w-40 h-40 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
           </div>
           <p className="text-white/60 font-black text-xs uppercase tracking-widest mb-4">Net Profit</p>
-          <p className="text-6xl font-black text-white tracking-tighter">₹ {totals.netProfit.toFixed(2)}</p>
-          <p className="text-white/40 text-xs font-medium mt-6 uppercase tracking-widest">Revenue minus operating expense</p>
+          <p className="text-4xl md:text-6xl font-black text-white tracking-tighter">₹ {totals.netProfit.toFixed(2)}</p>
+          <p className="text-white/50 text-[11px] font-medium mt-4 uppercase tracking-widest">Revenue minus operating expense</p>
         </div>
 
-        <div className="p-10 bg-slate-900 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group shadow-2xl shadow-slate-900/30">
-          <div className="absolute top-0 right-0 p-12 opacity-10">
+        <div className="p-7 md:p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] border border-slate-700 relative overflow-hidden group shadow-xl shadow-slate-900/30">
+          <div className="absolute top-0 right-0 p-10 opacity-10">
             <svg className="w-40 h-40 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
           </div>
           <p className="text-slate-500 font-black text-xs uppercase tracking-widest mb-4">Total Operating Expense</p>
-          <p className="text-6xl font-black text-white tracking-tighter">₹ {totals.totalOperatingExpense.toFixed(2)}</p>
-          <p className="text-slate-600 text-xs font-medium mt-6 uppercase tracking-widest">Fuel + spare parts + maintenance + toll + parking</p>
+          <p className="text-4xl md:text-6xl font-black text-white tracking-tighter">₹ {totals.totalOperatingExpense.toFixed(2)}</p>
+          <p className="text-slate-500 text-[11px] font-medium mt-4 uppercase tracking-widest">Fuel + spare parts + maintenance + toll + parking</p>
         </div>
       </div>
 
       {/* ---------- INVOICE BREAKDOWN ---------- */}
-      <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-        <h3 className="text-2xl font-black text-slate-800 mb-10 flex items-center gap-3">
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40">
+        <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <div className="w-2 h-8 bg-rose-600 rounded-full" />
           Invoice Breakdown
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
           <ExpenseBox title="Base Fare" amount={totals.invoiceBaseFare} subtext="Invoice base fare" />
           <ExpenseBox title="Custom Pricing" amount={totals.invoiceCustomPricing} subtext="Pricing items billed to customer" icon="bg-indigo-50 text-indigo-600" />
           <ExpenseBox title="Charged Toll" amount={totals.invoiceChargedToll} subtext="Toll charged in invoice" icon="bg-blue-50 text-blue-600" />
@@ -781,7 +841,7 @@ export default function Reports() {
           <ExpenseBox title="Extra Charges" amount={totals.invoiceExtraCharges} subtext="Charge items billed to customer" icon="bg-violet-50 text-violet-600" />
           <ExpenseBox title="Other Charges" amount={totals.invoiceOtherExpenses} subtext="Other expenses billed to customer" icon="bg-fuchsia-50 text-fuchsia-600" />
           <ExpenseBox title="Discount" amount={totals.invoiceDiscount} subtext="Discount given in invoice" icon="bg-amber-50 text-amber-600" />
-          <div className="p-8 bg-slate-900 rounded-[2rem] border border-slate-800 shadow-lg">
+          <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-lg">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Invoice Revenue Total</p>
             <p className="text-3xl font-black text-white tracking-tight">₹ {totals.totalRevenue.toFixed(0)}</p>
             <p className="text-[10px] font-medium text-slate-600 mt-4 uppercase tracking-widest">This matches backend invoice total</p>
@@ -790,19 +850,19 @@ export default function Reports() {
       </div>
 
       {/* ---------- OPERATING EXPENSES ---------- */}
-      <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-        <h3 className="text-2xl font-black text-slate-800 mb-10 flex items-center gap-3">
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40">
+        <h3 className="text-xl md:text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <div className="w-2 h-8 bg-blue-600 rounded-full" />
           Operating Expenses
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
           <ExpenseDetailCard label="Fuel Expenses" value={totals.fuelExpenses} color="text-blue-700" />
           <ExpenseDetailCard label="Spare Parts" value={totals.spareExpenses} color="text-amber-700" />
           <ExpenseDetailCard label="Maintenance" value={totals.maintenanceExpenses} color="text-emerald-700" />
           <ExpenseDetailCard label="Mechanic (Mistry)" value={totals.mechanicExpenses} color="text-emerald-700" />
           <ExpenseDetailCard label="Toll Paid" value={totals.tollExpenses} color="text-rose-700" />
           <ExpenseDetailCard label="Parking Paid" value={totals.parkingExpenses} color="text-cyan-700" />
-          <div className="p-8 bg-slate-900 rounded-[2rem] border border-slate-800 shadow-lg">
+          <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-lg">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Operating Expense</p>
             <p className="text-3xl font-black text-white tracking-tight">₹ {totals.totalOperatingExpense.toFixed(0)}</p>
             <p className="text-[10px] font-medium text-slate-600 mt-4 uppercase tracking-widest">Fuel + Spare Parts + Maintenance + Mechanic + Toll + Parking</p>
@@ -841,11 +901,16 @@ export default function Reports() {
                   </button>
                 </td>
                 <td className="p-6 text-slate-500 font-bold text-sm">{formatDateDDMMYYYY(t.trip_date)}</td>
-                <td className="p-6 font-black text-slate-700">{customerNameById.get(t.customer_id) || "N/A"}</td>
+                <td className="p-6 font-black text-slate-700">
+                  <div>{customerNameById.get(t.customer_id) || "N/A"}</div>
+                  {customerPhoneById.get(t.customer_id) ? (
+                    <div className="text-[10px] text-slate-400 font-bold mt-1">{customerPhoneById.get(t.customer_id)}</div>
+                  ) : null}
+                </td>
                 <td className="p-6 text-slate-500 font-bold text-sm tracking-tight">{t.from_location} <span className="text-slate-300 mx-2">→</span> {t.to_location}</td>
-                <td className="p-6 font-black text-slate-800">₹ {Number(t.total_charged || 0).toFixed(0)}</td>
-                <td className="p-6 text-emerald-600 font-black">₹ {Number(t.amount_received || 0).toFixed(0)}</td>
-                <td className="p-6 text-amber-600 font-black">₹ {Number(t.pending_amount || 0).toFixed(0)}</td>
+                <td className="p-6 font-black text-slate-800">₹ {getTripFinancials(t).totalCharged.toFixed(0)}</td>
+                <td className="p-6 text-emerald-600 font-black">₹ {getTripFinancials(t).totalPaid.toFixed(0)}</td>
+                <td className="p-6 text-amber-600 font-black">₹ {getTripFinancials(t).totalPending.toFixed(0)}</td>
               </tr>
             ))
           )}
@@ -857,31 +922,31 @@ export default function Reports() {
 
 function StatCard({ title, value, icon, color = "text-slate-800", bg = "bg-slate-50" }) {
   return (
-    <div className="p-8 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+    <div className="p-6 bg-gradient-to-br from-white to-slate-50 rounded-2xl border border-slate-200 shadow-lg shadow-slate-200/35 relative overflow-hidden group hover:shadow-xl transition-all duration-300">
       <div className={`absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
         <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={icon} />
         </svg>
       </div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{title}</p>
-      <p className={`text-4xl font-black tracking-tighter ${color}`}>{value}</p>
+      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{title}</p>
+      <p className={`text-3xl md:text-4xl font-black tracking-tighter ${color}`}>{value}</p>
     </div>
   );
 }
 
 function ExpenseBox({ title, amount, subtext, icon = "bg-rose-50 text-rose-600" }) {
   return (
-    <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 relative overflow-hidden group hover:bg-white hover:shadow-xl transition-all duration-300">
+    <div className="p-6 bg-gradient-to-br from-white to-slate-50 rounded-2xl border border-slate-200 relative overflow-hidden group hover:shadow-xl transition-all duration-300">
       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{title}</p>
       <p className="text-3xl font-black text-slate-800 tracking-tight">₹ {amount.toFixed(0)}</p>
-      <p className="text-[10px] font-medium text-slate-400 mt-4 uppercase tracking-widest leading-loose">{subtext}</p>
+      <p className="text-[10px] font-semibold text-slate-400 mt-3 uppercase tracking-widest leading-loose">{subtext}</p>
     </div>
   );
 }
 
 function ExpenseDetailCard({ label, value, color }) {
   return (
-    <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 group hover:bg-white hover:shadow-xl transition-all duration-300">
+    <div className="bg-gradient-to-br from-white to-slate-50 p-6 rounded-2xl border border-slate-200 group hover:shadow-xl transition-all duration-300">
       <p className={`text-3xl font-black mb-2 ${color}`}>₹ {Number(value || 0).toFixed(0)}</p>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
     </div>
@@ -890,8 +955,8 @@ function ExpenseDetailCard({ label, value, color }) {
 
 function TableSection({ title, columns, children }) {
   return (
-    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden">
-      <div className="p-10 border-b border-slate-50 flex items-center justify-between">
+    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 overflow-hidden">
+      <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between">
         <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
         <div className="flex gap-2">
           <div className="w-2 h-2 rounded-full bg-slate-200" />
@@ -902,7 +967,7 @@ function TableSection({ title, columns, children }) {
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-slate-50/50">
+            <tr className="bg-slate-50">
               {columns.map((c) => (
                 <th key={c} className="p-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{c}</th>
               ))}
@@ -931,5 +996,4 @@ function EmptyRow({ colSpan }) {
     </tr>
   );
 }
-
 

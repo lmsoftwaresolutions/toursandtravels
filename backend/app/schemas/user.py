@@ -19,3 +19,12 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     token: str
     user: UserResponse
+
+
+class PasswordResetRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class PasswordResetResponse(BaseModel):
+    message: str

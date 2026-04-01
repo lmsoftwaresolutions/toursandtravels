@@ -210,7 +210,7 @@ export default function InvoiceView() {
 
   const totalAdvance = useMemo(() => {
     const paymentSum = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    return paymentSum || Number(trip?.amount_received || 0);
+    return Math.max(paymentSum, Number(trip?.amount_received || 0));
   }, [payments, trip]);
 
   const balanceDue = Math.max(calculatedTotal - totalAdvance, 0);
@@ -363,18 +363,19 @@ export default function InvoiceView() {
                 <span className="font-black text-[11px] uppercase text-slate-500">Invoice Date:</span>
                 <span className="font-black text-[12px] text-black">{formatDateDDMMYYYY(trip.trip_date)}</span>
               </div>
-              <h2 className="print-heading text-[11px] font-black uppercase mb-2 text-slate-600">Bill To</h2>
+              <p className="print-heading text-[11px] font-black uppercase mb-1 text-slate-600">Bill TO :</p>
               <p className="text-[15px] font-black text-black leading-tight uppercase">{customer.name}</p>
               {billToAddress ? (
                 <p className="text-[11px] font-bold text-black mt-1 uppercase whitespace-pre-line break-words">
                   {billToAddress}
                 </p>
               ) : null}
-              {billToEmail ? (
-                <p className="text-[11px] font-bold text-black mt-1">Email: {billToEmail}</p>
-              ) : null}
-              {billToPhone ? (
-                <p className="text-[11px] font-bold text-black mt-1">Phone: {billToPhone}</p>
+              {billToPhone || billToEmail ? (
+                <p className="text-[11px] font-bold text-black mt-1">
+                  {billToPhone ? `Phone: ${billToPhone}` : ""}
+                  {billToPhone && billToEmail ? " | " : ""}
+                  {billToEmail ? `Email: ${billToEmail}` : ""}
+                </p>
               ) : null}
             </div>
             <div className="p-3">
@@ -458,7 +459,7 @@ export default function InvoiceView() {
                 return (
                   <tr key={row.key} className="bg-white">
                     <td className="p-2 text-[11px] font-bold border-r border-black/30 text-center">{idx + 1}</td>
-                    <td className="p-2 text-[11px] font-black uppercase border-r border-black/30">{row.description}</td>
+                    <td className="p-2 text-[11px] font-normal uppercase border-r border-black/30">{row.description}</td>
                     <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{baseFareLabel}</td>
                     <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{tollLabel}</td>
                     <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{parkingLabel}</td>
@@ -510,7 +511,7 @@ export default function InvoiceView() {
                 )}
                 {extraAmount > 0 && (
                   <div className="flex justify-between text-[11px] font-bold text-emerald-700 pt-1">
-                    <span>Extra Amount Received</span>
+                    <span>Refund Amount </span>
                     <span className="tabular-nums">Rs. {extraAmount.toFixed(2)}</span>
                   </div>
                 )}

@@ -354,8 +354,8 @@ function TripScheduleChart({
 
   return (
     <>
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="w-full border-separate border-spacing-0">
+      <div className="w-full overflow-x-auto custom-scrollbar">
+        <table className="min-w-max border-separate border-spacing-0">
           <thead className="bg-slate-50/50 sticky top-0 z-10 backdrop-blur-md">
             <tr>
               <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 min-w-[120px]">Date</th>

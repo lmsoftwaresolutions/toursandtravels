@@ -24,11 +24,11 @@ export default function Layout() {
       <Sidebar />
 
       {/* Right side */}
-      <div className="w-full md:flex-1 flex flex-col">
+      <div className="w-full md:flex-1 flex flex-col min-w-0">
         <Navbar />
 
         {/* Page content */}
-        <main className="print-main p-4 md:p-6 overflow-y-auto flex-1 bg-white/50 backdrop-blur-sm">
+        <main className="print-main p-4 md:p-6 overflow-y-auto flex-1 bg-white/50 backdrop-blur-sm min-w-0">
           <Outlet />
         </main>
       </div>

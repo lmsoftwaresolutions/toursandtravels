@@ -26,6 +26,18 @@ export const authService = {
     }
   },
 
+  async resetPassword(currentPassword, newPassword) {
+    try {
+      const response = await api.post("/auth/reset-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data?.detail || "Unable to reset password";
+    }
+  },
+
   logout() {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);

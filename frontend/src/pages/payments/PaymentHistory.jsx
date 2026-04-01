@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
@@ -58,8 +58,9 @@ export default function PaymentHistory() {
       return;
     }
 
-    if (Number(form.amount) > selectedTrip.pending_amount) {
-      alert(`Amount cannot exceed pending amount (₹${selectedTrip.pending_amount.toFixed(2)})`);
+    const selectedTripPending = getTripFinancials(selectedTrip).totalPending;
+    if (Number(form.amount) > selectedTripPending) {
+      alert(`Amount cannot exceed pending amount (₹${selectedTripPending.toFixed(2)})`);
       return;
     }
 
@@ -302,9 +303,28 @@ export default function PaymentHistory() {
     ? trips.filter(t => t.customer_id === Number(filterCustomer))
     : trips;
 
-  const totalCharges = filteredTrips.reduce((sum, t) => sum + (t.total_charged || 0), 0);
-  const totalReceived = filteredTrips.reduce((sum, t) => sum + (t.amount_received || 0), 0);
-  const totalPending = filteredTrips.reduce((sum, t) => sum + (t.pending_amount || 0), 0);
+  const paymentsByTrip = useMemo(() => {
+    const acc = {};
+    payments.forEach((payment) => {
+      const tripId = Number(payment.trip_id);
+      if (!Number.isFinite(tripId)) return;
+      acc[tripId] = (acc[tripId] || 0) + Number(payment.amount || 0);
+    });
+    return acc;
+  }, [payments]);
+
+  const getTripFinancials = (trip) => {
+    const totalCharged = Number(trip?.total_charged || 0);
+    const storedReceived = Number(trip?.amount_received || 0);
+    const paymentReceived = Number(paymentsByTrip[trip?.id] || 0);
+    const totalReceived = Math.max(storedReceived, paymentReceived);
+    const totalPending = Math.max(totalCharged - totalReceived, 0);
+    return { totalCharged, totalReceived, totalPending };
+  };
+
+  const totalCharges = filteredTrips.reduce((sum, trip) => sum + getTripFinancials(trip).totalCharged, 0);
+  const totalReceived = filteredTrips.reduce((sum, trip) => sum + getTripFinancials(trip).totalReceived, 0);
+  const totalPending = filteredTrips.reduce((sum, trip) => sum + getTripFinancials(trip).totalPending, 0);
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -390,7 +410,7 @@ export default function PaymentHistory() {
                         const customer = customers.find(c => c.id === trip.customer_id);
                         return (
                           <option key={trip.id} value={trip.id}>
-                            {trip.invoice_number || "INV-" + trip.id} | {customer?.name} | Due: Rs. {trip.pending_amount}
+                            {trip.invoice_number || "INV-" + trip.id} | {customer?.name} | Due: Rs. {getTripFinancials(trip).totalPending}
                           </option>
                         );
                       })}
@@ -409,7 +429,7 @@ export default function PaymentHistory() {
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Pending Amount</p>
-                    <p className="font-black text-rose-600 tracking-tight">₹{(selectedTrip.pending_amount || 0).toLocaleString()}</p>
+                    <p className="font-black text-rose-600 tracking-tight">₹{getTripFinancials(selectedTrip).totalPending.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -424,7 +444,7 @@ export default function PaymentHistory() {
                     placeholder="Enter amount"
                     value={form.amount}
                     onChange={handleChange}
-                    max={selectedTrip?.pending_amount || 0}
+                    max={selectedTrip ? getTripFinancials(selectedTrip).totalPending : 0}
                     step="0.01"
                     required
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all"
@@ -531,7 +551,7 @@ export default function PaymentHistory() {
                         </td>
                         <td className="p-6 text-right">
                           <div className="text-base font-black text-emerald-600 tracking-tight">₹{payment.amount.toLocaleString()}</div>
-                          <div className="text-[9px] text-rose-500 font-bold uppercase mt-1">Rs. {(trip?.pending_amount || 0).toLocaleString()} Pending</div>
+                          <div className="text-[9px] text-rose-500 font-bold uppercase mt-1">Rs. {getTripFinancials(trip).totalPending.toLocaleString()} Pending</div>
                         </td>
                         <td className="p-6 text-right">
                           <button
@@ -573,6 +593,7 @@ export default function PaymentHistory() {
               ) : (
                 filteredTrips.map(trip => {
                   const customer = customers.find(c => c.id === trip.customer_id);
+                  const { totalCharged, totalReceived: received, totalPending: pending } = getTripFinancials(trip);
                   return (
                     <tr key={trip.id} className="group hover:bg-slate-50/40 transition-colors">
                       <td className="p-6">
@@ -583,14 +604,14 @@ export default function PaymentHistory() {
                         <div className="text-sm font-black text-slate-700">{customer?.name || "N/A"}</div>
                         <div className="text-[10px] text-slate-400 font-bold mt-1">{formatDateDDMMYYYY(trip.trip_date)}</div>
                       </td>
-                      <td className="p-6 text-right text-sm font-bold text-slate-700">₹{(trip.total_charged || 0).toLocaleString()}</td>
-                      <td className="p-6 text-right text-sm font-black text-emerald-600">₹{(trip.amount_received || 0).toLocaleString()}</td>
+                      <td className="p-6 text-right text-sm font-bold text-slate-700">₹{totalCharged.toLocaleString()}</td>
+                      <td className="p-6 text-right text-sm font-black text-emerald-600">₹{received.toLocaleString()}</td>
                       <td className="p-6 text-right">
-                        <div className={`text-base font-black tracking-tighter ${trip.pending_amount > 0 ? "text-rose-600" : "text-emerald-500"}`}>
-                          ₹{(trip.pending_amount || 0).toLocaleString()}
+                        <div className={`text-base font-black tracking-tighter ${pending > 0 ? "text-rose-600" : "text-emerald-500"}`}>
+                          ₹{pending.toLocaleString()}
                         </div>
                         <div className="text-[9px] font-black uppercase text-slate-400 mt-1">
-                          {trip.pending_amount > 0 ? "Pending" : "Paid"}
+                          {pending > 0 ? "Pending" : "Paid"}
                         </div>
                       </td>
                     </tr>
@@ -625,4 +646,3 @@ function KPI({ CardTitle, CardValue, CardNote, Color }) {
     </div>
   );
 }
-
