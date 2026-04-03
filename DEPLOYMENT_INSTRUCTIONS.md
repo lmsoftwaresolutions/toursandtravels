@@ -2,6 +2,7 @@
 
 These steps deploy the production stack and apply database migrations automatically.
 ## 1. PR  27 and 28
+```
 git pull 
 docker compose down
 docker compose build backend
@@ -24,7 +25,6 @@ BEGIN
   END IF; 
 END 
 \$\$;
-
 "
 ```
 
@@ -36,4 +36,3 @@ docker compose down
 docker compose build backend
 docker compose up --build -d
 ```
-
