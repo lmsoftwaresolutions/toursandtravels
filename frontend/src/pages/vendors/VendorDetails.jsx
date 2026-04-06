@@ -102,7 +102,26 @@ export default function VendorDetails() {
           return tripVendorMatch || vehicleVendorMatch;
         };
         const tripFuelEntries = tripRes.data
-          .filter(t => tripUsesVendor(t) && (t.diesel_used > 0 || t.petrol_used > 0))
+          .filter((t) => {
+            if (!tripUsesVendor(t)) return false;
+            const matchingVehicles = (t.vehicles || []).filter(
+              (v) => normalizeVendorName(v.fuel_vendor) === vendorNameKey
+            );
+            if (matchingVehicles.length > 0) {
+              return matchingVehicles.some(
+                (v) =>
+                  Number(v.fuel_cost || 0) > 0 ||
+                  Number(v.fuel_litres || 0) > 0 ||
+                  Number(v.diesel_used || 0) > 0 ||
+                  Number(v.petrol_used || 0) > 0
+              );
+            }
+            return (
+              Number(t.fuel_litres || 0) > 0 ||
+              Number(t.diesel_used || 0) > 0 ||
+              Number(t.petrol_used || 0) > 0
+            );
+          })
           .map(t => {
             const matchingVehicles = (t.vehicles || []).filter(
               (v) => normalizeVendorName(v.fuel_vendor) === vendorNameKey
@@ -117,9 +136,11 @@ export default function VendorDetails() {
             const petrol = matchingVehicles.length
               ? matchingVehicles.reduce((sum, v) => sum + Number(v.petrol_used || 0), 0)
               : Number(t.petrol_used || 0);
-            const litres = matchingVehicles.length
+            const litresFromFuelLitres = matchingVehicles.length
               ? matchingVehicles.reduce((sum, v) => sum + Number(v.fuel_litres || 0), 0)
               : Number(t.fuel_litres || 0);
+            const litresFromFuelTypes = diesel + petrol;
+            const litres = litresFromFuelLitres > 0 ? litresFromFuelLitres : litresFromFuelTypes;
             const totalCost = matchingVehicles.length
               ? matchingVehicles.reduce((sum, v) => sum + Number(v.fuel_cost || 0), 0)
               : Number(t.diesel_used || 0) + Number(t.petrol_used || 0);
