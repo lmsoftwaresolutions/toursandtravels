@@ -1,0 +1,19 @@
+TC_ID	Module	Test_Case	Endpoint_or_Page	Expected_Result	Actual_Result	Status	Severity	Owner	Retest_Status	Executed_On	Notes
+TC-01	Frontend Routing	Home page load	GET /	200 and app HTML loads	"200, Vite app HTML returned"	Pass	Low	Frontend	Pending	02-04-2026	Base availability verified
+TC-02	Frontend Routing	Login page route	GET /login	200 and SPA route works	"200, app HTML returned"	Pass	Low	Frontend	Pending	02-04-2026	Route fallback works
+TC-03	Frontend Routing	Dashboard direct route	GET /dashboard	200 and SPA fallback works	"200, app HTML returned"	Pass	Low	Frontend	Pending	02-04-2026	Direct deep-link route works
+TC-04	Transport Security	HTTP to HTTPS behavior	http://nathkrupa.lmsoftwaresolutions.com/	HTTP should redirect/enforce HTTPS	Resolved to https://nathkrupa.lmsoftwaresolutions.com/ and returned 200	Pass	Medium	DevOps	Pending	02-04-2026	HTTPS enforcement observed
+TC-05	Authentication	Unauthorized protected API	GET /api/dashboard (no token)	401 Unauthorized	401	Pass	Medium	Backend	Pending	02-04-2026	Access control baseline works
+TC-06	Authentication	Valid login	POST /api/auth/login	200 with token and user object	200 with JWT token and user	Pass	Medium	Backend	Pending	02-04-2026	Credentials validated
+TC-07	Core API Flow	Authorized dashboard data	GET /api/dashboard (with token)	200 with dashboard JSON	200 with dashboard metrics JSON	Pass	Low	Backend	Pending	02-04-2026	Data contract responded
+TC-08	Core API Flow	Authorized vehicles list	GET /api/vehicles (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-09	Core API Flow	Authorized trips list	GET /api/trips (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-10	Core API Flow	Authorized customers list	GET /api/customers (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-11	Core API Flow	Authorized drivers list	GET /api/drivers (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-12	Core API Flow	Authorized maintenance list	GET /api/maintenance (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-13	Core API Flow	Authorized fuel list	GET /api/fuel (with token)	200 with list	200 with []	Pass	Low	Backend	Pending	02-04-2026	No records present
+TC-14	Authentication	Tampered token behavior	GET /api/dashboard (tampered token)	401 Unauthorized	401	Pass	High	Backend	Pending	02-04-2026	Token integrity check works
+TC-15	CORS	Blocked origin preflight	OPTIONS /api/auth/login (evil origin)	Preflight should be rejected	400 rejected	Pass	Medium	Backend	Pending	02-04-2026	Disallowed origin blocked
+TC-16	CORS	Allowed origin preflight	OPTIONS /api/auth/login (site origin)	Preflight should be allowed	200 with Access-Control-Allow-Origin set to site origin	Pass	Low	Backend	Pending	02-04-2026	Allowed origin works
+TC-19	RBAC	Limited user delete protection	DELETE /api/vehicles/{id} (limited user)	Should return 403 Forbidden	403	Pass	Medium	Backend	Pending	02-04-2026	Delete route guard works
+TC-22	TLS Certificate	Certificate validity	HTTPS certificate check	Valid trusted certificate and non-expired	Let's Encrypt cert valid; expiry 2026-04-30	Pass	Low	DevOps	Pending	02-04-2026	TLS trust baseline passed

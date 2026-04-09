@@ -22,12 +22,12 @@ export default function DriverDetails() {
     Promise.all([
       api.get(`/drivers/${id}`),
       api.get(`/driver-expenses/driver/${id}`),
-      api.get("/trips"),
+      api.get(`/trips/driver/${id}`),
       api.get(`/driver-salaries/driver/${id}`)
     ]).then(([driverRes, expensesRes, tripsRes, salariesRes]) => {
       setDriver(driverRes.data);
       setExpenses(expensesRes.data);
-      setTrips((tripsRes.data || []).filter(t => t.driver_id === Number(id)));
+      setTrips(tripsRes.data || []);
       setSalaries(salariesRes.data || []);
       setLoading(false);
     }).catch(error => {

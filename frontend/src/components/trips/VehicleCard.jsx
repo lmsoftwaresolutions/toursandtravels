@@ -33,12 +33,16 @@ export default function VehicleCard({
 
   const handleFuelChange = (field, value) => {
     const updated = { ...entry, [field]: value };
+    const totalLitres =
+      (parseFloat(field === "diesel_used" ? value : updated.diesel_used) || 0) +
+      (parseFloat(field === "petrol_used" ? value : updated.petrol_used) || 0);
     const cost = calculateFuelCost(
       field === "diesel_used" ? value : entry.diesel_used,
       field === "petrol_used" ? value : entry.petrol_used,
       field === "fuel_price" ? value : entry.fuel_price
     );
     onEntryChange(index, field, value);
+    onEntryChange(index, "fuel_litres", totalLitres);
     onEntryChange(index, "fuel_cost", cost);
   };
 
@@ -427,4 +431,3 @@ export default function VehicleCard({
     </div>
   );
 }
-
