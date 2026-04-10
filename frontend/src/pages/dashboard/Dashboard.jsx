@@ -95,7 +95,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <KPI title="Total Trips" value={data.trips} note="This month" />
           <KPI title="Total Revenue" value={`₹${data.income.toLocaleString()}`} note="Invoice total" />
-          <KPI title="Operating Expense" value={`₹${data.expenses.toLocaleString()}`} note="Fuel + driver bhatta + spare + maintenance + toll + parking" />
+          <KPI title="Operating Expense" value={`₹${data.expenses.toLocaleString()}`} note="Fuel + driver bhatta + driver salary + vendor payments + spare + maintenance + toll + parking" />
           <KPI
             title="Net Profit"
             value={`₹${data.profit.toLocaleString()}`}

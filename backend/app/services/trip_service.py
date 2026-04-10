@@ -346,7 +346,6 @@ def create_trip(db: Session, trip_data: TripCreate):
         else (trip_data.distance_km or 0)
     )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
-    effective_driver_bhatta = total_driver_bhatta if has_vehicle_entries else (trip_data.driver_bhatta or 0)
     number_of_vehicles = (
         len(validated_trip_vehicles)
         if uses_explicit_vehicle_entries and has_vehicle_entries
@@ -400,13 +399,6 @@ def create_trip(db: Session, trip_data: TripCreate):
         (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
         for i in charge_items
     )
-    total_fuel_cost = _calculate_total_fuel_cost(
-        validated_trip_vehicles,
-        trip_data.diesel_used,
-        trip_data.petrol_used,
-    )
-    base_pricing_total = max(base_pricing_total - total_fuel_cost - effective_driver_bhatta, 0)
-
     total_charged = (
         base_pricing_total +
         pricing_items_total +
@@ -527,7 +519,6 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
         else (data.distance_km or 0)
     )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
-    effective_driver_bhatta = total_driver_bhatta if has_vehicle_entries else (data.driver_bhatta or 0)
     number_of_vehicles = (
         len(validated_trip_vehicles)
         if uses_explicit_vehicle_entries and has_vehicle_entries
@@ -608,13 +599,6 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
         (i.amount if i.amount else (i.quantity or 1) * (i.rate or 0))
         for i in charge_items
     )
-    total_fuel_cost = _calculate_total_fuel_cost(
-        validated_trip_vehicles,
-        data.diesel_used,
-        data.petrol_used,
-    )
-    base_pricing_total = max(base_pricing_total - total_fuel_cost - effective_driver_bhatta, 0)
-
     trip.total_charged = (
         base_pricing_total +
         pricing_items_total +

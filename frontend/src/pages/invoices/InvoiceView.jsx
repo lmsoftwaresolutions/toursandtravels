@@ -94,10 +94,7 @@ export default function InvoiceView() {
           entry.cost_per_km == null ? Number(trip.cost_per_km || 0) : Number(entry.cost_per_km || 0);
 
         const baseAmount = pricingType === "package" ? Number(packageAmount || 0) : distance * Number(costPerKm || 0);
-        const netBaseFare = Math.max(
-          baseAmount - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0),
-          0
-        );
+        const netBaseFare = Number(baseAmount || 0);
         const tollAmount = Number(entry.toll_amount || 0);
         const parkingAmount = Number(entry.parking_amount || 0);
         const otherAmount = Number(entry.other_expenses || 0);
@@ -138,12 +135,7 @@ export default function InvoiceView() {
       const packageAmount = Number(trip.package_amount || 0);
       const costPerKm = Number(trip.cost_per_km || 0);
       const baseAmount = pricingType === "package" ? packageAmount : distance * costPerKm;
-      const netBaseFare = Math.max(
-        baseAmount -
-          Number((trip.diesel_used || 0) + (trip.petrol_used || 0)) -
-          Number(trip.driver_bhatta || 0),
-        0
-      );
+      const netBaseFare = Number(baseAmount || 0);
       const tollAmount = Number(trip.charged_toll_amount || trip.toll_amount || 0);
       const parkingAmount = Number(trip.charged_parking_amount || trip.parking_amount || 0);
       const otherAmount = Number(trip.other_expenses || 0);
