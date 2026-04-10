@@ -18,7 +18,7 @@ export default function Layout() {
 
   return (
     // 🔥 flex ONLY on desktop
-    <div className="h-screen bg-gray-100 md:flex">
+    <div className="min-h-screen bg-gray-100 md:flex">
 
       {/* Sidebar */}
       <Sidebar />

@@ -16,6 +16,22 @@ export default function PaymentForm() {
     setModal({ isOpen: true, title, message, type, onConfirm });
   const closeModal = () => setModal({ ...modal, isOpen: false });
 
+  const getPartyFuelCredit = (trip) =>
+    (trip.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
+  const getDueAmount = (trip) => {
+    const totalCharged = Number(trip.total_charged || 0);
+    const received = Number(trip.amount_received || 0);
+    return Math.max(totalCharged - received - getPartyFuelCredit(trip), 0);
+  };
+
   const [form, setForm] = useState({
     trip_id: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -28,9 +44,7 @@ export default function PaymentForm() {
     try {
       const res = await api.get("/trips");
       const pendingTrips = res.data.filter((t) => {
-        const totalCharged = Number(t.total_charged || 0);
-        const received = Number(t.amount_received || 0);
-        const pending = Number(t.pending_amount ?? Math.max(totalCharged - received, 0));
+        const pending = getDueAmount(t);
         return pending > 0;
       });
       setTrips(pendingTrips);
@@ -72,7 +86,7 @@ export default function PaymentForm() {
       showModal("Wait!", "Please select a trip first.");
       return;
     }
-    const pending = Number(selectedTrip.pending_amount || 0);
+    const pending = getDueAmount(selectedTrip);
     if (Number(form.amount) > pending) {
       showModal("Validation Error", `Amount cannot exceed pending amount (₹ ${pending.toFixed(2)})`);
       return;
@@ -121,7 +135,7 @@ export default function PaymentForm() {
                   const customer = customers.find((c) => c.id === trip.customer_id);
                   return (
                     <option key={trip.id} value={trip.id}>
-                      {trip.invoice_number} - {customer?.name || "N/A"} - Pending Rs. {(trip.pending_amount || 0).toFixed(2)}
+                      {trip.invoice_number} - {customer?.name || "N/A"} - Pending Rs. {getDueAmount(trip).toFixed(2)}
                     </option>
                   );
                 })}
@@ -148,7 +162,7 @@ export default function PaymentForm() {
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest underline decoration-2 underline-offset-4">Pending Amount</p>
-                    <p className="text-xl font-black text-rose-600 tracking-tight">Rs. {(selectedTrip.pending_amount || 0).toFixed(2)}</p>
+                    <p className="text-xl font-black text-rose-600 tracking-tight">Rs. {getDueAmount(selectedTrip).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -194,7 +208,7 @@ export default function PaymentForm() {
                     placeholder="0.00"
                     value={form.amount}
                     onChange={handleChange}
-                    max={selectedTrip?.pending_amount || 0}
+                    max={getDueAmount(selectedTrip)}
                     step="0.01"
                     min="0"
                     required

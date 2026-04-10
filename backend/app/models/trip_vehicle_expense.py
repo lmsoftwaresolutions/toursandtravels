@@ -11,6 +11,7 @@ class TripVehicleExpense(Base):
     
     expense_type = Column(String, nullable=False)  # e.g., Toll, Food, Parking
     amount = Column(Float, nullable=False, default=0)
+    vendor = Column(String, nullable=True)
     notes = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

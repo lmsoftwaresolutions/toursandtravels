@@ -4,26 +4,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .h-screen {
-    height: 125vh;
-  }
-
-  .min-h-screen {
-    min-height: 125vh;
-  }
-
-  .w-screen {
-    width: 125vw;
-  }
-
-  .min-w-screen {
-    min-width: 125vw;
-  }
-}
-
 html {
-  zoom: 0.8;
+  /* zoom: 100%; */
+  font-size: clamp(14px, 0.45vw + 11px, 16px);
 }
 
 :root {

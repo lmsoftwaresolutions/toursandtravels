@@ -13,7 +13,8 @@ def create_payment(db: Session, payment: PaymentCreate):
 
     # 2️⃣ Calculate balances
     received = trip.amount_received or 0
-    remaining = (trip.total_charged or 0) - received
+    party_fuel_credit = trip.get_party_fuel_credit()
+    remaining = max((trip.total_charged or 0) - (received + party_fuel_credit), 0)
 
     # 3️⃣ Prevent overpayment (skip when booking has no billed total yet)
     if (trip.total_charged or 0) > 0 and payment.amount > remaining:
@@ -37,10 +38,7 @@ def create_payment(db: Session, payment: PaymentCreate):
 
     # 5️⃣ Update trip amounts
     trip.amount_received = received + payment.amount
-    trip.pending_amount = max(
-        (trip.total_charged or 0) - trip.amount_received,
-        0
-    )
+    trip.calculate_pending_amount()
 
     db.commit()
     db.refresh(db_payment)

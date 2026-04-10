@@ -51,8 +51,8 @@ export default function Sidebar() {
 
       <aside
         className={`no-print 
-          fixed md:static top-0 left-0 z-50
-          h-full w-80
+          fixed md:sticky top-0 left-0 z-50
+          h-full md:h-screen md:min-h-screen md:shrink-0 w-80 md:w-72 lg:w-80
           bg-slate-900 text-slate-300
           transform transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}

@@ -134,11 +134,27 @@ export default function TripDetails() {
     ? tripVehicles.map((entry) => entry.vehicleNumber).join(", ")
     : (trip?.vehicle_number || "---");
 
+  const getPartyFuelCredit = (tripValue) =>
+    (tripValue?.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
+  const getTripDueAmount = (tripValue) => {
+    const totalChargedValue = Number(tripValue?.total_charged || 0);
+    const receivedValue = Number(tripValue?.amount_received || 0);
+    return Math.max(totalChargedValue - receivedValue - getPartyFuelCredit(tripValue), 0);
+  };
+
   if (loading) return <div className="p-6">Loading trip...</div>;
   if (error || !trip) return <div className="p-6 text-red-600">{error || "Trip not found"}</div>;
 
   const totalCharged = trip.total_charged ?? 0;
-  const pending = trip.pending_amount ?? 0;
+  const pending = getTripDueAmount(trip);
   const received = trip.amount_received ?? 0;
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const pricingLabel = trip.pricing_type === "package" ? "Package" : "Per KM";

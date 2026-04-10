@@ -14,6 +14,11 @@ export default function InvoiceView() {
   const [printTimestamp, setPrintTimestamp] = useState("");
   const [searchParams] = useSearchParams();
   const hasVehicleAssigned = Boolean(trip?.vehicle_number || (trip?.vehicles || []).length);
+  const getEntryFuelCost = (entry) => {
+    const fuelCost = Number(entry?.fuel_cost || 0);
+    if (fuelCost > 0) return fuelCost;
+    return Number(entry?.diesel_used || 0) + Number(entry?.petrol_used || 0);
+  };
 
   useEffect(() => {
     loadInvoiceData();
@@ -89,16 +94,18 @@ export default function InvoiceView() {
           entry.cost_per_km == null ? Number(trip.cost_per_km || 0) : Number(entry.cost_per_km || 0);
 
         const baseAmount = pricingType === "package" ? Number(packageAmount || 0) : distance * Number(costPerKm || 0);
+        const netBaseFare = Math.max(
+          baseAmount - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0),
+          0
+        );
         const tollAmount = Number(entry.toll_amount || 0);
         const parkingAmount = Number(entry.parking_amount || 0);
-        const otherAmount =
-          Number(entry.other_expenses || 0) +
-          (entry.expenses || []).reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+        const otherAmount = Number(entry.other_expenses || 0);
 
         totals.pricingTypes.add(pricingType);
         totals.rates.add(pricingType === "package" ? Number(packageAmount || 0) : Number(costPerKm || 0));
         totals.distance += distance;
-        totals.baseFare += baseAmount;
+        totals.baseFare += netBaseFare;
         totals.toll += tollAmount;
         totals.parking += parkingAmount;
         totals.other += otherAmount;
@@ -119,10 +126,10 @@ export default function InvoiceView() {
         rows.push({
           key: `vehicle-${entry.id || entry.vehicle_number || rows.length}`,
           description: vehicleLabelParts.length ? vehicleLabelParts.join(" ") : "Vehicle",
-          baseFare: baseAmount,
+          baseFare: netBaseFare,
           toll: tollAmount,
           parking: parkingAmount,
-          total: baseAmount + tollAmount + parkingAmount + otherAmount,
+          total: netBaseFare + tollAmount + parkingAmount + otherAmount,
         });
       });
     } else {
@@ -131,6 +138,12 @@ export default function InvoiceView() {
       const packageAmount = Number(trip.package_amount || 0);
       const costPerKm = Number(trip.cost_per_km || 0);
       const baseAmount = pricingType === "package" ? packageAmount : distance * costPerKm;
+      const netBaseFare = Math.max(
+        baseAmount -
+          Number((trip.diesel_used || 0) + (trip.petrol_used || 0)) -
+          Number(trip.driver_bhatta || 0),
+        0
+      );
       const tollAmount = Number(trip.charged_toll_amount || trip.toll_amount || 0);
       const parkingAmount = Number(trip.charged_parking_amount || trip.parking_amount || 0);
       const otherAmount = Number(trip.other_expenses || 0);
@@ -138,7 +151,7 @@ export default function InvoiceView() {
       totals.pricingTypes.add(pricingType);
       totals.rates.add(pricingType === "package" ? packageAmount : costPerKm);
       totals.distance += distance;
-      totals.baseFare += baseAmount;
+      totals.baseFare += netBaseFare;
       totals.toll += tollAmount;
       totals.parking += parkingAmount;
       totals.other += otherAmount;
@@ -149,10 +162,10 @@ export default function InvoiceView() {
       rows.push({
         key: "vehicle-single",
         description: [vehicleTypeLabel, seatLabel].filter(Boolean).join(" "),
-        baseFare: baseAmount,
+        baseFare: netBaseFare,
         toll: tollAmount,
         parking: parkingAmount,
-        total: baseAmount + tollAmount + parkingAmount + otherAmount,
+        total: netBaseFare + tollAmount + parkingAmount + otherAmount,
       });
     }
 
@@ -196,6 +209,9 @@ export default function InvoiceView() {
       });
     }
 
+
+
+
     return rows;
   }, [trip, vehiclesLookup]);
 
@@ -213,8 +229,46 @@ export default function InvoiceView() {
     return Math.max(paymentSum, Number(trip?.amount_received || 0));
   }, [payments, trip]);
 
-  const balanceDue = Math.max(calculatedTotal - totalAdvance, 0);
-  const extraAmount = Math.max(totalAdvance - calculatedTotal, 0);
+  const partyFuelEntries = useMemo(() => {
+    if (!Array.isArray(trip?.vehicles)) return [];
+    return trip.vehicles.flatMap((vehicle, vehicleIndex) => {
+      const legacyEntry =
+        Number(vehicle.vendor_deduction_amount || 0) > 0
+          ? [
+              {
+                key: `legacy-party-fuel-${vehicle.id || vehicleIndex}`,
+                vehicleNumber: vehicle.vehicle_number || "",
+                description: vehicle.vendor_deduction_description || "Party Fuel Entry",
+                vendor: vehicle.vendor_deduction_vendor || "",
+                notes: vehicle.vendor_deduction_note || "",
+                amount: Number(vehicle.vendor_deduction_amount || 0),
+              },
+            ]
+          : [];
+
+      const extraEntries = (vehicle.expenses || [])
+        .filter((exp) => Number(exp.amount || 0) > 0)
+        .map((exp, idx) => ({
+          key: `${vehicle.id || vehicle.vehicle_number || "vehicle"}-${idx}`,
+          vehicleNumber: vehicle.vehicle_number || "",
+          description: exp.expense_type || "Party Fuel Entry",
+          vendor: exp.vendor || "",
+          notes: exp.notes || "",
+          amount: Number(exp.amount || 0),
+        }));
+
+      return [...legacyEntry, ...extraEntries];
+    });
+  }, [trip]);
+
+  const partyFuelTotal = useMemo(
+    () => partyFuelEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
+    [partyFuelEntries]
+  );
+
+  const totalCredits = totalAdvance + partyFuelTotal;
+  const balanceDue = Math.max(calculatedTotal - totalCredits, 0);
+  const extraAmount = Math.max(totalCredits - calculatedTotal, 0);
 
   const handlePrint = () => {
     setPrintTimestamp(new Date().toLocaleString());
@@ -502,9 +556,23 @@ export default function InvoiceView() {
                       <div key={p.id || idx} className="flex justify-between text-[10px] font-bold text-slate-600">
                         <span>
                           {p.payment_date ? formatDateDDMMYYYY(p.payment_date) : "Advance"}
-                          {p.payment_mode ? ` • ${p.payment_mode}` : ""}
+                          {p.payment_mode ? ` - ${p.payment_mode}` : ""}
                         </span>
                         <span className="tabular-nums">Rs. {Number(p.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {partyFuelEntries.length > 0 && (
+                  <div className="border-t border-black/10 pt-2 space-y-1">
+                    <div className="flex justify-between text-[11px] font-black text-blue-700">
+                      <span>Party Fuel Entries</span>
+                      <span className="tabular-nums">Rs. {partyFuelTotal.toFixed(2)}</span>
+                    </div>
+                    {partyFuelEntries.map((entry) => (
+                      <div key={entry.key} className="flex justify-between text-[10px] font-bold text-slate-600">
+                        <span>{entry.description}{entry.notes ? ` - ${entry.notes}` : ""}</span>
+                        <span className="tabular-nums">Rs. {entry.amount.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

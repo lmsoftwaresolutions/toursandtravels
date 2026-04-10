@@ -269,7 +269,7 @@ export default function PaymentHistory() {
               </div>
               <div class="item bg-red">
                 <div class="label">Pending Amount</div>
-                <div class="value">Rs. ${(trip?.pending_amount || 0).toFixed(2)}</div>
+                <div class="value">Rs. ${getTripFinancials(trip).totalPending.toFixed(2)}</div>
               </div>
             </div>
 
@@ -313,12 +313,22 @@ export default function PaymentHistory() {
     return acc;
   }, [payments]);
 
+  const getPartyFuelCredit = (trip) =>
+    (trip.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
   const getTripFinancials = (trip) => {
     const totalCharged = Number(trip?.total_charged || 0);
     const storedReceived = Number(trip?.amount_received || 0);
     const paymentReceived = Number(paymentsByTrip[trip?.id] || 0);
     const totalReceived = Math.max(storedReceived, paymentReceived);
-    const totalPending = Math.max(totalCharged - totalReceived, 0);
+    const totalPending = Math.max(totalCharged - totalReceived - getPartyFuelCredit(trip), 0);
     return { totalCharged, totalReceived, totalPending };
   };
 
@@ -405,7 +415,7 @@ export default function PaymentHistory() {
                   >
                     <option value="">-- Select a Trip --</option>
                     {trips
-                      .filter(t => (t.pending_amount || 0) > 0)
+                      .filter(t => getTripFinancials(t).totalPending > 0)
                       .map(trip => {
                         const customer = customers.find(c => c.id === trip.customer_id);
                         return (

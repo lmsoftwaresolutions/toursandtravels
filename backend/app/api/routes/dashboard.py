@@ -56,11 +56,22 @@ def dashboard_summary(
 
     # -------- REVENUE --------
     income = trip_query.with_entities(func.coalesce(func.sum(Trip.total_charged), 0)).scalar()
-    total_due = trip_query.with_entities(func.coalesce(func.sum(Trip.pending_amount), 0)).scalar()
+    total_due = sum(
+        max(
+            (trip.total_charged or 0)
+            - (trip.amount_received or 0)
+            - trip.get_party_fuel_credit(),
+            0,
+        )
+        for trip in trip_query.all()
+    )
 
     # -------- OPERATING EXPENSES --------
     trip_fuel_cost = trip_query.with_entities(
         func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0)
+    ).scalar()
+    driver_bhatta_cost = trip_query.with_entities(
+        func.coalesce(func.sum(Trip.driver_bhatta), 0)
     ).scalar()
     toll_cost = trip_query.with_entities(func.coalesce(func.sum(Trip.toll_amount), 0)).scalar()
     parking_cost = trip_query.with_entities(func.coalesce(func.sum(Trip.parking_amount), 0)).scalar()
@@ -85,7 +96,7 @@ def dashboard_summary(
     ).scalar()
 
     fuel_cost = trip_fuel_cost + vendor_fuel_cost
-    expenses = fuel_cost + maintenance_cost + spare_cost + toll_cost + parking_cost
+    expenses = fuel_cost + driver_bhatta_cost + maintenance_cost + spare_cost + toll_cost + parking_cost
     profit = income - expenses
 
     # -------- VEHICLE SUMMARY --------

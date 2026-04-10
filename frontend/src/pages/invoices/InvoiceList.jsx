@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
@@ -37,6 +37,22 @@ export default function InvoiceList() {
     }
   };
 
+  const getPartyFuelCredit = (trip) =>
+    (trip.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
+  const getDueAmount = (trip) => {
+    const totalCharged = Number(trip.total_charged || 0);
+    const received = Number(trip.amount_received || 0);
+    return Math.max(totalCharged - received - getPartyFuelCredit(trip), 0);
+  };
+
   let filteredTrips = trips;
 
   if (filterCustomer) {
@@ -61,7 +77,7 @@ export default function InvoiceList() {
 
   const totalInvoiced = filteredTrips.reduce((sum, t) => sum + (t.total_charged || 0), 0);
   const totalPaid = filteredTrips.reduce((sum, t) => sum + (t.amount_received || 0), 0);
-  const totalPending = filteredTrips.reduce((sum, t) => sum + (t.pending_amount || 0), 0);
+  const totalPending = filteredTrips.reduce((sum, t) => sum + getDueAmount(t), 0);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -86,13 +102,19 @@ export default function InvoiceList() {
           >
             Quotations
           </button>
+          <button
+            onClick={() => navigate("/booking-receipts")}
+            className="px-6 py-3 bg-white text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+          >
+            Booking
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <KPI CardTitle="Total Billed" CardValue={`₹${totalInvoiced.toLocaleString()}`} CardNote="Total across filtered invoices" Color="blue" />
-        <KPI CardTitle="Total Paid" CardValue={`₹${totalPaid.toLocaleString()}`} CardNote="Amount collected from customers" Color="emerald" />
-        <KPI CardTitle="Balance Due" CardValue={`₹${totalPending.toLocaleString()}`} CardNote="Amount yet to be settled" Color="rose" />
+        <KPI CardTitle="Total Billed" CardValue={` ₹${totalInvoiced.toLocaleString()}`} CardNote="Total across filtered invoices" Color="blue" />
+        <KPI CardTitle="Total Paid" CardValue={` ₹${totalPaid.toLocaleString()}`} CardNote="Amount collected from customers" Color="emerald" />
+        <KPI CardTitle="Balance Due" CardValue={` ₹${totalPending.toLocaleString()}`} CardNote="Amount yet to be settled" Color="rose" />
       </div>
 
       <div className="flex flex-wrap gap-4 items-center bg-slate-100/30 p-4 rounded-3xl border border-slate-100">
@@ -151,7 +173,8 @@ export default function InvoiceList() {
               ) : (
                 paginatedTrips.map(trip => {
                   const customer = customers.find(c => c.id === trip.customer_id);
-                  const status = trip.pending_amount === 0 ? "Settled" : trip.pending_amount === trip.total_charged ? "Outstanding" : "Partial";
+                  const dueAmount = getDueAmount(trip);
+                  const status = dueAmount === 0 ? "Settled" : dueAmount === Number(trip.total_charged || 0) ? "Outstanding" : "Partial";
                   const hasVehicleAssigned = Boolean(trip.vehicle_number || (trip.vehicles && trip.vehicles.length));
 
                   return (
@@ -182,8 +205,8 @@ export default function InvoiceList() {
                           </div>
                         )}
                         <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-sm font-black text-slate-800 tracking-tight">₹{trip.total_charged?.toLocaleString()}</span>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">Due: ₹{trip.pending_amount?.toLocaleString()}</span>
+                          <span className="text-sm font-black text-slate-800 tracking-tight"> ₹{trip.total_charged?.toLocaleString()}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Due: ₹{dueAmount.toLocaleString()}</span>
                         </div>
                       </td>
                       <td className="p-6">
@@ -241,3 +264,4 @@ function KPI({ CardTitle, CardValue, CardNote, Color }) {
     </div>
   );
 }
+

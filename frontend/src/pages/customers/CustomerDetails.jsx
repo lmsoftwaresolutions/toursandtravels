@@ -31,6 +31,26 @@ export default function CustomerDetails() {
       String(t.invoice_number || "").toLowerCase().includes(searchInvoice.trim().toLowerCase())
     )
     : trips;
+
+  const getPartyFuelCredit = (trip) =>
+    (trip.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
+  const getTripDueAmount = (trip) => {
+    const totalCharged = Number(trip?.total_charged || 0);
+    const received = Number(trip?.amount_received || 0);
+    return Math.max(totalCharged - received - getPartyFuelCredit(trip), 0);
+  };
+
+  const totalCustomerDue = filteredTrips.reduce((sum, trip) => sum + getTripDueAmount(trip), 0);
+  const totalCustomerBilled = filteredTrips.reduce((sum, trip) => sum + Number(trip.total_charged || 0), 0);
+  const totalCustomerPaid = Math.max(totalCustomerBilled - totalCustomerDue, 0);
   return (
     <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center border-b border-slate-100 pb-8">
@@ -84,15 +104,15 @@ export default function CustomerDetails() {
           <p className="text-[10px] font-bold text-blue-400 mt-2 uppercase tracking-tighter">Total Trips</p>
         </div>
 
-        <div className="glass-card p-8 rounded-[2rem] border border-emerald-100 bg-emerald-50/30 relative overflow-hidden group">
+          <div className="glass-card p-8 rounded-[2rem] border border-emerald-100 bg-emerald-50/30 relative overflow-hidden group">
           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">Amount Paid</p>
-          <p className="text-4xl font-black text-emerald-600 mt-2 tracking-tighter">₹ {((customer.total_billed ?? 0) - (customer.pending_balance ?? 0)).toFixed(0)}</p>
+          <p className="text-4xl font-black text-emerald-600 mt-2 tracking-tighter">₹ {totalCustomerPaid.toFixed(0)}</p>
           <p className="text-[10px] font-bold text-emerald-400 mt-2 uppercase tracking-tighter">Total Paid</p>
         </div>
 
         <div className="glass-card p-8 rounded-[2rem] border border-rose-100 bg-rose-50/30 relative overflow-hidden group">
           <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest leading-none">Balance Due</p>
-          <p className="text-4xl font-black text-rose-600 mt-2 tracking-tighter">₹ {customer.pending_balance?.toFixed(0)}</p>
+          <p className="text-4xl font-black text-rose-600 mt-2 tracking-tighter">₹ {totalCustomerDue.toFixed(0)}</p>
           <p className="text-[10px] font-bold text-rose-400 mt-2 uppercase tracking-tighter">Balance Due</p>
         </div>
       </div>
@@ -155,8 +175,8 @@ export default function CustomerDetails() {
                       <span className="text-sm font-black text-slate-800 tracking-tight">₹{(t.total_charged ?? 0).toFixed(2)}</span>
                     </td>
                     <td className="p-6 text-right">
-                      <span className={`text-sm font-black tracking-tight ${t.pending_amount > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                        ₹{(t.pending_amount ?? 0).toFixed(2)}
+                      <span className={`text-sm font-black tracking-tight ${getTripDueAmount(t) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                        ₹{getTripDueAmount(t).toFixed(2)}
                       </span>
                     </td>
                   </tr>
