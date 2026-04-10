@@ -135,12 +135,12 @@ export default function Dashboard() {
         </div>
       </div>
       {/* MODAL */}
-      <Modal 
-        isOpen={modal.isOpen} 
-        onClose={closeModal} 
-        title={modal.title} 
-        message={modal.message} 
-        type={modal.type} 
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
       />
     </div>
   );

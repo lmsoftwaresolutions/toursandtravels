@@ -78,6 +78,30 @@ def _calculate_party_fuel_credit(trip_vehicles):
     return total
 
 
+def _calculate_total_fuel_cost(trip_vehicles, default_diesel_used=0, default_petrol_used=0):
+    if trip_vehicles:
+        total = 0
+        for entry in trip_vehicles:
+            fuel_cost = entry.get("fuel_cost", 0) or 0
+            if fuel_cost > 0:
+                total += fuel_cost
+                continue
+            total += (entry.get("diesel_used", 0) or 0) + (entry.get("petrol_used", 0) or 0)
+        return total
+    return (default_diesel_used or 0) + (default_petrol_used or 0)
+
+
+def _calculate_party_fuel_credit(trip_vehicles):
+    total = 0
+    for entry in trip_vehicles or []:
+        total += entry.get("vendor_deduction_amount", 0) or 0
+        total += sum(
+            (exp.get("amount", 0) if isinstance(exp, dict) else (exp.amount or 0))
+            for exp in entry.get("expenses", [])
+        )
+    return total
+
+
 def _normalize_trip_vehicles(trip_data):
     if trip_data.vehicles:
         return trip_data.vehicles
@@ -184,6 +208,10 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
             "vendor_deduction_amount": _get_entry_value(item, "vendor_deduction_amount", 0),
             "vendor_deduction_note": _get_entry_value(item, "vendor_deduction_note", None),
             "vendor_deduction_vendor": _get_entry_value(item, "vendor_deduction_vendor", None),
+            "vendor_deduction_description": _get_entry_value(item, "vendor_deduction_description", None),
+            "vendor_deduction_amount": _get_entry_value(item, "vendor_deduction_amount", 0),
+            "vendor_deduction_note": _get_entry_value(item, "vendor_deduction_note", None),
+            "vendor_deduction_vendor": _get_entry_value(item, "vendor_deduction_vendor", None),
             "expenses": _get_entry_value(item, "expenses", []),
             "driver_changes": _get_entry_value(item, "driver_changes", []),
         })
@@ -254,6 +282,10 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             vendor_deduction_amount=entry.get("vendor_deduction_amount", 0) if isinstance(entry, dict) else (entry.vendor_deduction_amount or 0),
             vendor_deduction_note=entry.get("vendor_deduction_note") if isinstance(entry, dict) else entry.vendor_deduction_note,
             vendor_deduction_vendor=entry.get("vendor_deduction_vendor") if isinstance(entry, dict) else entry.vendor_deduction_vendor,
+            vendor_deduction_description=entry.get("vendor_deduction_description") if isinstance(entry, dict) else entry.vendor_deduction_description,
+            vendor_deduction_amount=entry.get("vendor_deduction_amount", 0) if isinstance(entry, dict) else (entry.vendor_deduction_amount or 0),
+            vendor_deduction_note=entry.get("vendor_deduction_note") if isinstance(entry, dict) else entry.vendor_deduction_note,
+            vendor_deduction_vendor=entry.get("vendor_deduction_vendor") if isinstance(entry, dict) else entry.vendor_deduction_vendor,
         )
         db.add(tv)
         db.flush() # Get tv.id for nested expenses
@@ -263,7 +295,9 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             db.add(TripVehicleExpense(
                 trip_vehicle_id=tv.id,
                 expense_type=(exp.expense_type if hasattr(exp, "expense_type") else exp.get("expense_type")) or "Party Fuel Entry",
+                expense_type=(exp.expense_type if hasattr(exp, "expense_type") else exp.get("expense_type")) or "Party Fuel Entry",
                 amount=exp.amount if hasattr(exp, "amount") else exp.get("amount", 0),
+                vendor=exp.vendor if hasattr(exp, "vendor") else exp.get("vendor"),
                 vendor=exp.vendor if hasattr(exp, "vendor") else exp.get("vendor"),
                 notes=exp.notes if hasattr(exp, "notes") else exp.get("notes"),
             ))
@@ -346,6 +380,7 @@ def create_trip(db: Session, trip_data: TripCreate):
         else (trip_data.distance_km or 0)
     )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
+    effective_driver_bhatta = total_driver_bhatta if has_vehicle_entries else (trip_data.driver_bhatta or 0)
     number_of_vehicles = (
         len(validated_trip_vehicles)
         if uses_explicit_vehicle_entries and has_vehicle_entries
@@ -363,6 +398,7 @@ def create_trip(db: Session, trip_data: TripCreate):
         raise HTTPException(404, "Customer not found")
 
     total_vehicle_expenses = sum(
+        entry["fuel_cost"] + entry["toll_amount"] + entry["parking_amount"] + entry["other_expenses"] + entry["driver_bhatta"]
         entry["fuel_cost"] + entry["toll_amount"] + entry["parking_amount"] + entry["other_expenses"] + entry["driver_bhatta"]
         for entry in validated_trip_vehicles
     )
@@ -410,6 +446,8 @@ def create_trip(db: Session, trip_data: TripCreate):
     )
     total_credits = (trip_data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
     pending_amount = max(total_charged - total_credits, 0)
+    total_credits = (trip_data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
+    pending_amount = max(total_charged - total_credits, 0)
 
     trip = Trip(
         invoice_number=trip_data.invoice_number,
@@ -439,6 +477,7 @@ def create_trip(db: Session, trip_data: TripCreate):
         charged_toll_amount=trip_data.charged_toll_amount,
         charged_parking_amount=trip_data.charged_parking_amount,
         discount_amount=trip_data.discount_amount,
+        estimate_amount=trip_data.estimate_amount,
         estimate_amount=trip_data.estimate_amount,
         amount_received=trip_data.amount_received,
         advance_payment=trip_data.advance_payment,
@@ -519,6 +558,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
         else (data.distance_km or 0)
     )
     total_driver_bhatta = sum(entry["driver_bhatta"] or 0 for entry in validated_trip_vehicles)
+    effective_driver_bhatta = total_driver_bhatta if has_vehicle_entries else (data.driver_bhatta or 0)
     number_of_vehicles = (
         len(validated_trip_vehicles)
         if uses_explicit_vehicle_entries and has_vehicle_entries
@@ -560,6 +600,7 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
     trip.charged_toll_amount = data.charged_toll_amount
     trip.charged_parking_amount = data.charged_parking_amount
     trip.discount_amount = data.discount_amount
+    trip.estimate_amount = data.estimate_amount
     trip.estimate_amount = data.estimate_amount
     trip.amount_received = data.amount_received
     trip.advance_payment = data.advance_payment
@@ -608,6 +649,8 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
         data.other_expenses -
         (data.discount_amount or 0)
     )
+    total_credits = (data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
+    trip.pending_amount = max(trip.total_charged - total_credits, 0)
     total_credits = (data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
     trip.pending_amount = max(trip.total_charged - total_credits, 0)
 

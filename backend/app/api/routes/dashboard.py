@@ -67,10 +67,22 @@ def dashboard_summary(
         )
         for trip in trip_query.all()
     )
+    total_due = sum(
+        max(
+            (trip.total_charged or 0)
+            - (trip.amount_received or 0)
+            - trip.get_party_fuel_credit(),
+            0,
+        )
+        for trip in trip_query.all()
+    )
 
     # -------- OPERATING EXPENSES --------
     trip_fuel_cost = trip_query.with_entities(
         func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0)
+    ).scalar()
+    driver_bhatta_cost = trip_query.with_entities(
+        func.coalesce(func.sum(Trip.driver_bhatta), 0)
     ).scalar()
     driver_bhatta_cost = trip_query.with_entities(
         func.coalesce(func.sum(Trip.driver_bhatta), 0)
