@@ -22,8 +22,6 @@ export default function Dashboard() {
   const isAdmin = authService.isAdmin();
   const canCreateNotes = true;
   const canModifyNotes = !authService.hasLimitedAccess();
-  const canCreateNotes = true;
-  const canModifyNotes = !authService.hasLimitedAccess();
   const today = new Date();
   const [dashboardMonth, setDashboardMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
