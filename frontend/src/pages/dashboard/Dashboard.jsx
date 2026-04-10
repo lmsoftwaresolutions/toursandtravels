@@ -20,7 +20,8 @@ export default function Dashboard() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const isAdmin = authService.isAdmin();
-  const canWrite = !authService.hasLimitedAccess();
+  const canCreateNotes = true;
+  const canModifyNotes = !authService.hasLimitedAccess();
   const today = new Date();
   const [dashboardMonth, setDashboardMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
@@ -94,7 +95,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <KPI title="Total Trips" value={data.trips} note="This month" />
           <KPI title="Total Revenue" value={`₹${data.income.toLocaleString()}`} note="Invoice total" />
-          <KPI title="Operating Expense" value={`₹${data.expenses.toLocaleString()}`} note="Fuel + spare + maintenance + toll + parking" />
+          <KPI title="Operating Expense" value={`₹${data.expenses.toLocaleString()}`} note="Spare + maintenance + toll + parking" />
           <KPI
             title="Net Profit"
             value={`₹${data.profit.toLocaleString()}`}
@@ -128,7 +129,8 @@ export default function Dashboard() {
           <TripScheduleChart
             vehicles={isAdmin ? data.vehicles : vehicles}
             scheduleMonth={dashboardMonth}
-            canWrite={canWrite}
+            canCreateNotes={canCreateNotes}
+            canModifyNotes={canModifyNotes}
           />
         </div>
       </div>
@@ -171,7 +173,8 @@ function KPI({ title, value, note, highlight }) {
 function TripScheduleChart({
   vehicles,
   scheduleMonth,
-  canWrite
+  canCreateNotes,
+  canModifyNotes
 }) {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
@@ -295,7 +298,7 @@ function TripScheduleChart({
   const vehicleList = vehicles?.length ? vehicles : [];
 
   const openAddNote = (date, vehicle) => {
-    if (!canWrite) return;
+    if (!canCreateNotes) return;
     setEditingNoteId(null);
     setNoteText("");
     setNoteDate(date || "");
@@ -305,7 +308,7 @@ function TripScheduleChart({
   };
 
   const openEditNote = (note) => {
-    if (!canWrite) return;
+    if (!canModifyNotes) return;
     const vehicleId = note?.vehicle_id;
     const vehicle = (vehicleList || []).find(v => v.id === vehicleId);
     setEditingNoteId(note?.id || null);
@@ -317,7 +320,8 @@ function TripScheduleChart({
   };
 
   const handleSaveNote = async () => {
-    if (!canWrite) return;
+    if (editingNoteId && !canModifyNotes) return;
+    if (!editingNoteId && !canCreateNotes) return;
     if (!noteDate || !noteVehicleId || !noteText.trim()) {
       alert("Please select date, vehicle, and enter a note.");
       return;
@@ -342,7 +346,7 @@ function TripScheduleChart({
   };
 
   const handleDeleteNote = async (noteId) => {
-    if (!canWrite || !noteId) return;
+    if (!canModifyNotes || !noteId) return;
     try {
       await api.delete(`/vehicle-notes/${noteId}`);
       loadNotes();
@@ -411,7 +415,7 @@ function TripScheduleChart({
                               <div className="text-xs text-amber-900 leading-relaxed font-medium">
                                 {n.note}
                               </div>
-                              {canWrite ? (
+                              {canModifyNotes ? (
                                 <div className="flex justify-end gap-3 mt-2 opacity-0 group-hover/note:opacity-100 transition-opacity">
                                   <button
                                     type="button"

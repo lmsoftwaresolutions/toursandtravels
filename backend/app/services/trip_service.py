@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -443,8 +444,13 @@ def get_trips_by_vehicle(db: Session, vehicle_number: str):
 def get_trips_by_driver(db: Session, driver_id: int):
     return (
         db.query(Trip)
-        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(TripVehicle.driver_id == driver_id)
+        .outerjoin(TripVehicle, TripVehicle.trip_id == Trip.id)
+        .filter(
+            or_(
+                TripVehicle.driver_id == driver_id,
+                Trip.driver_id == driver_id,
+            )
+        )
         .order_by(Trip.trip_date.desc())
         .distinct()
         .all()
