@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from app.models.vendor_payment import VendorPayment
+from app.models.trip import Trip
 from app.schemas.vendor_payment import VendorPaymentCreate
 
 
@@ -13,6 +15,10 @@ def list_payments_by_vendor(db: Session, vendor_id: int):
 
 
 def create_vendor_payment(db: Session, data: VendorPaymentCreate):
+    trip = db.query(Trip).filter(Trip.id == data.trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
     payment = VendorPayment(**data.dict())
     db.add(payment)
     db.commit()

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect
 from typing import List
 
 from app.database.session import SessionLocal
@@ -20,9 +21,17 @@ def get_db():
     finally:
         db.close()
 
+
+def _ensure_quotations_table(db: Session) -> None:
+    bind = db.get_bind()
+    inspector = inspect(bind)
+    if not inspector.has_table("quotations"):
+        Quotation.__table__.create(bind, checkfirst=True)
+
 # ---------------- CREATE QUOTATION ----------------
 @router.post("", response_model=QuotationResponse)
 def create_quotation(quotation: QuotationCreate, db: Session = Depends(get_db)):
+    _ensure_quotations_table(db)
     db_quotation = Quotation(**quotation.model_dump())
     db.add(db_quotation)
     db.commit()
@@ -32,11 +41,13 @@ def create_quotation(quotation: QuotationCreate, db: Session = Depends(get_db)):
 # ---------------- GET ALL QUOTATIONS ----------------
 @router.get("", response_model=List[QuotationResponse])
 def get_all_quotations(db: Session = Depends(get_db)):
+    _ensure_quotations_table(db)
     return db.query(Quotation).filter(Quotation.is_deleted == False).order_by(Quotation.created_at.desc()).all()
 
 # ---------------- GET SINGLE QUOTATION ----------------
 @router.get("/{id}", response_model=QuotationResponse)
 def get_quotation(id: int, db: Session = Depends(get_db)):
+    _ensure_quotations_table(db)
     quotation = db.query(Quotation).filter(Quotation.id == id, Quotation.is_deleted == False).first()
     if not quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
@@ -50,6 +61,7 @@ def update_quotation(
     db: Session = Depends(get_db),
     current_user=Depends(require_write_access),
 ):
+    _ensure_quotations_table(db)
     db_quotation = db.query(Quotation).filter(Quotation.id == id, Quotation.is_deleted == False).first()
     if not db_quotation:
         raise HTTPException(status_code=404, detail="Quotation not found")
@@ -64,6 +76,7 @@ def update_quotation(
 # ---------------- DELETE QUOTATION ----------------
 @router.delete("/{id}")
 def delete_quotation(id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    _ensure_quotations_table(db)
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to delete quotations")
     

@@ -23,10 +23,7 @@ const getTripDuration = (start, end) => {
   if (hours) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
   if (mins || parts.length === 0) parts.push(`${mins} min${mins !== 1 ? "s" : ""}`);
 
-  const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  const dayDiff = Math.floor((endDay - startDay) / 86400000);
-  const totalDays = dayDiff + 1;
+  const totalDays = Math.max(Math.ceil(totalMinutes / 1440), 1);
   return { text: parts.join(" "), totalDays };
 };
 
@@ -183,9 +180,15 @@ export default function BookingReceipt() {
           
           <ReceiptField label="Travel Time" value={travelTime} />
           <ReceiptField label="Total Days" value={totalDays || "-"} />
-          
-          <ReceiptField label="Total Fare" value={trip.total_amount ? `₹${trip.total_amount}` : (trip.rate_per_km ? `₹${trip.rate_per_km} / km` : "-")} />
-          <ReceiptField label="Advance Paid" value={`₹${Number(totalAdvance || 0).toFixed(2)}`} />
+          <ReceiptField
+            label="Total Fare / Estimate"
+            value={
+              trip.estimate_amount != null
+                ? `Rs. ${Number(trip.estimate_amount).toFixed(2)}`
+                : (trip.total_charged != null ? `Rs. ${Number(trip.total_charged).toFixed(2)}` : "-")
+            }
+          />
+          <ReceiptField label="Advance Paid" value={`Rs. ${Number(totalAdvance || 0).toFixed(2)}`} />
           
           <ReceiptField label="Payment Mode(s)" value={paymentModeText} />
           <ReceiptField label="Reference / Nts" value={paymentNotes} />

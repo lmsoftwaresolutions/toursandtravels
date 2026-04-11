@@ -218,7 +218,8 @@ export default function Reports() {
     }, 0);
     const invoiceOtherExpenses = filteredTrips.reduce((sum, t) => sum + Number(t.other_expenses || 0), 0);
     const invoiceDiscount = filteredTrips.reduce((sum, t) => sum + Number(t.discount_amount || 0), 0);
-    const invoiceBaseFare = Math.max(
+    const tripDriverBhatta = filteredTrips.reduce((sum, t) => sum + Number(t.driver_bhatta || 0), 0);
+    const rawInvoiceBaseFare = Math.max(
       totalRevenue -
         invoiceCustomPricing -
         invoiceChargedToll -
@@ -228,11 +229,12 @@ export default function Reports() {
         invoiceDiscount,
       0
     );
-
     const tripFuelExpenses = filteredTrips.reduce(
       (sum, t) => sum + Number(t.diesel_used || 0) + Number(t.petrol_used || 0),
       0
     );
+    const invoiceBaseFare = Math.max(rawInvoiceBaseFare - tripFuelExpenses - tripDriverBhatta, 0);
+
     const directFuelExpenses = filteredFuelEntries.reduce((sum, f) => sum + Number(f.total_cost || 0), 0);
     const fuelExpenses = tripFuelExpenses + directFuelExpenses;
     const spareExpenses = filteredSpareEntries.reduce((sum, s) => sum + Number(s.cost || 0) * Number(s.quantity || 0), 0);
@@ -996,4 +998,3 @@ function EmptyRow({ colSpan }) {
     </tr>
   );
 }
-

@@ -40,11 +40,12 @@ export default function VendorDetails() {
   const [fuelHistory, setFuelHistory] = useState([]);
   const [spareHistory, setSpareHistory] = useState([]);
   const [tripHistory, setTripHistory] = useState([]);
+  const [allTrips, setAllTrips] = useState([]);
   const [mechanicHistory, setMechanicHistory] = useState([]);
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("fuel");
   const [payments, setPayments] = useState([]);
-  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "" });
+  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "", trip_id: "" });
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -56,6 +57,16 @@ export default function VendorDetails() {
 
   const loadVendorData = useCallback(async () => {
     try {
+      setFuelHistory([]);
+      setSpareHistory([]);
+      setTripHistory([]);
+      setAllTrips([]);
+      setMechanicHistory([]);
+      setPayments([]);
+      setSummary(null);
+      setPayForm({ amount: "", paid_on: "", notes: "", trip_id: "" });
+      setSelectedPayment(null);
+
       // Get vendor details
       const vendorRes = await api.get(`/vendors`);
       const vendorData = vendorRes.data.find(v => v.id === Number(id));
@@ -86,6 +97,9 @@ export default function VendorDetails() {
       const summaryRes = await api.get(`/vendors/${id}/summary`);
       setSummary(summaryRes.data);
 
+      const tripRes = await api.get("/trips");
+      setAllTrips(tripRes.data);
+
       // Only load fuel history for fuel vendors
       if (supportsFuel) {
         // Get separate fuel entries
@@ -93,7 +107,6 @@ export default function VendorDetails() {
         const fuelEntries = fuelRes.data.filter(f => normalizeVendorName(f.vendor) === vendorNameKey);
 
         // Get trips with fuel for this vendor and convert to fuel entries
-        const tripRes = await api.get("/trips");
         const tripUsesVendor = (trip) => {
           const tripVendorMatch = normalizeVendorName(trip.vendor) === vendorNameKey;
           const vehicleVendorMatch = (trip.vehicles || []).some(
@@ -157,7 +170,8 @@ export default function VendorDetails() {
               rate_per_litre: Number(rate.toFixed(2)),
               total_cost: totalCost,
               vendor: vendorData.name,
-              trip_id: t.id
+              trip_id: t.id,
+              invoice_number: t.invoice_number || `Trip #${t.id}`
             };
           });
 
@@ -216,6 +230,24 @@ export default function VendorDetails() {
     };
   }, [loadVendorData]);
 
+  const tripLookup = useMemo(
+    () => new Map(allTrips.map((trip) => [Number(trip.id), trip])),
+    [allTrips]
+  );
+
+  const formatTripLabel = (trip) => {
+    if (!trip) return "-";
+    const invoiceLabel = trip.invoice_number || `Trip #${trip.id}`;
+    const dateLabel = trip.trip_date ? formatDateDDMMYYYY(trip.trip_date) : "";
+    const vehicleLabel = trip.vehicle_number ? ` | ${trip.vehicle_number}` : "";
+    return `${invoiceLabel}${vehicleLabel}${dateLabel ? ` | ${dateLabel}` : ""}`;
+  };
+
+  const getPaymentTripLabel = (tripId) => {
+    if (!tripId) return "Unlinked";
+    return formatTripLabel(tripLookup.get(Number(tripId)));
+  };
+
   const totalFuelCost = Number(summary?.fuel_total || 0);
   const totalSpareCost = Number(summary?.spare_total || 0);
   const totalMechanicCost = Number(summary?.mechanic_total || 0);
@@ -243,7 +275,7 @@ export default function VendorDetails() {
       date: entry.filled_date,
       vehicle: entry.vehicle_number || "-",
       description: entry.trip_id
-        ? `${entry.fuel_type} fuel recorded against trip #${entry.trip_id}`
+        ? `${entry.fuel_type} fuel • ${entry.invoice_number || `Trip #${entry.trip_id}`}`
         : `${entry.fuel_type} fuel purchase`,
       amount: Number(entry.total_cost || 0),
       meta: `${Number(entry.quantity || 0).toFixed(2)} L at ${formatMoney(entry.rate_per_litre)}`,
@@ -361,9 +393,10 @@ export default function VendorDetails() {
 
   const submitPayment = async (e) => {
     e.preventDefault();
-    if (!payForm.amount || !payForm.paid_on) return;
+    if (!payForm.amount || !payForm.paid_on || !payForm.trip_id) return;
     const payload = {
       vendor_id: Number(id),
+      trip_id: Number(payForm.trip_id),
       amount: Number(payForm.amount),
       paid_on: payForm.paid_on,
       notes: payForm.notes || undefined,
@@ -372,7 +405,7 @@ export default function VendorDetails() {
       await api.post("/vendor-payments", payload);
       alert("Payment recorded successfully");
       await loadVendorData();
-      setPayForm({ amount: "", paid_on: "", notes: "" });
+      setPayForm({ amount: "", paid_on: "", notes: "", trip_id: "" });
     } catch (err) {
       console.error("Payment submit error:", err);
       alert("Error recording payment: " + (err.response?.data?.detail || err.message));
@@ -408,8 +441,13 @@ export default function VendorDetails() {
       if (activeTab === "payments") {
         return {
           title: "Payments",
-          headers: ["Date", "Amount", "Reference"],
-          rows: payments.map((p) => [formatDateDDMMYYYY(p.paid_on), formatMoney(p.amount), p.notes || "-"]),
+          headers: ["Date", "Amount", "Trip / Invoice", "Reference"],
+          rows: payments.map((p) => [
+            formatDateDDMMYYYY(p.paid_on),
+            formatMoney(p.amount),
+            getPaymentTripLabel(p.trip_id),
+            p.notes || "-",
+          ]),
         };
       }
       if (activeTab === "spare") {
@@ -452,10 +490,11 @@ export default function VendorDetails() {
       }
       return {
         title: "Fuel Entries",
-        headers: ["Date", "Vehicle", "Fuel", "Litres", "Rate", "Total"],
+        headers: ["Date", "Vehicle", "Invoice", "Fuel", "Litres", "Rate", "Total"],
         rows: fuelHistory.map((f) => [
           formatDateDDMMYYYY(f.filled_date),
           f.vehicle_number,
+          f.invoice_number || "-",
           f.fuel_type,
           f.quantity,
           formatMoney(f.rate_per_litre),
@@ -911,7 +950,7 @@ export default function VendorDetails() {
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Add Payment
             </h2>
-            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
                 <input
@@ -933,6 +972,22 @@ export default function VendorDetails() {
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip / Invoice</label>
+                <select
+                  value={payForm.trip_id}
+                  onChange={(e) => setPayForm({ ...payForm, trip_id: e.target.value })}
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  required
+                >
+                  <option value="">Select Trip / Invoice</option>
+                  {allTrips.map((trip) => (
+                    <option key={trip.id} value={trip.id}>
+                      {formatTripLabel(trip)}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2 md:col-span-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference</label>
@@ -956,15 +1011,16 @@ export default function VendorDetails() {
                 <tr className="bg-slate-50/50">
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Date</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Amount</th>
+                  <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Trip / Invoice</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Reference</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Charge Details</th>
-                  <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Action</th>
+                  <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {payments.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="p-20 text-center opacity-20">
+                    <td colSpan="6" className="p-20 text-center opacity-20">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em]">No payments found</p>
                     </td>
                   </tr>
@@ -977,6 +1033,7 @@ export default function VendorDetails() {
                       <tr key={p.id} className="group hover:bg-slate-50/50 transition-colors">
                         <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(p.paid_on)}</td>
                         <td className="p-6 text-sm font-black text-slate-800 tabular-nums">Rs. {Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="p-6 text-sm font-bold text-slate-700">{getPaymentTripLabel(p.trip_id)}</td>
                         <td className="p-6 text-sm font-bold text-slate-500">{p.notes || "-"}</td>
                         <td className="p-6 text-sm text-slate-500">
                           {allocation.allocations.length === 0 ? (
@@ -998,7 +1055,7 @@ export default function VendorDetails() {
                           )}
                         </td>
                         <td className="p-6">
-                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex justify-end gap-2">
                             <button
                               onClick={() => setSelectedPayment(p)}
                               className="h-10 px-4 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm"
@@ -1033,6 +1090,7 @@ export default function VendorDetails() {
               <tr className="bg-slate-50/50">
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Date</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicle</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Invoice</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Fuel Type</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Litres</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Rate</th>
@@ -1042,13 +1100,14 @@ export default function VendorDetails() {
             <tbody className="divide-y divide-slate-50">
               {fuelHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No fuel entries found</td>
+                  <td colSpan="7" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No fuel entries found</td>
                 </tr>
               ) : (
                 fuelHistory.map(f => (
                   <tr key={f.id} className="group hover:bg-slate-50/50 transition-colors">
                     <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(f.filled_date)}</td>
                     <td className="p-6 text-sm font-black text-slate-800">{f.vehicle_number}</td>
+                    <td className="p-6 text-[10px] font-black text-blue-600 uppercase tracking-widest">{f.invoice_number || "-"}</td>
                     <td className="p-6">
                       <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-black uppercase tracking-wider">{f.fuel_type}</span>
                     </td>
@@ -1142,12 +1201,13 @@ export default function VendorDetails() {
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Tactical Route</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Metric Dist.</th>
                 <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Energy Value</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Pending</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {tripHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">Zero operational trips recorded</td>
+                  <td colSpan="6" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">Zero operational trips recorded</td>
                 </tr>
               ) : (
                 tripHistory.map(t => (
@@ -1165,11 +1225,93 @@ export default function VendorDetails() {
                     <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">
                       Rs. {((t.diesel_used || 0) + (t.petrol_used || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="p-6 text-right text-sm font-black tabular-nums">
+                      {Number(t.pending_amount || 0) > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+                          Rs. {Number(t.pending_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {selectedPayment && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vendor Payment</p>
+                <h3 className="text-2xl font-black text-slate-900">Payment Details</h3>
+              </div>
+              <button
+                onClick={() => setSelectedPayment(null)}
+                className="h-10 w-10 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
+                aria-label="Close payment details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
+                <p className="mt-2 text-base font-black text-slate-900">{formatDateDDMMYYYY(selectedPayment.paid_on)}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</p>
+                <p className="mt-2 text-base font-black text-slate-900">Rs. {Number(selectedPayment.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trip / Invoice</p>
+                <p className="mt-2 text-base font-black text-slate-900">{getPaymentTripLabel(selectedPayment.trip_id)}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reference</p>
+                <p className="mt-2 text-base font-black text-slate-900">{selectedPayment.notes || "-"}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-100 p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Allocation</p>
+              <p className="mt-2 text-lg font-black text-slate-900">
+                {selectedPaymentAllocation?.allocations?.length || 0} charge{(selectedPaymentAllocation?.allocations?.length || 0) === 1 ? "" : "s"} covered
+              </p>
+              <div className="mt-3 space-y-2">
+                {(selectedPaymentAllocation?.allocations || []).map((entry) => (
+                  <div key={`${selectedPayment.id}-${entry.id}`} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+                    <span>{entry.source} | {entry.vehicle}</span>
+                    <span>{formatMoney(entry.coveredAmount)}</span>
+                  </div>
+                ))}
+              </div>
+              {selectedPaymentAllocation?.unallocatedAmount > 0 && (
+                <p className="mt-3 text-sm font-black text-amber-600">
+                  Unallocated: {formatMoney(selectedPaymentAllocation.unallocatedAmount)}
+                </p>
+              )}
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Covered</p>
+                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentReceivedAmount)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Charges</p>
+                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentActualAmount)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pending</p>
+                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentPendingAmount)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -49,6 +49,7 @@ class Trip(Base):
     charged_toll_amount = Column(Float, default=0)
     charged_parking_amount = Column(Float, default=0)
     discount_amount = Column(Float, default=0)
+    estimate_amount = Column(Float, nullable=True)
     amount_received = Column(Float, default=0)
     advance_payment = Column(Float, default=0)
     total_charged = Column(Float, default=0)
@@ -80,6 +81,15 @@ class Trip(Base):
         back_populates="trip"
     )
 
+    def get_party_fuel_credit(self):
+        total = 0
+        for vehicle in self.vehicles or []:
+            total += float(vehicle.vendor_deduction_amount or 0)
+            for expense in vehicle.expenses or []:
+                total += float(expense.amount or 0)
+        return total
+
     def calculate_pending_amount(self):
         """Calculate and update pending amount"""
-        self.pending_amount = max(0, (self.total_charged or 0) - (self.amount_received or 0))
+        total_credits = (self.amount_received or 0) + self.get_party_fuel_credit()
+        self.pending_amount = max(0, (self.total_charged or 0) - total_credits)

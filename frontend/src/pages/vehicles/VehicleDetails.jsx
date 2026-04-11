@@ -137,6 +137,26 @@ export default function VehicleDetails() {
           reference: trip.invoice_number || `Trip #${trip.id}`,
         };
       }),
+    // Add party fuel entries from trip vehicle expenses
+    ...tripFuelEntries.flatMap((trip) => {
+      const matchingVehicle = (trip.vehicles || []).find(
+        (v) => normalizeVehicleNumber(v.vehicle_number) === targetVehicleNumber
+      );
+      if (!matchingVehicle || !Array.isArray(matchingVehicle.expenses)) return [];
+      return matchingVehicle.expenses
+        .filter((exp) => Number(exp.amount || 0) > 0)
+        .map((exp, idx) => ({
+          id: `party-fuel-${trip.id}-${idx}`,
+          source: "party_fuel",
+          filled_date: trip.trip_date,
+          fuel_type: "party fuel",
+          vendor: exp.vendor || "-",
+          quantity: "-",
+          rate_per_litre: null,
+          total_cost: Number(exp.amount || 0),
+          reference: `${trip.invoice_number || `Trip #${trip.id}`} • ${exp.expense_type || "Party Fuel"}`,
+        }));
+    }),
   ].sort((a, b) => new Date(b.filled_date) - new Date(a.filled_date));
 
   return (
@@ -261,6 +281,7 @@ export default function VehicleDetails() {
                     <tr className="bg-slate-50/30">
                       <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Fill Date</th>
                       <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Source</th>
+                      <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Invoice</th>
                       <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Fuel Type</th>
                       <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vendor</th>
                       <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Litres</th>
@@ -273,7 +294,10 @@ export default function VehicleDetails() {
                       <tr key={entry.id} className="group hover:bg-slate-50/40 transition-colors">
                         <td className="p-6 text-sm font-black text-slate-500">{formatDateDDMMYYYY(entry.filled_date)}</td>
                         <td className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          {entry.source === "trip_usage" ? entry.reference : "Fuel Entry"}
+                          {entry.source === "trip_usage" || entry.source === "party_fuel" ? entry.reference : "Fuel Entry"}
+                        </td>
+                        <td className="p-6 text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                          {entry.source === "trip_usage" || entry.source === "party_fuel" ? (entry.reference || "-") : "-"}
                         </td>
                         <td className="p-6 text-sm font-black text-slate-700 capitalize">{entry.fuel_type}</td>
                         <td className="p-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">{entry.vendor || "-"}</td>

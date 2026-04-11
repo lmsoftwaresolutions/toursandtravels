@@ -26,26 +26,36 @@ export default function PrintLayout({ children, title, printTimestamp }) {
         </div>
 
         {/* Body Content */}
-        <div className="content-area flex-grow flex flex-col pt-6 px-4 pb-2">
-          {children}
-
-          {/* Footer Signatures */}
-          <div className="flex justify-between items-end mt-auto pt-12 pb-4 text-red-600 w-full break-inside-avoid">
-            <div className="flex items-center justify-start h-[60px] w-[180px]">
-              <img src={NathkrupaBus} alt="Bus" className="h-[60px] object-contain opacity-80" />
-            </div>
-            <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
-              <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Customer Signature</span>
-            </div>
-            <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
-              <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Authorized Signatory</span>
-            </div>
+        <div className="content-area relative flex-grow flex flex-col pt-6 px-4 pb-2 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
+            <img
+              src={NathkrupaReceiptLogo}
+              alt=""
+              aria-hidden="true"
+              className="w-[420px] max-w-[70%] object-contain opacity-[0.06] rotate-[-18deg] print:opacity-[0.08]"
+            />
           </div>
-          {printTimestamp ? (
-            <div className="hidden print:block text-[9px] font-bold text-slate-600 text-right pb-2">
-              Printed: {printTimestamp}
+          <div className="relative z-10 flex flex-col grow">
+            {children}
+
+            {/* Footer Signatures */}
+            <div className="flex justify-between items-end mt-auto pt-12 pb-4 text-red-600 w-full break-inside-avoid">
+              <div className="flex items-center justify-start h-[60px] w-[180px]">
+                <img src={NathkrupaBus} alt="Bus" className="h-[60px] object-contain opacity-80" />
+              </div>
+              <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
+                <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Customer Signature</span>
+              </div>
+              <div className="flex flex-col items-center justify-end h-[60px] w-[180px]">
+                <span className="text-[12px] font-bold uppercase drop-shadow-sm border-t-[1.5px] border-black border-dashed w-full text-center pt-1.5 text-black">Authorized Signatory</span>
+              </div>
             </div>
-          ) : null}
+            {printTimestamp ? (
+              <div className="hidden print:block text-[9px] font-bold text-slate-600 text-right pb-2">
+                Printed: {printTimestamp}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

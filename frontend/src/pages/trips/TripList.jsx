@@ -24,6 +24,22 @@ export default function Trips() {
   const pageSize = 10;
   const canWrite = !authService.hasLimitedAccess();
 
+  const getPartyFuelCredit = (trip) =>
+    (trip.vehicles || []).reduce((sum, vehicle) => {
+      const directCredit = Number(vehicle.vendor_deduction_amount || 0);
+      const entryCredits = (vehicle.expenses || []).reduce(
+        (subtotal, exp) => subtotal + Number(exp.amount || 0),
+        0
+      );
+      return sum + directCredit + entryCredits;
+    }, 0);
+
+  const getDueAmount = (trip) => {
+    const totalCharged = Number(trip.total_charged || 0);
+    const received = Number(trip.amount_received || 0);
+    return Math.max(totalCharged - received - getPartyFuelCredit(trip), 0);
+  };
+
   // Modal State
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
   const showModal = (title, message, type = "error", onConfirm = null) => 
@@ -287,8 +303,8 @@ export default function Trips() {
                     </td>
                     <td className="p-6 hidden lg:table-cell text-right">
                       <div className="text-lg font-black text-slate-800 tracking-tight">₹{(trip.total_charged ?? 0).toLocaleString()}</div>
-                      {trip.pending_amount > 0 ? (
-                        <div className="text-[10px] text-rose-500 font-black uppercase mt-1 tracking-widest">₹{trip.pending_amount.toLocaleString()} Due</div>
+                      {getDueAmount(trip) > 0 ? (
+                        <div className="text-[10px] text-rose-500 font-black uppercase mt-1 tracking-widest">₹{getDueAmount(trip).toLocaleString()} Due</div>
                       ) : (
                         <div className="text-[10px] text-emerald-500 font-black uppercase mt-1 tracking-widest">Paid in Full</div>
                       )}

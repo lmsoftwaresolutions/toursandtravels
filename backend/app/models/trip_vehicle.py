@@ -33,6 +33,11 @@ class TripVehicle(Base):
     other_expenses = Column(Float, default=0)
     bus_type = Column(String, nullable=True)
 
+    vendor_deduction_description = Column(String, nullable=True)
+    vendor_deduction_amount = Column(Float, default=0)
+    vendor_deduction_note = Column(String, nullable=True)
+    vendor_deduction_vendor = Column(String, nullable=True)
+
     trip = relationship("Trip", back_populates="vehicles")
     vehicle = relationship("Vehicle")
     driver = relationship("Driver")

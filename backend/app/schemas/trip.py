@@ -65,14 +65,18 @@ class TripVehicleCreate(TripVehicleBase):
     parking_amount: float = 0
     other_expenses: float = 0
     bus_type: Optional[str] = None
-    
+    vendor_deduction_description: Optional[str] = None
+    vendor_deduction_amount: float = 0
+    vendor_deduction_note: Optional[str] = None
+    vendor_deduction_vendor: Optional[str] = None
     # Nested data within vehicle
     driver_changes: List[TripDriverChangeCreate] = []
     expenses: List["TripVehicleExpenseCreate"] = []
 
 class TripVehicleExpenseBase(BaseModel):
-    expense_type: str
+    expense_type: str = ""
     amount: float = 0
+    vendor: Optional[str] = None
     notes: Optional[str] = None
 
 class TripVehicleExpenseCreate(TripVehicleExpenseBase):
@@ -95,6 +99,10 @@ class TripVehicleResponse(TripVehicleBase):
     parking_amount: float
     other_expenses: float
     bus_type: Optional[str]
+    vendor_deduction_description: Optional[str] = None
+    vendor_deduction_amount: float = 0
+    vendor_deduction_note: Optional[str] = None
+    vendor_deduction_vendor: Optional[str] = None
     
     expenses: List[TripVehicleExpenseResponse] = []
 
@@ -133,6 +141,7 @@ class TripCreate(BaseModel):
     charged_toll_amount: float = 0
     charged_parking_amount: float = 0
     discount_amount: float = 0
+    estimate_amount: float | None = None
     amount_received: float = 0
     advance_payment: float = 0
 
@@ -188,6 +197,7 @@ class TripUpdate(BaseModel):
     charged_toll_amount: float = 0
     charged_parking_amount: float = 0
     discount_amount: float = 0
+    estimate_amount: float | None = None
     amount_received: float = 0
     advance_payment: float = 0
 
@@ -251,6 +261,7 @@ class TripResponse(BaseModel):
     charged_toll_amount: float
     charged_parking_amount: float
     discount_amount: float
+    estimate_amount: float | None
     amount_received: float
     advance_payment: float
     total_charged: float

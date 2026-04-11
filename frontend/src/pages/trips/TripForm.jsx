@@ -25,6 +25,10 @@ const createVehicleEntry = () => ({
   toll_amount: 0,
   parking_amount: 0,
   other_expenses: 0,
+  vendor_deduction_description: "",
+  vendor_deduction_amount: "",
+  vendor_deduction_note: "",
+  vendor_deduction_vendor: "",
   expenses: [],
   driver_changes: [],
   cost_per_km: "",
@@ -64,6 +68,7 @@ const createInitialFormState = () => ({
   charged_parking_amount: "",
   other_expenses: "",
   discount_amount: "",
+  estimate_amount: "",
   amount_received: "",
   advance_payment: "", // Note: legacy field
   pricing_type: "per_km",
@@ -194,6 +199,7 @@ export default function TripForm() {
             charged_toll_amount: trip.charged_toll_amount || "",
             charged_parking_amount: trip.charged_parking_amount || "",
             discount_amount: trip.discount_amount || "",
+            estimate_amount: trip.estimate_amount ?? "",
             amount_received: trip.amount_received || "",
             pricing_type: trip.pricing_type || "per_km",
             package_amount: trip.package_amount || "",
@@ -211,6 +217,10 @@ export default function TripForm() {
               cost_per_km: ve.cost_per_km ?? trip.cost_per_km ?? "",
               pricing_type: ve.pricing_type || trip.pricing_type || "per_km",
               package_amount: ve.package_amount ?? trip.package_amount ?? "",
+              vendor_deduction_description: ve.vendor_deduction_description || "",
+              vendor_deduction_amount: ve.vendor_deduction_amount ?? "",
+              vendor_deduction_note: ve.vendor_deduction_note || "",
+              vendor_deduction_vendor: ve.vendor_deduction_vendor || "",
               expenses: ve.expenses || [],
               // Filter driver changes for THIS vehicle number
               driver_changes: (trip.driver_changes || []).filter(dc => dc.vehicle_number === ve.vehicle_number)
@@ -236,6 +246,10 @@ export default function TripForm() {
               toll_amount: trip.toll_amount ?? 0,
               parking_amount: trip.parking_amount ?? 0,
               other_expenses: 0,
+              vendor_deduction_description: trip.vendor_deduction_description || "",
+              vendor_deduction_amount: trip.vendor_deduction_amount ?? "",
+              vendor_deduction_note: trip.vendor_deduction_note || "",
+              vendor_deduction_vendor: trip.vendor_deduction_vendor || "",
               cost_per_km: trip.cost_per_km ?? "",
               pricing_type: trip.pricing_type || "per_km",
               package_amount: trip.package_amount ?? "",
@@ -381,7 +395,7 @@ export default function TripForm() {
 
   const addExpenseToVehicle = (vIdx) => {
     setVehicleEntries(prev => prev.map((entry, i) =>
-      i === vIdx ? { ...entry, expenses: [...entry.expenses, { expense_type: "", amount: "", notes: "" }] } : entry
+      i === vIdx ? { ...entry, expenses: [...entry.expenses, { expense_type: "", amount: "", vendor: "", notes: "" }] } : entry
     ));
   };
 
@@ -470,10 +484,6 @@ export default function TripForm() {
   const removeDriverChange = (idx) => setDriverChanges(driverChanges.filter((_, i) => i !== idx));
 
   const saveNewCustomer = async () => {
-    if (!newCustomerForm.name) {
-      showModal("Validation Error", "Customer Name is required.", "error");
-      return;
-    }
     if (newCustomerForm.phone && !isValidIndianPhone(newCustomerForm.phone)) {
       showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
       return;
@@ -511,11 +521,7 @@ export default function TripForm() {
     if (loading) return;
     setLoading(true);
     try {
-      if (form.customer_phone && !isValidIndianPhone(form.customer_phone)) {
-        showModal("Validation Error", "Phone number must be a valid 10-digit Indian mobile number.");
-        setLoading(false);
-        return;
-      }
+      // Phone validation removed - all fields are optional
       const normalizedCustomerPhone = form.customer_phone ? normalizeIndianPhone(form.customer_phone) : null;
       let customer_id = form.customer_id;
 
@@ -529,18 +535,39 @@ export default function TripForm() {
           return;
         }
       }
+      if (!customer_id) {
+        const fallbackName = (form.customer_name || "").trim() || "Walk-in Customer";
+        const existingFallback = customers.find(
+          (c) => (c.name || "").trim().toLowerCase() === fallbackName.toLowerCase()
+        );
+        if (existingFallback) {
+          customer_id = existingFallback.id;
+        } else {
+          try {
+            const res = await api.post("/customers", {
+              name: fallbackName,
+              phone: normalizedCustomerPhone || "N/A",
+            });
+            customer_id = res.data.id;
+            setCustomers((prev) => [...prev, res.data]);
+          } catch (err) {
+            showModal("Customer Error", "Error creating fallback customer: " + (err.response?.data?.detail || err.message));
+            return;
+          }
+        }
+      }
 
       const vendorName = form.vendor ? String(form.vendor).trim() : "";
       const normalizedInvoiceNumber = String(form.invoice_number || "").trim();
-      if (!normalizedInvoiceNumber) {
-        showModal("Validation Error", "Invoice number is required.");
-        setLoading(false);
-        return;
-      }
+      const effectiveInvoiceNumber = normalizedInvoiceNumber || `DRAFT-${Date.now()}`;
       const computedFuelCost = Number(form.fuel_litres || 0) * Number(form.fuel_rate || 0);
       const fuelCostTotal = computedFuelCost || Number(form.fuel_cost || 0);
       const isNewAdvancePayment = (pay) =>
         !pay.id || typeof pay.id !== "number" || pay.id > 1000000000000;
+      const normalizedEstimateAmount =
+        form.estimate_amount === "" || form.estimate_amount == null
+          ? null
+          : Number(form.estimate_amount || 0);
       const normalizedAmountReceived = Number(form.amount_received || 0);
       const rawVehicleEntries = vehicleEntries.map(entry => {
         const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
@@ -577,9 +604,14 @@ export default function TripForm() {
           toll_amount: Number(entry.toll_amount || 0),
           parking_amount: Number(entry.parking_amount || 0),
           other_expenses: Number(entry.other_expenses || 0),
+          vendor_deduction_description: entry.vendor_deduction_description || null,
+          vendor_deduction_amount: Number(entry.vendor_deduction_amount || 0),
+          vendor_deduction_note: entry.vendor_deduction_note || null,
+          vendor_deduction_vendor: entry.vendor_deduction_vendor || null,
           expenses: entry.expenses.map(exp => ({
-            expense_type: exp.expense_type,
+            expense_type: exp.expense_type || "Party Fuel Entry",
             amount: Number(exp.amount || 0),
+            vendor: exp.vendor || null,
             notes: exp.notes || null,
           })),
           driver_changes: entry.driver_changes.map(dc => ({
@@ -592,11 +624,6 @@ export default function TripForm() {
       });
 
       const enteredVehicleEntries = rawVehicleEntries.filter(entry => entry.vehicle_number || entry.driver_id);
-      const invalidVehicleEntries = enteredVehicleEntries.filter(entry => !entry.vehicle_number || !entry.driver_id);
-      if (invalidVehicleEntries.length > 0) {
-        showModal("Validation Error", "Please select both Vehicle and Driver for assigned vehicles.");
-        return;
-      }
 
       const resolvedVehicleEntries = enteredVehicleEntries.filter(entry => entry.vehicle_number && entry.driver_id);
       const primaryVehicle = resolvedVehicleEntries[0];
@@ -605,18 +632,16 @@ export default function TripForm() {
       const numberOfVehicles = Math.max(Number(form.number_of_vehicles || 0), resolvedVehicleEntries.length);
 
       const vehicleOtherExpensesTotal = resolvedVehicleEntries.reduce((sum, entry) => {
-        const entryOther = Number(entry.other_expenses || 0);
-        const entryExtras = (entry.expenses || []).reduce((s, exp) => s + Number(exp.amount || 0), 0);
-        return sum + entryOther + entryExtras;
+        return sum + Number(entry.other_expenses || 0);
       }, 0);
 
       const payload = {
-        trip_date: form.trip_date,
+        trip_date: form.trip_date || new Date().toISOString().split("T")[0],
         booking_id: form.booking_id || null,
         departure_datetime: form.departure_datetime || null,
         return_datetime: form.return_datetime || null,
-        from_location: form.from_location,
-        to_location: form.to_location,
+        from_location: form.from_location || "TBD",
+        to_location: form.to_location || "TBD",
         route_details: form.route_details || null,
         vehicle_number: primaryVehicle?.vehicle_number || null,
         driver_id: primaryVehicle?.driver_id || null,
@@ -642,9 +667,10 @@ export default function TripForm() {
         charged_toll_amount: Number(totalToll || 0),
         charged_parking_amount: Number(totalParking || 0),
         discount_amount: Number(form.discount_amount || 0),
+        estimate_amount: normalizedEstimateAmount,
         amount_received: normalizedAmountReceived,
         vendor: form.vendor || null,
-        invoice_number: normalizedInvoiceNumber,
+        invoice_number: effectiveInvoiceNumber,
         pricing_items: pricingItems.map(i => ({
           description: i.description,
           quantity: 1,
@@ -699,8 +725,10 @@ export default function TripForm() {
 
         if (!isEdit) {
           clearDraft();
+          navigate(`/trips/edit/${tripId}`);
+        } else {
+          navigate("/trips");
         }
-        navigate("/trips");
       } catch (error) {
         console.error("Save error:", error);
         showModal("Save Error", error.response?.data?.detail || "Error saving trip. Please check your inputs.");
@@ -718,7 +746,7 @@ export default function TripForm() {
     const start = new Date(form.departure_datetime);
     const end = new Date(form.return_datetime);
     const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = parseFloat((diffTime / (1000 * 60 * 60 * 24)).toFixed(2));
     return diffDays || 1;
   };
 
@@ -743,6 +771,11 @@ export default function TripForm() {
     entry.cost_per_km !== "" ? Number(entry.cost_per_km) : Number(form.cost_per_km || 0);
   const getEntryPackageValue = (entry) =>
     entry.package_amount !== "" ? Number(entry.package_amount) : Number(form.package_amount || 0);
+  const getEntryFuelCost = (entry) => {
+    const fuelCost = Number(entry.fuel_cost || 0);
+    if (fuelCost > 0) return fuelCost;
+    return Number(entry.diesel_used || 0) + Number(entry.petrol_used || 0);
+  };
 
   const perKmTotal = vehicleEntries.reduce((sum, entry) => {
     const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
@@ -767,7 +800,8 @@ export default function TripForm() {
       entryPricingType === "package"
         ? packageValue
         : Number(distance || 0) * Number(rateValue || 0);
-    return sum + entryBase;
+    const netBaseFare = Number(entryBase || 0);
+    return sum + netBaseFare;
   }, 0);
 
   const pricingItemsCharged = pricingItemsTotal * plannedVehicleCount;
@@ -796,9 +830,10 @@ export default function TripForm() {
     const rate = getEntryRate(entry);
     const entryPricingType = getEntryPricingType(entry);
     const packageValue = getEntryPackageValue(entry);
-    return entryPricingType === "package"
+    const baseFare = entryPricingType === "package"
       ? Number(packageValue || 0)
       : Number(distance || 0) * Number(rate || 0);
+    return Number(baseFare || 0);
   };
 
   const getEntryDescription = (entry, idx) => {
@@ -812,14 +847,7 @@ export default function TripForm() {
   };
 
   const getEntryTotal = (entry) => {
-    const distance = getEntryDistance(entry);
-    const rate = getEntryRate(entry);
-    const entryPricingType = getEntryPricingType(entry);
-    const packageValue = getEntryPackageValue(entry);
-    const baseFare =
-      entryPricingType === "package"
-        ? packageValue
-        : Number(distance || 0) * Number(rate || 0);
+    const baseFare = getEntryBaseFare(entry);
     const toll = Number(entry.toll_amount || 0);
     const parking = Number(entry.parking_amount || 0);
     const other = Number(entry.other_expenses || 0);
@@ -828,9 +856,7 @@ export default function TripForm() {
   };
 
   const totalVehicleOther = vehicleEntries.reduce((sum, entry) => {
-    const other = Number(entry.other_expenses || 0);
-    const extras = entry.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-    return sum + other + extras;
+    return sum + Number(entry.other_expenses || 0);
   }, 0);
 
   const totalChargedValue =
@@ -848,8 +874,17 @@ export default function TripForm() {
   const newAdvancePaymentsTotal = advancePayments
     .filter(isNewAdvancePayment)
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const partyFuelEntryCredits = vehicleEntries.reduce(
+    (sum, entry) => sum + (entry.expenses || []).reduce((s, exp) => s + Number(exp.amount || 0), 0),
+    0
+  );
+  const vendorDeductionCredits = vehicleEntries.reduce(
+    (sum, entry) => sum + Number(entry.vendor_deduction_amount || 0),
+    0
+  );
   const totalReceived = Number(form.amount_received || 0) + newAdvancePaymentsTotal;
-  const pending = Math.max(0, totalChargedValue - totalReceived);
+  const totalCredits = totalReceived + partyFuelEntryCredits + vendorDeductionCredits;
+  const pending = Math.max(0, totalChargedValue - totalCredits);
   const totalBill = totalChargedValue;
   const totalAdditionalCharges = pricingItemsCharged;
 
@@ -873,10 +908,7 @@ export default function TripForm() {
     if (hours) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
     if (mins || parts.length === 0) parts.push(`${mins} min${mins !== 1 ? "s" : ""}`);
 
-    const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-    const dayDiff = Math.floor((endDay - startDay) / 86400000);
-    const totalDays = dayDiff + 1;
+    const totalDays = Math.max(Math.ceil(totalMinutes / 1440), 1);
     return { text: parts.join(" "), totalDays };
   };
 
@@ -888,7 +920,7 @@ export default function TripForm() {
   if (loading) return <div className="p-8 text-center font-black animate-pulse">LOADING TRIP DATA...</div>;
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 [&_label]:!text-black">
       {/* HEADER */}
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center">
         <div>
@@ -956,7 +988,6 @@ export default function TripForm() {
                       value={form.invoice_number}
                       onChange={handleChange}
                       placeholder="INV-XXXXXX"
-                      required
                       className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     />
                   </div>
@@ -981,7 +1012,6 @@ export default function TripForm() {
                       value={form.trip_date}
                       onChange={handleChange}
                       className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                      required
                     />
                   </div>
                 </div>
@@ -1003,7 +1033,6 @@ export default function TripForm() {
                         onFocus={() => setShowCustomerList(true)}
                         placeholder="Search party name..."
                         className="w-full h-12 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                        required
                       />
                       <svg className="w-4 h-4 absolute left-4 top-4 text-slate-400 group-focus-within/input:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
@@ -1064,6 +1093,21 @@ export default function TripForm() {
                     />
                   </div>
 
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Estimate / Total Fare</label>
+                    <input
+                      type="number"
+                      onWheel={stopWheel}
+                      step="0.01"
+                      name="estimate_amount"
+                      value={form.estimate_amount}
+                      onChange={handleChange}
+                      placeholder="Enter estimated fare"
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-start">
                   <div className="text-left">
@@ -1216,7 +1260,6 @@ export default function TripForm() {
                     onChange={handleChange}
                     placeholder="Pickup address/city"
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                    required
                   />
                 </div>
 
@@ -1229,7 +1272,6 @@ export default function TripForm() {
                     onChange={handleChange}
                     placeholder="Destination address/city"
                     className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                    required
                   />
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Total Days: {tripTotalDays ?? "-"}
@@ -1278,31 +1320,30 @@ export default function TripForm() {
                 </div>
               </div>
             </div>
+          </div>
 
-
-
-
-            {/* ADVANCE PAYMENTS
-                <div className="p-6 rounded-[2rem] border border-emerald-100 bg-emerald-50/40">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-6">
-                    <div>
-                      <h4 className="text-lg font-black text-slate-800">Advance Payments</h4>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Record advance payments received for this trip</p>
-                    </div>
-                    
-
-                
+            {!isEdit && (
+              <div className="flex items-center gap-4 mt-8">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save Trip"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/trips")}
+                  className="h-12 px-8 bg-white text-slate-500 font-black text-[10px] uppercase tracking-widest rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
               </div>
-            </div> */}
+            )}
 
-            {/* BILLING CARD
-            <div className="glass-card p-10 rounded-[2.5rem] border border-emerald-100 relative overflow-hidden group bg-emerald-50/5">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-10 text-emerald-600">
-                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                2. Billing Details
-              </h3> */}
-
-
+            {isEdit && (
+              <>
+                <div className="w-full space-y-8 mt-5">
             {/* VEHICLE SECTION HEADER */}
             <div className="flex items-center justify-between pt-6 border-t border-slate-100">
               <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
@@ -1577,11 +1618,11 @@ export default function TripForm() {
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Advance Received</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 ml-1">Advance + Party Fuel Credit</span>
                     <div className="flex items-baseline gap-1">
                       <span className="text-xs font-black text-emerald-400">Rs.</span>
                       <span className="text-xl font-black text-emerald-600 tracking-tighter">
-                        {Number(totalReceived || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {Number(totalCredits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -1677,6 +1718,8 @@ export default function TripForm() {
               <p className="text-[8px] font-bold text-blue-600/70 uppercase mt-1">Distance & Expenses aggregate per vehicle</p>
             </div>
           </div>
+          </>
+          )}
         </div>
       </form>
 
