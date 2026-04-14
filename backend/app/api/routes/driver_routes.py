@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
-from app.schemas.driver import DriverCreate, DriverResponse
+from app.schemas.driver import DriverCreate, DriverUpdate, DriverResponse
 from app.services.driver_service import create_driver, get_drivers
 from app.models.driver import Driver
 from app.services.auth_service import require_admin
@@ -48,6 +48,25 @@ def get_driver(driver_id: int, db: Session = Depends(get_db)):
     return driver
 
 
+@router.put("/{driver_id}", response_model=DriverResponse)
+def update_driver(
+    driver_id: int,
+    data: DriverUpdate,
+    db: Session = Depends(get_db),
+):
+    driver = db.query(Driver).filter(Driver.id == driver_id, Driver.is_active == True).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    update_data = data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(driver, field, value)
+
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
 @router.delete("/{driver_id}")
 def delete_driver(
     driver_id: int,
@@ -63,3 +82,4 @@ def delete_driver(
     driver.is_active = False
     db.commit()
     return {"message": "Driver deactivated successfully"}
+

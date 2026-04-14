@@ -123,6 +123,9 @@ export default function AppRoutes() {
         {/* Drivers */}
         <Route path="/drivers" element={<DriverList />} />
         <Route path="/drivers/add" element={<DriverForm />} />
+        <Route path="/drivers/:id/edit" element={
+          <RequireWriteAccess><DriverForm /></RequireWriteAccess>
+        } />
         <Route path="/drivers/:id" element={<DriverDetails />} />
 
         {/* Fuel */}
