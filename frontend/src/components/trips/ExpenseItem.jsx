@@ -13,7 +13,8 @@ export default function ExpenseItem({ expense, vendors = [], onUpdate, onRemove 
       <div className="relative md:col-span-2">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           placeholder="0.00"
           value={expense.amount}
           onChange={(e) => onUpdate("amount", e.target.value)}

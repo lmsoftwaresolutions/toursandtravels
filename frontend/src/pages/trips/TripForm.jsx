@@ -1203,6 +1203,22 @@ return (
                     />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Estimate / Total Fare</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      onWheel={stopWheel}
+                      step="0.01"
+                      name="estimate_amount"
+                      value={form.estimate_amount}
+                      onChange={handleChange}
+                      placeholder="Enter estimated fare"
+                      className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
                 <div className="flex justify-start">
                   <div className="text-left">
                     <p className="text-[13px] font-black uppercase tracking-widest text-emerald-500">Total Advance</p>
@@ -1243,7 +1259,8 @@ return (
                   <div className="relative group/input">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold tracking-tight">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       onWheel={stopWheel}
                       step="0.01"
                       value={newAdvance.amount}
