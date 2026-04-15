@@ -1098,7 +1098,8 @@ export default function TripForm() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Estimate / Total Fare</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       onWheel={stopWheel}
                       step="0.01"
                       name="estimate_amount"
@@ -1149,7 +1150,8 @@ export default function TripForm() {
                   <div className="relative group/input">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold tracking-tight">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       onWheel={stopWheel}
                       step="0.01"
                       value={newAdvance.amount}
@@ -1353,7 +1355,8 @@ export default function TripForm() {
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">No of Bus / Vehicles</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   onWheel={stopWheel}
                   name="number_of_vehicles"
                   value={form.number_of_vehicles}
@@ -1433,7 +1436,8 @@ export default function TripForm() {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     onWheel={stopWheel}
                     step="0.01"
                     value={newChargeItem.amount}
@@ -1644,7 +1648,8 @@ export default function TripForm() {
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">General Extra Expenses</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       onWheel={stopWheel}
                       step="0.01"
                       name="other_expenses"
