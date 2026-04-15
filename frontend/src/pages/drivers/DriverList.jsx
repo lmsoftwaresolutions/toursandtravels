@@ -87,6 +87,12 @@ export default function DriverList() {
                   <td className="p-6">
                     <div className="flex justify-end gap-2">
                       <button
+                        onClick={() => navigate(`/drivers/${d.id}/edit`)}
+                        className="px-5 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-all border border-blue-100"
+                      >
+                        Edit
+                      </button>
+                      <button
                         onClick={() => navigate(`/drivers/${d.id}`)}
                         className="px-6 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
                       >
