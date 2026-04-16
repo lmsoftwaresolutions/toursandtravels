@@ -12,6 +12,8 @@ from app.models.spare_part import SparePart
 from app.models.maintenance import Maintenance
 from app.models.vendor_payment import VendorPayment
 from app.models.driver_salary import DriverSalary
+from app.models.vendor_payment import VendorPayment
+from app.models.driver_salary import DriverSalary
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -67,10 +69,22 @@ def dashboard_summary(
         )
         for trip in trip_query.all()
     )
+    total_due = sum(
+        max(
+            (trip.total_charged or 0)
+            - (trip.amount_received or 0)
+            - trip.get_party_fuel_credit(),
+            0,
+        )
+        for trip in trip_query.all()
+    )
 
     # -------- OPERATING EXPENSES --------
     trip_fuel_cost = trip_query.with_entities(
         func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0)
+    ).scalar()
+    driver_bhatta_cost = trip_query.with_entities(
+        func.coalesce(func.sum(Trip.driver_bhatta), 0)
     ).scalar()
     driver_bhatta_cost = trip_query.with_entities(
         func.coalesce(func.sum(Trip.driver_bhatta), 0)
@@ -111,7 +125,31 @@ def dashboard_summary(
         func.coalesce(func.sum(DriverSalary.amount), 0)
     ).scalar()
 
+    vendor_payment_query = db.query(VendorPayment)
+    if start_date and end_date:
+        vendor_payment_query = vendor_payment_query.filter(VendorPayment.paid_on.between(start_date, end_date))
+    vendor_payment_cost = vendor_payment_query.with_entities(
+        func.coalesce(func.sum(VendorPayment.amount), 0)
+    ).scalar()
+
+    driver_salary_query = db.query(DriverSalary)
+    if start_date and end_date:
+        driver_salary_query = driver_salary_query.filter(DriverSalary.paid_on.between(start_date, end_date))
+    driver_salary_cost = driver_salary_query.with_entities(
+        func.coalesce(func.sum(DriverSalary.amount), 0)
+    ).scalar()
+
     fuel_cost = trip_fuel_cost + vendor_fuel_cost
+    expenses = (
+        fuel_cost
+        + driver_bhatta_cost
+        + maintenance_cost
+        + spare_cost
+        + toll_cost
+        + parking_cost
+        + vendor_payment_cost
+        + driver_salary_cost
+    )
     expenses = (
         fuel_cost
         + driver_bhatta_cost

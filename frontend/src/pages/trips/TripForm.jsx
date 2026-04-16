@@ -800,7 +800,10 @@ export default function TripForm() {
       entryPricingType === "package"
         ? packageValue
         : Number(distance || 0) * Number(rateValue || 0);
-    const netBaseFare = Number(entryBase || 0);
+    const netBaseFare = Math.max(
+      Number(entryBase || 0) - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0),
+      0
+    );
     return sum + netBaseFare;
   }, 0);
 
@@ -833,7 +836,7 @@ export default function TripForm() {
     const baseFare = entryPricingType === "package"
       ? Number(packageValue || 0)
       : Number(distance || 0) * Number(rate || 0);
-    return Number(baseFare || 0);
+    return Math.max(baseFare - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0), 0);
   };
 
   const getEntryDescription = (entry, idx) => {

@@ -5,13 +5,8 @@ import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const isAdmin = authService.isAdmin();
-
-  const linkClass = ({ isActive }) =>
-    `flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group ${isActive
-      ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30 font-bold scale-[1.02]"
-      : "text-slate-400 hover:bg-slate-800 hover:text-white hover:pl-8"
-    }`;
 
   const navItems = [
     { to: "/", label: "Dashboard", icon: <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
@@ -52,46 +47,70 @@ export default function Sidebar() {
       <aside
         className={`no-print 
           fixed md:sticky top-0 left-0 z-50
-          h-full md:h-screen md:min-h-screen md:shrink-0 w-80 md:w-72 lg:w-80
+          h-full md:h-screen md:min-h-screen md:shrink-0
+          ${isCollapsed ? "w-20" : "w-64 md:w-56 lg:w-64"}
           bg-slate-900 text-slate-300
           transform transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
           md:translate-x-0 border-r border-slate-800
         `}
       >
-        <div className="p-6 mb-4">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-blue-500/10">
-              <img src={NathkrupaLogo} alt="Nathkrupa" className="h-8 w-auto" />
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute -right-4 top-8 bg-slate-800 text-slate-300 rounded-full p-1.5 shadow-lg hidden md:flex border border-slate-700 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-colors z-50"
+        >
+          <svg className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className={`p-6 mb-4 ${isCollapsed ? 'px-4' : ''}`}>
+          <div className={`flex items-center gap-3 mb-8 ${isCollapsed ? 'justify-center' : ''}`}>
+            <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-blue-500/10 shrink-0">
+              <img src={NathkrupaLogo} alt="Nathkrupa" className={`${isCollapsed ? 'h-6' : 'h-8'} w-auto transition-all`} />
             </div>
-            <div>
-              <h2 className="text-white font-black text-xl tracking-tight leading-none">NATH KRUPA</h2>
-              <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] mt-1">TRAVEL SOLUTIONS</p>
-            </div>
+            {/* {!isCollapsed && (
+              // <div className="overflow-hidden whitespace-nowrap transition-all">
+              //   <h2 className="text-white font-black text-xl tracking-tight leading-none">NATH KRUPA</h2>
+              //   <p className="text-[10px] text-slate-500 font-bold tracking-[0.2em] mt-1">TRAVEL SOLUTIONS</p>
+              // </div>
+            )} */}
           </div>
         </div>
 
-        <nav className="flex flex-col gap-3 px-6 overflow-y-auto h-[calc(100vh-160px)] no-scrollbar pb-32">
+        <nav className={`flex flex-col gap-3 overflow-y-auto h-[calc(100vh-160px)] no-scrollbar pb-32 ${isCollapsed ? 'px-3' : 'px-6'}`}>
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} onClick={() => setIsOpen(false)} className={linkClass}>
-              <svg className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setIsOpen(false)}
+              title={isCollapsed ? item.label : ""}
+              className={({ isActive }) =>
+                `flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-4 py-3'} rounded-2xl transition-all duration-300 group ${isActive
+                  ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30 font-bold scale-[1.02]"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`
+              }
+            >
+              <svg className="w-5 h-5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {item.icon}
               </svg>
-              <span>{item.label}</span>
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           ))}
 
         </nav>
 
-        <div className="absolute bottom-0 left-0 w-full p-6 border-t border-slate-800 bg-slate-900/50 backdrop-blur-md">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500 font-bold border border-blue-500/20">
+        <div className={`absolute bottom-0 left-0 w-full p-6 border-t border-slate-800 bg-slate-900/50 backdrop-blur-md transition-all ${isCollapsed ? 'px-4' : ''}`}>
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : 'px-2'}`}>
+            <div className="w-10 h-10 shrink-0 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500 font-bold border border-blue-500/20">
               {authService.getUser()?.username?.[0]?.toUpperCase()}
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold text-white truncate">{authService.getUser()?.username}</p>
-              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{authService.getUser()?.role}</p>
-            </div>
+            {!isCollapsed && (
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-bold text-white truncate">{authService.getUser()?.username}</p>
+                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{authService.getUser()?.role}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>

@@ -64,7 +64,7 @@ export default function InvoiceView() {
     };
   }, [loadInvoiceData]);
 
-    const invoiceRows = useMemo(() => {
+  const invoiceRows = useMemo(() => {
     if (!trip) return [];
 
     const pricingItems = (trip.pricing_items || []).filter((item) => item.item_type === "pricing");
@@ -204,6 +204,9 @@ export default function InvoiceView() {
 
 
 
+
+
+
     return rows;
   }, [trip, vehiclesLookup]);
 
@@ -227,15 +230,15 @@ export default function InvoiceView() {
       const legacyEntry =
         Number(vehicle.vendor_deduction_amount || 0) > 0
           ? [
-              {
-                key: `legacy-party-fuel-${vehicle.id || vehicleIndex}`,
-                vehicleNumber: vehicle.vehicle_number || "",
-                description: vehicle.vendor_deduction_description || "Party Fuel Entry",
-                vendor: vehicle.vendor_deduction_vendor || "",
-                notes: vehicle.vendor_deduction_note || "",
-                amount: Number(vehicle.vendor_deduction_amount || 0),
-              },
-            ]
+            {
+              key: `legacy-party-fuel-${vehicle.id || vehicleIndex}`,
+              vehicleNumber: vehicle.vehicle_number || "",
+              description: vehicle.vendor_deduction_description || "Party Fuel Entry",
+              vendor: vehicle.vendor_deduction_vendor || "",
+              notes: vehicle.vendor_deduction_note || "",
+              amount: Number(vehicle.vendor_deduction_amount || 0),
+            },
+          ]
           : [];
 
       const extraEntries = (vehicle.expenses || [])
@@ -455,7 +458,7 @@ export default function InvoiceView() {
               </div>
             </div>
           </div>
-{/* 
+          {/* 
           <div className="border border-black/40 mb-4">
             <div className="print-heading px-3 py-2 border-b border-black/30 text-[11px] font-black uppercase tracking-widest text-slate-600">
               Vehicle Details
@@ -497,40 +500,40 @@ export default function InvoiceView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/30 text-black">
-              {invoiceRows.map((row, idx) => {
-                const baseFareLabel = row.baseFare == null ? "-" : Number(row.baseFare).toFixed(2);
-                const tollLabel = row.toll == null ? "-" : Number(row.toll).toFixed(2);
-                const parkingLabel = row.parking == null ? "-" : Number(row.parking).toFixed(2);
-                const totalLabel = `${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`;
-                return (
-                  <tr key={row.key} className="bg-white">
-                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-center">{idx + 1}</td>
-                    <td className="p-2 text-[11px] font-normal uppercase border-r border-black/30">{row.description}</td>
-                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{baseFareLabel}</td>
-                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{tollLabel}</td>
-                    <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{parkingLabel}</td>
-                    <td className="p-2.5 text-[12px] font-black text-right">{totalLabel}</td>
+                {invoiceRows.map((row, idx) => {
+                  const baseFareLabel = row.baseFare == null ? "-" : Number(row.baseFare).toFixed(2);
+                  const tollLabel = row.toll == null ? "-" : Number(row.toll).toFixed(2);
+                  const parkingLabel = row.parking == null ? "-" : Number(row.parking).toFixed(2);
+                  const totalLabel = `${row.total < 0 ? "- " : ""}Rs. ${Math.abs(Number(row.total || 0)).toFixed(2)}`;
+                  return (
+                    <tr key={row.key} className="bg-white">
+                      <td className="p-2 text-[11px] font-bold border-r border-black/30 text-center">{idx + 1}</td>
+                      <td className="p-2 text-[11px] font-normal uppercase border-r border-black/30">{row.description}</td>
+                      <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{baseFareLabel}</td>
+                      <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{tollLabel}</td>
+                      <td className="p-2 text-[11px] font-bold border-r border-black/30 text-right">{parkingLabel}</td>
+                      <td className="p-2.5 text-[12px] font-black text-right">{totalLabel}</td>
+                    </tr>
+                  );
+                })}
+                {/* Filler Rows */}
+                {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
+                  <tr key={`filler-${i}`} className="h-8 print:hidden divide-x divide-black/30">
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                   </tr>
-                );
-              })}
-              {/* Filler Rows */}
-              {[...Array(Math.max(0, 8 - invoiceRows.length))].map((_, i) => (
-                <tr key={`filler-${i}`} className="h-8 print:hidden divide-x divide-black/30">
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-black/40 bg-white">
+                  <td colSpan="5" className="p-2.5 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 text-slate-600">Total Amount Due</td>
+                  <td className="p-2.5 text-right text-[14px] font-black text-black">Rs. {calculatedTotal.toFixed(2)}</td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-black/40 bg-white">
-                <td colSpan="5" className="p-2.5 text-right font-black text-[11px] uppercase tracking-widest border-r border-black/30 text-slate-600">Total Amount Due</td>
-                <td className="p-2.5 text-right text-[14px] font-black text-black">Rs. {calculatedTotal.toFixed(2)}</td>
-              </tr>
-            </tfoot>
+              </tfoot>
             </table>
           </div>
 
@@ -549,8 +552,23 @@ export default function InvoiceView() {
                         <span>
                           {p.payment_date ? formatDateDDMMYYYY(p.payment_date) : "Advance"}
                           {p.payment_mode ? ` - ${p.payment_mode}` : ""}
+                          {p.payment_mode ? ` - ${p.payment_mode}` : ""}
                         </span>
                         <span className="tabular-nums">Rs. {Number(p.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {partyFuelEntries.length > 0 && (
+                  <div className="border-t border-black/10 pt-2 space-y-1">
+                    <div className="flex justify-between text-[11px] font-black text-blue-700">
+                      <span>Party Fuel Entries</span>
+                      <span className="tabular-nums">Rs. {partyFuelTotal.toFixed(2)}</span>
+                    </div>
+                    {partyFuelEntries.map((entry) => (
+                      <div key={entry.key} className="flex justify-between text-[10px] font-bold text-slate-600">
+                        <span>{entry.description}{entry.notes ? ` - ${entry.notes}` : ""}</span>
+                        <span className="tabular-nums">Rs. {entry.amount.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

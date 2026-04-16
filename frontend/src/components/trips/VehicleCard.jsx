@@ -117,9 +117,8 @@ export default function VehicleCard({
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">No. of Seats</label>
           <input
-            type="number"
-            min="1"
-            step="1"
+            type="text"
+            inputMode="numeric"
             value={entry.seat_count ?? ""}
             onChange={(e) => onEntryChange(index, "seat_count", e.target.value)}
             placeholder="e.g. 32"
@@ -131,7 +130,8 @@ export default function VehicleCard({
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Start KM</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={entry.start_km}
             onChange={(e) => onEntryChange(index, "start_km", e.target.value)}
             className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none"
@@ -142,7 +142,8 @@ export default function VehicleCard({
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">End KM</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={entry.end_km}
             onChange={(e) => onEntryChange(index, "end_km", e.target.value)}
             className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none"
@@ -153,7 +154,8 @@ export default function VehicleCard({
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Distance (KM)</label>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={entry.distance_km}
             onChange={(e) => onEntryChange(index, "distance_km", e.target.value)}
             className="w-full h-12 px-4 bg-blue-50/50 border border-blue-100 rounded-xl text-sm font-black text-blue-600 outline-none"
@@ -179,7 +181,8 @@ export default function VehicleCard({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold tracking-tight">₹</span>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={entry.package_amount}
                 onChange={(e) => onEntryChange(index, "package_amount", e.target.value)}
                 className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
@@ -193,7 +196,8 @@ export default function VehicleCard({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold tracking-tight">₹</span>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={entry.cost_per_km}
                 onChange={(e) => onEntryChange(index, "cost_per_km", e.target.value)}
                 className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
@@ -240,7 +244,8 @@ export default function VehicleCard({
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold tracking-tight">₹</span>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={entry.driver_bhatta}
               onChange={(e) => onEntryChange(index, "driver_bhatta", e.target.value)}
               className="w-full h-12 pl-8 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-base font-black text-slate-700 outline-none shadow-sm"
@@ -271,7 +276,8 @@ export default function VehicleCard({
                 <div className="space-y-1">
                   <span className="text-[9px] font-black text-slate-400 uppercase ml-1 text-[8px]">Fuel Used (Ltr)</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={entry.petrol_used}
                     onChange={(e) => handleFuelChange("petrol_used", e.target.value)}
                     className="w-full h-10 px-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold"
@@ -283,7 +289,8 @@ export default function VehicleCard({
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-[10px]">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={entry.fuel_price}
                       onChange={(e) => handleFuelChange("fuel_price", e.target.value)}
                       className="w-full h-10 pl-7 pr-3 bg-emerald-50/30 border border-emerald-100 rounded-xl text-sm font-black text-emerald-700 shadow-inner"
@@ -296,7 +303,8 @@ export default function VehicleCard({
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 font-bold text-[10px]">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={entry.fuel_cost}
                       readOnly
                       className="w-full h-10 pl-7 pr-3 bg-blue-50/50 border border-blue-100 rounded-xl text-sm font-black text-blue-700 shadow-inner"
@@ -370,7 +378,8 @@ export default function VehicleCard({
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-500 font-bold text-[10px]">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={entry.vendor_deduction_amount || ""}
                       onChange={(e) => onEntryChange(index, "vendor_deduction_amount", e.target.value)}
                       className="w-full h-10 pl-7 pr-3 bg-rose-50/30 border border-rose-100 rounded-xl text-sm font-black text-rose-700 shadow-inner"
@@ -396,7 +405,8 @@ export default function VehicleCard({
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={entry.toll_amount}
                       onChange={(e) => onEntryChange(index, "toll_amount", e.target.value)}
                       className="w-full h-10 pl-7 pr-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black text-slate-700 shadow-inner"
@@ -409,7 +419,8 @@ export default function VehicleCard({
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">₹</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={entry.parking_amount}
                       onChange={(e) => onEntryChange(index, "parking_amount", e.target.value)}
                       className="w-full h-10 pl-7 pr-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black text-slate-700 shadow-inner"
