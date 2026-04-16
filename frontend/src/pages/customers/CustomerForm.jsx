@@ -6,6 +6,7 @@ export default function CustomerForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [alternatePhone, setAlternatePhone] = useState("");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +50,7 @@ export default function CustomerForm() {
       await api.post("/customers", {
         name: trimmedName,
         phone: phoneDigits,
+        alternate_phone: alternatePhone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
       });
@@ -89,7 +91,7 @@ export default function CustomerForm() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
               <input
@@ -102,6 +104,17 @@ export default function CustomerForm() {
                 pattern="[0-9]*"
                 required
               />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Alternate Phone</label>
+                <input
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="Optional alternate phone"
+                  type="tel"
+                  value={alternatePhone}
+                  onChange={(e) => setAlternatePhone(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
