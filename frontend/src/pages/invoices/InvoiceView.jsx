@@ -19,11 +19,6 @@ export default function InvoiceView() {
     if (fuelCost > 0) return fuelCost;
     return Number(entry?.diesel_used || 0) + Number(entry?.petrol_used || 0);
   };
-  const getEntryFuelCost = (entry) => {
-    const fuelCost = Number(entry?.fuel_cost || 0);
-    if (fuelCost > 0) return fuelCost;
-    return Number(entry?.diesel_used || 0) + Number(entry?.petrol_used || 0);
-  };
 
   useEffect(() => {
     loadInvoiceData();
@@ -100,16 +95,13 @@ export default function InvoiceView() {
 
         const baseAmount = pricingType === "package" ? Number(packageAmount || 0) : distance * Number(costPerKm || 0);
         const netBaseFare = Number(baseAmount || 0);
-        const netBaseFare = Number(baseAmount || 0);
         const tollAmount = Number(entry.toll_amount || 0);
         const parkingAmount = Number(entry.parking_amount || 0);
-        const otherAmount = Number(entry.other_expenses || 0);
         const otherAmount = Number(entry.other_expenses || 0);
 
         totals.pricingTypes.add(pricingType);
         totals.rates.add(pricingType === "package" ? Number(packageAmount || 0) : Number(costPerKm || 0));
         totals.distance += distance;
-        totals.baseFare += netBaseFare;
         totals.baseFare += netBaseFare;
         totals.toll += tollAmount;
         totals.parking += parkingAmount;
@@ -132,10 +124,8 @@ export default function InvoiceView() {
           key: `vehicle-${entry.id || entry.vehicle_number || rows.length}`,
           description: vehicleLabelParts.length ? vehicleLabelParts.join(" ") : "Vehicle",
           baseFare: netBaseFare,
-          baseFare: netBaseFare,
           toll: tollAmount,
           parking: parkingAmount,
-          total: netBaseFare + tollAmount + parkingAmount + otherAmount,
           total: netBaseFare + tollAmount + parkingAmount + otherAmount,
         });
       });
@@ -146,7 +136,6 @@ export default function InvoiceView() {
       const costPerKm = Number(trip.cost_per_km || 0);
       const baseAmount = pricingType === "package" ? packageAmount : distance * costPerKm;
       const netBaseFare = Number(baseAmount || 0);
-      const netBaseFare = Number(baseAmount || 0);
       const tollAmount = Number(trip.charged_toll_amount || trip.toll_amount || 0);
       const parkingAmount = Number(trip.charged_parking_amount || trip.parking_amount || 0);
       const otherAmount = Number(trip.other_expenses || 0);
@@ -154,7 +143,6 @@ export default function InvoiceView() {
       totals.pricingTypes.add(pricingType);
       totals.rates.add(pricingType === "package" ? packageAmount : costPerKm);
       totals.distance += distance;
-      totals.baseFare += netBaseFare;
       totals.baseFare += netBaseFare;
       totals.toll += tollAmount;
       totals.parking += parkingAmount;
@@ -167,10 +155,8 @@ export default function InvoiceView() {
         key: "vehicle-single",
         description: [vehicleTypeLabel, seatLabel].filter(Boolean).join(" "),
         baseFare: netBaseFare,
-        baseFare: netBaseFare,
         toll: tollAmount,
         parking: parkingAmount,
-        total: netBaseFare + tollAmount + parkingAmount + otherAmount,
         total: netBaseFare + tollAmount + parkingAmount + otherAmount,
       });
     }
@@ -238,46 +224,6 @@ export default function InvoiceView() {
     return Math.max(paymentSum, Number(trip?.amount_received || 0));
   }, [payments, trip]);
 
-  const partyFuelEntries = useMemo(() => {
-    if (!Array.isArray(trip?.vehicles)) return [];
-    return trip.vehicles.flatMap((vehicle, vehicleIndex) => {
-      const legacyEntry =
-        Number(vehicle.vendor_deduction_amount || 0) > 0
-          ? [
-            {
-              key: `legacy-party-fuel-${vehicle.id || vehicleIndex}`,
-              vehicleNumber: vehicle.vehicle_number || "",
-              description: vehicle.vendor_deduction_description || "Party Fuel Entry",
-              vendor: vehicle.vendor_deduction_vendor || "",
-              notes: vehicle.vendor_deduction_note || "",
-              amount: Number(vehicle.vendor_deduction_amount || 0),
-            },
-          ]
-          : [];
-
-      const extraEntries = (vehicle.expenses || [])
-        .filter((exp) => Number(exp.amount || 0) > 0)
-        .map((exp, idx) => ({
-          key: `${vehicle.id || vehicle.vehicle_number || "vehicle"}-${idx}`,
-          vehicleNumber: vehicle.vehicle_number || "",
-          description: exp.expense_type || "Party Fuel Entry",
-          vendor: exp.vendor || "",
-          notes: exp.notes || "",
-          amount: Number(exp.amount || 0),
-        }));
-
-      return [...legacyEntry, ...extraEntries];
-    });
-  }, [trip]);
-
-  const partyFuelTotal = useMemo(
-    () => partyFuelEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0),
-    [partyFuelEntries]
-  );
-
-  const totalCredits = totalAdvance + partyFuelTotal;
-  const balanceDue = Math.max(calculatedTotal - totalCredits, 0);
-  const extraAmount = Math.max(totalCredits - calculatedTotal, 0);
   const partyFuelEntries = useMemo(() => {
     if (!Array.isArray(trip?.vehicles)) return [];
     return trip.vehicles.flatMap((vehicle, vehicleIndex) => {

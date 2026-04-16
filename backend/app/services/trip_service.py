@@ -208,10 +208,6 @@ def _validate_trip_vehicles(db: Session, trip_vehicles):
             "vendor_deduction_amount": _get_entry_value(item, "vendor_deduction_amount", 0),
             "vendor_deduction_note": _get_entry_value(item, "vendor_deduction_note", None),
             "vendor_deduction_vendor": _get_entry_value(item, "vendor_deduction_vendor", None),
-            "vendor_deduction_description": _get_entry_value(item, "vendor_deduction_description", None),
-            "vendor_deduction_amount": _get_entry_value(item, "vendor_deduction_amount", 0),
-            "vendor_deduction_note": _get_entry_value(item, "vendor_deduction_note", None),
-            "vendor_deduction_vendor": _get_entry_value(item, "vendor_deduction_vendor", None),
             "expenses": _get_entry_value(item, "expenses", []),
             "driver_changes": _get_entry_value(item, "driver_changes", []),
         })
@@ -282,10 +278,6 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             vendor_deduction_amount=entry.get("vendor_deduction_amount", 0) if isinstance(entry, dict) else (entry.vendor_deduction_amount or 0),
             vendor_deduction_note=entry.get("vendor_deduction_note") if isinstance(entry, dict) else entry.vendor_deduction_note,
             vendor_deduction_vendor=entry.get("vendor_deduction_vendor") if isinstance(entry, dict) else entry.vendor_deduction_vendor,
-            vendor_deduction_description=entry.get("vendor_deduction_description") if isinstance(entry, dict) else entry.vendor_deduction_description,
-            vendor_deduction_amount=entry.get("vendor_deduction_amount", 0) if isinstance(entry, dict) else (entry.vendor_deduction_amount or 0),
-            vendor_deduction_note=entry.get("vendor_deduction_note") if isinstance(entry, dict) else entry.vendor_deduction_note,
-            vendor_deduction_vendor=entry.get("vendor_deduction_vendor") if isinstance(entry, dict) else entry.vendor_deduction_vendor,
         )
         db.add(tv)
         db.flush() # Get tv.id for nested expenses
@@ -295,9 +287,7 @@ def _replace_trip_vehicles(db: Session, trip: Trip, trip_vehicles):
             db.add(TripVehicleExpense(
                 trip_vehicle_id=tv.id,
                 expense_type=(exp.expense_type if hasattr(exp, "expense_type") else exp.get("expense_type")) or "Party Fuel Entry",
-                expense_type=(exp.expense_type if hasattr(exp, "expense_type") else exp.get("expense_type")) or "Party Fuel Entry",
                 amount=exp.amount if hasattr(exp, "amount") else exp.get("amount", 0),
-                vendor=exp.vendor if hasattr(exp, "vendor") else exp.get("vendor"),
                 vendor=exp.vendor if hasattr(exp, "vendor") else exp.get("vendor"),
                 notes=exp.notes if hasattr(exp, "notes") else exp.get("notes"),
             ))
@@ -399,7 +389,6 @@ def create_trip(db: Session, trip_data: TripCreate):
 
     total_vehicle_expenses = sum(
         entry["fuel_cost"] + entry["toll_amount"] + entry["parking_amount"] + entry["other_expenses"] + entry["driver_bhatta"]
-        entry["fuel_cost"] + entry["toll_amount"] + entry["parking_amount"] + entry["other_expenses"] + entry["driver_bhatta"]
         for entry in validated_trip_vehicles
     )
 
@@ -477,7 +466,6 @@ def create_trip(db: Session, trip_data: TripCreate):
         charged_toll_amount=trip_data.charged_toll_amount,
         charged_parking_amount=trip_data.charged_parking_amount,
         discount_amount=trip_data.discount_amount,
-        estimate_amount=trip_data.estimate_amount,
         estimate_amount=trip_data.estimate_amount,
         amount_received=trip_data.amount_received,
         advance_payment=trip_data.advance_payment,
@@ -692,5 +680,4 @@ def delete_trip(db: Session, trip_id: int):
 
     db.delete(trip)
     db.commit()
-    return {"message": "Trip deleted successfully"}
     return {"message": "Trip deleted successfully"}
