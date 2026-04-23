@@ -16,6 +16,7 @@ from app.api.routes.spare_part import router as spare_part_router
 from app.api.routes.quotation import router as quotation_router
 from app.api.routes.trip import router as trip_router
 from app.api.routes.vehicle import router as vehicle_router
+from app.api.routes.vehicle_finance import router as vehicle_finance_router
 from app.api.routes.vehicle_notes import router as vehicle_notes_router
 from app.api.routes.vendor import router as vendor_router
 from app.api.routes.vendor_payment_routes import router as vendor_payment_router
@@ -128,6 +129,7 @@ auth_dependency = [Depends(get_current_user)]
 app.include_router(auth_router, prefix="/api")
 
 app.include_router(vehicle_router, prefix="/api", dependencies=auth_dependency)
+app.include_router(vehicle_finance_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(vehicle_notes_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(trip_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(quotation_router, prefix="/api", dependencies=auth_dependency)
