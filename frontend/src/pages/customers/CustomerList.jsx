@@ -43,7 +43,8 @@ export default function CustomerList() {
       : true;
 
     const phoneMatch = searchPhone.trim()
-      ? String(c.phone || "").toLowerCase().includes(searchPhone.trim().toLowerCase())
+      ? String(c.phone || "").toLowerCase().includes(searchPhone.trim().toLowerCase()) ||
+        String(c.alternate_phone || "").toLowerCase().includes(searchPhone.trim().toLowerCase())
       : true;
 
     return nameMatch && invoiceMatch && phoneMatch;

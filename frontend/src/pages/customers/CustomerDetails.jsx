@@ -86,9 +86,10 @@ export default function CustomerDetails() {
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Customer</p>
           <p className="text-2xl font-black text-slate-800 mt-2 tracking-tight">{customer.name}</p>
-          {(customer.phone || customer.email || customer.address) && (
+          {(customer.phone || customer.alternate_phone || customer.email || customer.address) && (
             <div className="mt-3 space-y-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
               {customer.phone && <div>Phone: {customer.phone}</div>}
+              {customer.alternate_phone && <div>Alt Phone: {customer.alternate_phone}</div>}
               {customer.email && <div>Email: {customer.email}</div>}
               {customer.address && <div>Address: {customer.address}</div>}
             </div>

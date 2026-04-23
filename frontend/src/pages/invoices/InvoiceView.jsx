@@ -201,16 +201,8 @@ export default function InvoiceView() {
       });
     }
 
-
-
-
-
-
-
     return rows;
   }, [trip, vehiclesLookup]);
-
-
 
   const calculatedTotal = useMemo(() => {
     if (trip?.total_charged != null) {
@@ -458,34 +450,6 @@ export default function InvoiceView() {
               </div>
             </div>
           </div>
-          {/* 
-          <div className="border border-black/40 mb-4">
-            <div className="print-heading px-3 py-2 border-b border-black/30 text-[11px] font-black uppercase tracking-widest text-slate-600">
-              Vehicle Details
-            </div>
-            <table className="w-full table-fixed vehicle-table">
-              <thead>
-                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-black/30">
-                  <th className="p-2 text-left w-1/2">Vehicle</th>
-                  <th className="p-2 text-right w-1/4">Distance</th>
-                  <th className="p-2 text-right w-1/4">Rate</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/20 text-black text-[11px]">
-                {vehicleDetails.map((entry) => {
-                  const distanceLabel = Number.isFinite(entry.distance) ? entry.distance.toFixed(1) : "";
-                  const rateLabel = Number.isFinite(entry.rate) ? entry.rate.toFixed(2) : "";
-                  return (
-                    <tr key={entry.key}>
-                      <td className="p-2 font-bold uppercase">{entry.name}</td>
-                      <td className="p-2 text-right font-bold">{distanceLabel}</td>
-                      <td className="p-2 text-right font-bold">{rateLabel}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div> */}
 
           <div className="border border-black/40 border-collapse mb-3 overflow-hidden">
             <table className="w-full table-fixed invoice-table">
@@ -552,23 +516,8 @@ export default function InvoiceView() {
                         <span>
                           {p.payment_date ? formatDateDDMMYYYY(p.payment_date) : "Advance"}
                           {p.payment_mode ? ` - ${p.payment_mode}` : ""}
-                          {p.payment_mode ? ` - ${p.payment_mode}` : ""}
                         </span>
                         <span className="tabular-nums">Rs. {Number(p.amount || 0).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {partyFuelEntries.length > 0 && (
-                  <div className="border-t border-black/10 pt-2 space-y-1">
-                    <div className="flex justify-between text-[11px] font-black text-blue-700">
-                      <span>Party Fuel Entries</span>
-                      <span className="tabular-nums">Rs. {partyFuelTotal.toFixed(2)}</span>
-                    </div>
-                    {partyFuelEntries.map((entry) => (
-                      <div key={entry.key} className="flex justify-between text-[10px] font-bold text-slate-600">
-                        <span>{entry.description}{entry.notes ? ` - ${entry.notes}` : ""}</span>
-                        <span className="tabular-nums">Rs. {entry.amount.toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
