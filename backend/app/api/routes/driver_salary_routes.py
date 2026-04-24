@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
 from app.schemas.driver_salary import DriverSalaryCreate, DriverSalaryResponse
 from app.services.driver_salary_service import (
+    list_all_salaries,
     list_salaries_by_driver,
     create_salary,
     delete_salary,
@@ -23,6 +24,11 @@ def get_db():
 @router.get("/driver/{driver_id}", response_model=list[DriverSalaryResponse])
 def get_driver_salaries(driver_id: int, db: Session = Depends(get_db)):
     return list_salaries_by_driver(db, driver_id)
+
+
+@router.get("", response_model=list[DriverSalaryResponse])
+def get_all_driver_salaries(db: Session = Depends(get_db)):
+    return list_all_salaries(db)
 
 
 @router.post("", response_model=DriverSalaryResponse)
