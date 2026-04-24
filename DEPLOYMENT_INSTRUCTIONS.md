@@ -3,7 +3,7 @@
 These steps deploy the production stack and apply database migrations automatically.
 
 
-## 1. PR 39
+## 1. PR 45
 ```
 git pull
 docker compose down
