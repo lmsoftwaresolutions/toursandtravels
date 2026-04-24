@@ -96,10 +96,16 @@ def update_vehicle(
         from app.models.trip import Trip
         from app.models.fuel import Fuel
         from app.models.maintenance import Maintenance
+        from app.models.vehicle_emi import VehicleEMIPlan
+        from app.models.vehicle_insurance import VehicleInsurance
+        from app.models.vehicle_tax import VehicleTax
 
         db.query(Trip).filter(Trip.vehicle_number == normalized_current).update({"vehicle_number": new_number})
         db.query(Fuel).filter(Fuel.vehicle_number == normalized_current).update({"vehicle_number": new_number})
         db.query(Maintenance).filter(Maintenance.vehicle_number == normalized_current).update({"vehicle_number": new_number})
+        db.query(VehicleEMIPlan).filter(VehicleEMIPlan.vehicle_number == normalized_current).update({"vehicle_number": new_number})
+        db.query(VehicleInsurance).filter(VehicleInsurance.vehicle_number == normalized_current).update({"vehicle_number": new_number})
+        db.query(VehicleTax).filter(VehicleTax.vehicle_number == normalized_current).update({"vehicle_number": new_number})
 
         vehicle.vehicle_number = new_number
 
