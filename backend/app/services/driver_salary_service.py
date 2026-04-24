@@ -11,6 +11,13 @@ def list_salaries_by_driver(db: Session, driver_id: int):
         .all()
     )
 
+def list_all_salaries(db: Session):
+    return (
+        db.query(DriverSalary)
+        .order_by(DriverSalary.paid_on.desc(), DriverSalary.id.desc())
+        .all()
+    )
+
 
 def create_salary(db: Session, data: DriverSalaryCreate):
     salary = DriverSalary(**data.dict())

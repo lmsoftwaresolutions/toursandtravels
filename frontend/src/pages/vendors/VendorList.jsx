@@ -24,11 +24,15 @@ export default function VendorList() {
   const location = useLocation();
   const user = authService.getUser();
   const isAdmin = user?.role === "admin";
+  const canWrite = !authService.hasLimitedAccess();
   const [allVendors, setAllVendors] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [form, setForm] = useState({ name: "", phone: "", category: "fuel" });
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", category: "fuel" });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [filterCategory, setFilterCategory] = useState("");
 
   const pageConfig = useMemo(() => {
@@ -132,6 +136,55 @@ export default function VendorList() {
       loadVendors();
     } catch (err) {
       alert("Error deleting vendor: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const startEditVendor = (vendor) => {
+    setEditingVendor(vendor);
+    setEditForm({
+      name: vendor.name || "",
+      phone: vendor.phone || "",
+      category: vendor.category || "fuel",
+    });
+  };
+
+  const closeEditModal = () => {
+    if (savingEdit) return;
+    setEditingVendor(null);
+    setEditForm({ name: "", phone: "", category: "fuel" });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const submitVendorEdit = async (e) => {
+    e.preventDefault();
+    if (!editingVendor) return;
+    if (!editForm.name.trim()) return;
+
+    const normalizedPhone = normalizeIndianPhone(editForm.phone);
+    if (editForm.phone && !isValidIndianPhone(editForm.phone)) {
+      alert("Phone number must be a valid 10-digit Indian mobile number.");
+      return;
+    }
+
+    const payload = {
+      name: editForm.name.trim(),
+      phone: editForm.phone ? normalizedPhone : "",
+      category: editForm.category || "fuel",
+    };
+
+    try {
+      setSavingEdit(true);
+      await api.put(`/vendors/${editingVendor.id}`, payload);
+      await loadVendors();
+      closeEditModal();
+    } catch (err) {
+      alert("Error updating vendor: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -262,6 +315,15 @@ export default function VendorList() {
                       >
                         Open
                       </button>
+                      {canWrite && (
+                        <button
+                          onClick={() => startEditVendor(v)}
+                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                          title="Edit Vendor"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                      )}
                       {isAdmin && (
                         <button
                           onClick={() => deleteVendor(v.id)}
@@ -285,6 +347,82 @@ export default function VendorList() {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      {editingVendor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vendor Profile</p>
+                <h3 className="text-2xl font-black text-slate-900">Edit Vendor</h3>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="h-10 w-10 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
+                aria-label="Close edit vendor modal"
+                disabled={savingEdit}
+              >
+                x
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={submitVendorEdit}>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vendor Name</label>
+                <input
+                  name="name"
+                  value={editForm.name}
+                  onChange={handleEditChange}
+                  className="w-full h-12 pl-4 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone Number</label>
+                <input
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditChange}
+                  className="w-full h-12 pl-4 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Category</label>
+                <select
+                  name="category"
+                  value={editForm.category}
+                  onChange={handleEditChange}
+                  className="w-full h-12 pl-4 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all appearance-none"
+                >
+                  {CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="h-11 px-5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                  disabled={savingEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-11 px-6 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? "Saving..." : "Update Vendor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
