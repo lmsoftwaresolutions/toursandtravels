@@ -31,6 +31,10 @@ const isMechanicCategory = (category) => {
   const value = normalizeVendorCategory(category);
   return value === "mechanic" || value.includes("mechanic");
 };
+const isOilCategory = (category) => {
+  const value = normalizeVendorCategory(category);
+  return value === "oil" || value.includes("oil");
+};
 
 export default function VendorDetails() {
   const { id } = useParams();
@@ -42,6 +46,7 @@ export default function VendorDetails() {
   const [tripHistory, setTripHistory] = useState([]);
   const [allTrips, setAllTrips] = useState([]);
   const [mechanicHistory, setMechanicHistory] = useState([]);
+  const [oilHistory, setOilHistory] = useState([]);
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("fuel");
   const [payments, setPayments] = useState([]);
@@ -62,6 +67,7 @@ export default function VendorDetails() {
       setTripHistory([]);
       setAllTrips([]);
       setMechanicHistory([]);
+      setOilHistory([]);
       setPayments([]);
       setSummary(null);
       setPayForm({ amount: "", paid_on: "", notes: "", trip_id: "" });
@@ -77,6 +83,7 @@ export default function VendorDetails() {
       const supportsFuel = isFuelCategory(vendorCategory);
       const supportsSpare = isSpareCategory(vendorCategory);
       const supportsMechanic = isMechanicCategory(vendorCategory);
+      const supportsOil = isOilCategory(vendorCategory);
       const vendorNameKey = normalizeVendorName(vendorData.name);
 
       // Set default tab based on vendor category
@@ -86,6 +93,8 @@ export default function VendorDetails() {
         setActiveTab("spare");
       } else if (supportsMechanic) {
         setActiveTab("mechanic");
+      } else if (supportsOil) {
+        setActiveTab("oil");
       } else {
         setActiveTab("payments");
       }
@@ -200,6 +209,32 @@ export default function VendorDetails() {
         const mechRes = await api.get("/mechanic");
         setMechanicHistory(mechRes.data.filter(m => normalizeVendorName(m.vendor) === vendorNameKey));
       }
+
+      if (supportsOil) {
+        const oilRes = await api.get("/oil-bills", { params: { vendor_id: Number(id) } });
+        const oilRows = oilRes.data || [];
+        const oilDetails = await Promise.all(
+          oilRows.map((bill) => api.get(`/oil-bills/${bill.id}`).then((res) => res.data).catch(() => null))
+        );
+        const flattened = oilDetails
+          .filter(Boolean)
+          .flatMap((bill) =>
+            (bill.entries || []).map((entry) => ({
+              id: `${bill.id}-${entry.id}`,
+              bill_id: bill.id,
+              bill_number: bill.bill_number,
+              bill_date: bill.bill_date,
+              payment_status: bill.payment_status,
+              vehicle_number: entry.vehicle_number,
+              particular_name: entry.particular_name,
+              liters: Number(entry.liters || 0),
+              rate: Number(entry.rate || 0),
+              total_amount: Number(entry.total_amount || 0),
+              note: entry.note,
+            }))
+          );
+        setOilHistory(flattened);
+      }
     } catch (error) {
       console.error("Error loading vendor data:", error);
     }
@@ -251,6 +286,7 @@ export default function VendorDetails() {
   const totalFuelCost = Number(summary?.fuel_total || 0);
   const totalSpareCost = Number(summary?.spare_total || 0);
   const totalMechanicCost = Number(summary?.mechanic_total || 0);
+  const totalOilCost = Number(summary?.oil_total || 0);
   const totalTripFuelCost = Number(summary?.trip_fuel_total || 0);
   const totalOwed = Number(summary?.total_owed || 0);
   const totalPaid = Number(summary?.paid_total || 0);
@@ -259,9 +295,11 @@ export default function VendorDetails() {
   const vendorSupportsFuel = isFuelCategory(vendorCategory);
   const vendorSupportsSpare = isSpareCategory(vendorCategory);
   const vendorSupportsMechanic = isMechanicCategory(vendorCategory);
+  const vendorSupportsOil = isOilCategory(vendorCategory);
   const availableCategories = useMemo(() => {
     if (!vendorCategory) return [];
     if (vendorCategory === "both") return ["fuel", "spare_parts"].filter((key) => vendorEntryConfig[key]);
+    if (vendorCategory === "oil") return ["oil"];
     return vendorEntryConfig[vendorCategory] ? [vendorCategory] : [];
   }, [vendorCategory]);
   const activeCategoryConfig = selectedCategory ? vendorEntryConfig[selectedCategory] : null;
@@ -301,6 +339,16 @@ export default function VendorDetails() {
       meta: "Service charge",
     }));
 
+    const oilCharges = oilHistory.map((entry) => ({
+      id: `oil-${entry.id}`,
+      source: "Oil",
+      date: entry.bill_date,
+      vehicle: entry.vehicle_number || "-",
+      description: `${entry.particular_name || "Oil item"} (${entry.bill_number || "-"})`,
+      amount: Number(entry.total_amount || 0),
+      meta: `${Number(entry.liters || 0).toFixed(2)} L at ${formatMoney(entry.rate || 0)}`,
+    }));
+
     const tripCharges = tripHistory
       .filter((trip) => Number(trip.diesel_used || 0) + Number(trip.petrol_used || 0) > 0)
       .map((trip) => ({
@@ -313,12 +361,44 @@ export default function VendorDetails() {
         meta: `${Number(trip.distance_km || 0).toLocaleString()} km`,
       }));
 
-    return [...fuelCharges, ...spareCharges, ...mechanicCharges, ...tripCharges].sort((a, b) => {
+    return [...fuelCharges, ...spareCharges, ...mechanicCharges, ...oilCharges, ...tripCharges].sort((a, b) => {
       const first = new Date(a.date || 0).getTime();
       const second = new Date(b.date || 0).getTime();
       return first - second || String(a.id).localeCompare(String(b.id));
     });
-  }, [fuelHistory, spareHistory, mechanicHistory, tripHistory]);
+  }, [fuelHistory, spareHistory, mechanicHistory, oilHistory, tripHistory]);
+
+  const oilBills = useMemo(() => {
+    const grouped = new Map();
+    oilHistory.forEach((entry) => {
+      const billId = Number(entry.bill_id);
+      if (!Number.isFinite(billId)) return;
+      if (!grouped.has(billId)) {
+        grouped.set(billId, {
+          id: billId,
+          bill_number: entry.bill_number || "-",
+          bill_date: entry.bill_date || null,
+          payment_status: entry.payment_status || "unpaid",
+          grand_total_amount: 0,
+          vehicleSet: new Set(),
+        });
+      }
+      const row = grouped.get(billId);
+      row.grand_total_amount += Number(entry.total_amount || 0);
+      if (entry.vehicle_number) row.vehicleSet.add(entry.vehicle_number);
+    });
+
+    return Array.from(grouped.values())
+      .map((row) => ({
+        ...row,
+        total_vehicles: row.vehicleSet.size,
+      }))
+      .sort((a, b) => {
+        const first = a.bill_date ? new Date(a.bill_date).getTime() : 0;
+        const second = b.bill_date ? new Date(b.bill_date).getTime() : 0;
+        return second - first || Number(b.id) - Number(a.id);
+      });
+  }, [oilHistory]);
 
   const paymentAllocations = useMemo(() => {
     const charges = chargeEntries.map((charge) => ({
@@ -423,6 +503,18 @@ export default function VendorDetails() {
     }
   };
 
+  const deleteOilBill = async (billId) => {
+    if (!canWrite) return;
+    if (!window.confirm("Delete this oil bill?")) return;
+    try {
+      await api.delete(`/oil-bills/${billId}`);
+      await loadVendorData();
+    } catch (err) {
+      console.error("Delete oil bill error:", err);
+      alert("Error deleting oil bill: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
   const handlePrint = () => {
     if (!vendor) return;
     const printWindow = window.open("", "_blank", "width=1000,height=1200");
@@ -433,6 +525,7 @@ export default function VendorDetails() {
       { label: "Trip Fuel Cost", value: totalTripFuelCost },
       { label: "Spare Cost", value: totalSpareCost },
       { label: "Mechanic Cost", value: totalMechanicCost },
+      { label: "Oil Cost", value: totalOilCost },
       { label: "Paid", value: totalPaid },
       { label: "Pending", value: pendingAmount },
     ];
@@ -475,6 +568,21 @@ export default function VendorDetails() {
           ]),
         };
       }
+      if (activeTab === "oil") {
+        return {
+          title: "Oil Entries",
+          headers: ["Date", "Bill No", "Vehicle", "Particular", "Liters", "Rate", "Amount"],
+          rows: oilHistory.map((o) => [
+            formatDateDDMMYYYY(o.bill_date),
+            o.bill_number || "-",
+            o.vehicle_number || "-",
+            o.particular_name || "-",
+            Number(o.liters || 0).toFixed(2),
+            formatMoney(o.rate || 0),
+            formatMoney(o.total_amount || 0),
+          ]),
+        };
+      }
       if (activeTab === "trips") {
         return {
           title: "Trip History",
@@ -507,6 +615,7 @@ export default function VendorDetails() {
       .filter((card) => {
         if (card.label === "Spare Cost") return vendor.category === "spare_parts" || vendor.category === "both" || totalSpareCost > 0;
         if (card.label === "Mechanic Cost") return vendor.category === "mechanic" || totalMechanicCost > 0;
+        if (card.label === "Oil Cost") return vendor.category === "oil" || totalOilCost > 0;
         if (card.label === "Fuel Cost" || card.label === "Trip Fuel Cost") return vendor.category === "fuel" || vendor.category === "both" || totalFuelCost > 0 || totalTripFuelCost > 0;
         return true;
       })
@@ -610,6 +719,10 @@ export default function VendorDetails() {
   }, [activeCategoryConfig]);
 
   const handleOpenModal = (category) => {
+    if (category === "oil") {
+      navigate(`/oil/add?vendor_id=${id}`);
+      return;
+    }
     setSelectedCategory(category || availableCategories[0] || null);
     setShowAddModal(true);
   };
@@ -726,10 +839,14 @@ export default function VendorDetails() {
                 alert("No entry form configured for this vendor category.");
                 return;
               }
-              if (availableCategories.length <= 1) {
-                handleOpenModal(availableCategories[0]);
-              } else {
-                setSelectedCategory(null);
+            if (availableCategories.length <= 1) {
+              if (availableCategories[0] === "oil") {
+                navigate(`/oil/add?vendor_id=${id}`);
+                return;
+              }
+              handleOpenModal(availableCategories[0]);
+            } else {
+              setSelectedCategory(null);
                 setShowAddModal(true);
               }
             }}
@@ -758,7 +875,7 @@ export default function VendorDetails() {
                   onClick={() => handleOpenModal(categoryKey)}
                   className="w-full h-14 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3"
                 >
-                  Add {categoryKey === "mechanic" ? "Mistry" : categoryKey.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} Entry
+                  Add {categoryKey === "mechanic" ? "Mistry" : categoryKey === "oil" ? "Oil Bill" : categoryKey.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} Entry
                 </button>
               ))}
             </div>
@@ -881,7 +998,7 @@ export default function VendorDetails() {
             <span className="text-3xl font-black text-slate-800 tabular-nums">{pendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)} | Mistry {formatMoney(totalMechanicCost)}
+            Fuel {formatMoney(totalFuelCost)} | Trip {formatMoney(totalTripFuelCost)} | Spare {formatMoney(totalSpareCost)} | Mistry {formatMoney(totalMechanicCost)} | Oil {formatMoney(totalOilCost)}
           </div>
         </div>
       </div>
@@ -919,6 +1036,17 @@ export default function VendorDetails() {
               }`}
           >
             Mechanic Entries ({mechanicHistory.length})
+          </button>
+        )}
+        {vendorSupportsOil && (
+          <button
+            onClick={() => setActiveTab("oil")}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "oil"
+              ? "bg-white text-blue-600 shadow-lg shadow-slate-200 ring-1 ring-slate-100"
+              : "text-slate-400 hover:text-slate-600"
+              }`}
+          >
+            Oil Entries ({oilHistory.length})
           </button>
         )}
         {vendorSupportsFuel && (
@@ -1182,6 +1310,70 @@ export default function VendorDetails() {
                     <td className="p-6 text-sm font-black text-slate-800">{m.vehicle_number}</td>
                     <td className="p-6 text-sm font-bold text-slate-600">{m.work_description}</td>
                     <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {Number(m.cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "oil" && (
+        <div className="glass-card rounded-[2rem] overflow-hidden border border-slate-100">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-slate-50/30">
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Bill No</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Bill Date</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicles</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Grand Total</th>
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Payment Status</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {oilBills.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No oil entries found</td>
+                </tr>
+              ) : (
+                oilBills.map((bill) => (
+                  <tr key={bill.id} className="group hover:bg-slate-50/40 transition-colors">
+                    <td className="p-6 text-sm font-black text-slate-700">{bill.bill_number}</td>
+                    <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(bill.bill_date)}</td>
+                    <td className="p-6 text-sm font-black text-slate-700">{bill.total_vehicles || 0}</td>
+                    <td className="p-6 text-sm font-black text-slate-800">{formatMoney(bill.grand_total_amount || 0)}</td>
+                    <td className="p-6">
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200">
+                        {bill.payment_status || "unpaid"}
+                      </span>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => navigate(`/oil/${bill.id}`)}
+                          className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
+                        >
+                          View
+                        </button>
+                        {canWrite ? (
+                          <>
+                            <button
+                              onClick={() => navigate(`/oil/edit/${bill.id}`)}
+                              className="px-4 py-2 bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-100 transition-all"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteOilBill(bill.id)}
+                              className="px-4 py-2 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}

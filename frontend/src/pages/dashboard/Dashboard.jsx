@@ -12,6 +12,46 @@ const formatDateWithDay = (dateStr) => {
   return `${formatDateDDMMYYYY(dateStr)} ${dayName}`;
 };
 
+const toDateOnly = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const datePart = value.includes("T") ? value.split("T")[0] : value.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+};
+
+const toDateObj = (dateOnly) => {
+  if (!dateOnly) return null;
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+};
+
+const VEHICLE_PREFIX_PRIORITY = ["MH", "MP", "NL"];
+
+const getVehiclePrefix = (vehicleNumber = "") => {
+  const match = String(vehicleNumber).toUpperCase().match(/^[A-Z]{2}/);
+  return match ? match[0] : "";
+};
+
+const sortVehiclesByPrefixPriority = (vehicleList = []) =>
+  [...vehicleList].sort((a, b) => {
+    const aNumber = String(a?.vehicle_number || "").toUpperCase();
+    const bNumber = String(b?.vehicle_number || "").toUpperCase();
+    const aPrefix = getVehiclePrefix(aNumber);
+    const bPrefix = getVehiclePrefix(bNumber);
+    const aPriority = VEHICLE_PREFIX_PRIORITY.indexOf(aPrefix);
+    const bPriority = VEHICLE_PREFIX_PRIORITY.indexOf(bPrefix);
+    const aRank = aPriority === -1 ? VEHICLE_PREFIX_PRIORITY.length : aPriority;
+    const bRank = bPriority === -1 ? VEHICLE_PREFIX_PRIORITY.length : bPriority;
+
+    if (aRank !== bRank) return aRank - bRank;
+    return aNumber.localeCompare(bNumber);
+  });
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -190,6 +230,10 @@ function TripScheduleChart({
   const [noteVehicleId, setNoteVehicleId] = useState(null);
   const [noteVehicleNumber, setNoteVehicleNumber] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
+  const sortedVehicles = useMemo(
+    () => sortVehiclesByPrefixPriority(vehicles?.length ? vehicles : []),
+    [vehicles]
+  );
 
   const loadTrips = () => {
     api.get("/trips").then(res => {
@@ -206,7 +250,7 @@ function TripScheduleChart({
   };
 
   const loadNotes = () => {
-    const vehicleList = vehicles?.length ? vehicles : [];
+    const vehicleList = sortedVehicles;
     if (!vehicleList.length) {
       setNotesByCell({});
       return;
@@ -245,7 +289,7 @@ function TripScheduleChart({
 
   useEffect(() => {
     loadNotes();
-  }, [vehicles, scheduleMonth]);
+  }, [sortedVehicles, scheduleMonth]);
 
   useEffect(() => {
     if (!tableRef.current) return;
@@ -254,7 +298,7 @@ function TripScheduleChart({
     });
     observer.observe(tableRef.current);
     return () => observer.disconnect();
-  }, [vehicles, trips]);
+  }, [sortedVehicles, trips]);
 
   const handleTopScroll = (e) => {
     if (tableContainerRef.current) {
@@ -270,7 +314,7 @@ function TripScheduleChart({
 
   useEffect(() => {
     const open = () => {
-      const firstVehicle = (vehicles || [])[0];
+      const firstVehicle = sortedVehicles[0];
       const todayStr = new Date().toISOString().split("T")[0];
       setNoteText("");
       setNoteDate(todayStr);
@@ -281,20 +325,31 @@ function TripScheduleChart({
     };
     window.addEventListener("open-add-note", open);
     return () => window.removeEventListener("open-add-note", open);
-  }, [vehicles]);
+  }, [sortedVehicles]);
 
   const tripsByDate = useMemo(() => {
     const grouped = {};
     trips.forEach(t => {
-      // Priority: departure_datetime > trip_date
-      let effectiveDate = t.trip_date;
-      if (t.departure_datetime) {
-        effectiveDate = t.departure_datetime.split("T")[0];
-      }
+      const startDate = toDateOnly(t.departure_datetime) || toDateOnly(t.trip_date);
+      if (!startDate) return;
+      const endDate = toDateOnly(t.return_datetime) || startDate;
 
-      if (effectiveDate && effectiveDate.startsWith(scheduleMonth)) {
-        if (!grouped[effectiveDate]) grouped[effectiveDate] = [];
-        grouped[effectiveDate].push(t);
+      const startObj = toDateObj(startDate);
+      const endObj = toDateObj(endDate);
+      if (!startObj || !endObj) return;
+
+      const finalEndObj = endObj >= startObj ? endObj : startObj;
+      const cursor = new Date(startObj);
+      let daySafetyCounter = 0;
+
+      while (cursor <= finalEndObj && daySafetyCounter < 400) {
+        const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+        if (key.startsWith(scheduleMonth)) {
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(t);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+        daySafetyCounter += 1;
       }
     });
     return grouped;
@@ -319,7 +374,7 @@ function TripScheduleChart({
     `${scheduleMonth}-${String(i + 1).padStart(2, "0")}`
   );
 
-  const vehicleList = vehicles?.length ? vehicles : [];
+  const vehicleList = sortedVehicles;
 
   const openAddNote = (date, vehicle) => {
     if (!canCreateNotes) return;
@@ -525,13 +580,13 @@ function TripScheduleChart({
                     value={noteVehicleId || ""}
                     onChange={e => {
                       const value = Number(e.target.value);
-                      const v = (vehicles || []).find(x => x.id === value);
+                      const v = sortedVehicles.find(x => x.id === value);
                       setNoteVehicleId(value || null);
                       setNoteVehicleNumber(v?.vehicle_number || "");
                     }}
                   >
                     <option value="">Select vehicle</option>
-                    {(vehicles || []).map(v => (
+                    {sortedVehicles.map(v => (
                       <option key={v.id} value={v.id}>
                         {v.vehicle_number}
                       </option>

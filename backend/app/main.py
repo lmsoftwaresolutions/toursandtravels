@@ -11,6 +11,7 @@ from app.api.routes.driver_salary_routes import router as driver_salary_router
 from app.api.routes.fuel import router as fuel_router
 from app.api.routes.mechanic import router as mechanic_router
 from app.api.routes.maintenance import router as maintenance_router
+from app.api.routes.oil_bill import router as oil_bill_router
 from app.api.routes.payment import router as payment_router
 from app.api.routes.spare_part import router as spare_part_router
 from app.api.routes.quotation import router as quotation_router
@@ -134,6 +135,7 @@ app.include_router(quotation_router, prefix="/api", dependencies=auth_dependency
 app.include_router(fuel_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(mechanic_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(maintenance_router, prefix="/api", dependencies=auth_dependency)
+app.include_router(oil_bill_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(customer_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(driver_router, prefix="/api", dependencies=auth_dependency)
 app.include_router(spare_part_router, prefix="/api", dependencies=auth_dependency)

@@ -50,6 +50,8 @@ import Notes from "../pages/notes/Notes";
 
 import MaintenanceList from "../pages/maintenance/MaintenanceList";
 import MaintenanceForm from "../pages/maintenance/MaintenanceForm";
+import OilBillForm from "../pages/oil/OilBillForm";
+import OilBillDetails from "../pages/oil/OilBillDetails";
 import Login from "../pages/auth/Login";
 import { authService } from "../services/auth";
 
@@ -175,6 +177,14 @@ export default function AppRoutes() {
         <Route path="/maintenance/:type/add" element={<MaintenanceForm />} />
         <Route path="/maintenance/:type/edit/:id" element={
           <RequireWriteAccess><MaintenanceForm /></RequireWriteAccess>
+        } />
+
+        {/* Oil Bills */}
+        <Route path="/oil" element={<Navigate to="/vendors" replace />} />
+        <Route path="/oil/add" element={<OilBillForm />} />
+        <Route path="/oil/:id" element={<OilBillDetails />} />
+        <Route path="/oil/edit/:id" element={
+          <RequireWriteAccess><OilBillForm /></RequireWriteAccess>
         } />
 
         {/* Reports */}

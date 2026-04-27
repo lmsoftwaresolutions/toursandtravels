@@ -16,17 +16,18 @@ export default function VehicleDetails() {
   const [tripFuelEntries, setTripFuelEntries] = useState([]);
   const [spareEntries, setSpareEntries] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
-  const canWrite = !authService.hasLimitedAccess();
+  const [oilEntries, setOilEntries] = useState([]);
 
   const loadVehicleData = useCallback(async () => {
     try {
       const targetVehicleNumber = normalizeVehicleNumber(vehicle_number);
-      const [summaryRes, fuelRes, spareRes, maintenanceRes, tripsRes] = await Promise.all([
+      const [summaryRes, fuelRes, spareRes, maintenanceRes, tripsRes, oilRes] = await Promise.all([
         api.get(`/vehicles/${vehicle_number}/summary`),
         api.get("/fuel"),
         api.get("/spare-parts"),
         api.get(`/mechanic/vehicle/${vehicle_number}`),
         api.get("/trips"),
+        api.get("/oil-bills"),
       ]);
 
       setSummary(summaryRes.data);
@@ -43,6 +44,18 @@ export default function VehicleDetails() {
       );
       setSpareEntries((spareRes.data || []).filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber));
       setMaintenanceEntries(maintenanceRes.data || []);
+      setOilEntries(
+        (oilRes.data || []).flatMap((bill) =>
+          (bill.entries || [])
+            .filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber)
+            .map((entry) => ({
+              ...entry,
+              bill_date: bill.bill_date,
+              bill_number: bill.bill_number,
+              vendor_name: bill.vendor_name,
+            }))
+        )
+      );
     } catch {
       alert("Failed to load vehicle summary");
     }
@@ -193,7 +206,7 @@ export default function VehicleDetails() {
           { key: "overview", label: "Overview" },
           { key: "fuel", label: `Fuel Details (${fuelLogEntries.length})` },
           { key: "spares", label: `Spare Parts (${spareEntries.length})` },
-          { key: "maintenance", label: `Mistry Details (${maintenanceEntries.length})` },
+          { key: "maintenance", label: `Mistry Details (${maintenanceEntries.length + oilEntries.length})` },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -212,53 +225,239 @@ export default function VehicleDetails() {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === "overview" && (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { label: "Total Trips", value: summary.total_trips, icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2", color: "blue", suffix: "Trips" },
-                { label: "Odometer Total", value: Number(summary.total_km || 0).toLocaleString(), icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6", color: "purple", suffix: "Kilometers" },
-                { label: "Trip Income", value: `Rs. ${formatMoney(summary.trip_cost)}`, icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "emerald", suffix: "Income" },
-                { label: "Fuel Cost", value: `Rs. ${formatMoney(summary.total_fuel_cost)}`, icon: "M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z", color: "orange", suffix: "Fuel" },
-                { label: "Maintenance Cost", value: `Rs. ${formatMoney(summary.maintenance_cost)}`, icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z", color: "rose", suffix: "Maintenance" },
-                { label: "Total Cost", value: `Rs. ${formatMoney(summary.total_vehicle_cost)}`, icon: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z", color: "indigo", suffix: "Total" },
-              ].map((kpi, i) => (
-                <div key={i} className="glass-card p-6 rounded-3xl group hover:bg-slate-50 transition-colors border border-slate-100">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${kpi.color}-50 text-${kpi.color}-600 mb-4 ring-1 ring-${kpi.color}-100`}>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={kpi.icon} /></svg>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{kpi.label}</p>
-                  <p className="text-2xl font-black text-slate-800 tracking-tighter">{kpi.value}</p>
-                  <p className={`text-[9px] font-black uppercase tracking-tight text-${kpi.color}-500/80 mt-1`}>{kpi.suffix}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <KpiCard title="Health Score" value={`${smart.vehicle_health_score || 0}/100`} tone="blue" />
+              <KpiCard title="Running Cost / KM" value={formatMoney(smart.running_cost_per_km || 0)} tone="rose" />
+              <KpiCard title="Profit / Loss" value={formatMoney(financial.total_profit_loss || 0)} tone={(financial.total_profit_loss || 0) >= 0 ? "green" : "red"} />
+              <KpiCard title="ROI" value={`${Number(smart.roi || 0).toFixed(2)}%`} tone="amber" />
+            </div>
+
+            <DetailGrid
+              title="Financial Details"
+              rows={[
+                ["Monthly Fixed Cost", formatMoney(financial.monthly_fixed_cost || 0)],
+                ["Outstanding Payments", formatMoney(financial.outstanding_payments || 0)],
+                ["EMI (Monthly)", formatMoney(financial?.emi_details?.monthly_emi || 0)],
+                ["Insurance Status", financial?.insurance_status?.status || "-"],
+                ["Tax Status", financial?.tax_expiry?.status || "-"],
+              ]}
+            />
+
+            <DetailGrid
+              title="Trip Performance"
+              rows={[
+                ["Completed Trips", performance.total_completed_trips || 0],
+                ["Upcoming Trips", performance.upcoming_trips || 0],
+                ["Cancelled Trips", performance.cancelled_trips || 0],
+                ["Most Frequent Route", performance.most_frequent_route || "-"],
+                ["Highest Revenue Trip", performance.highest_revenue_trip ? `${performance.highest_revenue_trip.invoice_number} (${formatMoney(performance.highest_revenue_trip.revenue)})` : "-"],
+                ["Lowest Revenue Trip", performance.lowest_revenue_trip ? `${performance.lowest_revenue_trip.invoice_number} (${formatMoney(performance.lowest_revenue_trip.revenue)})` : "-"],
+                ["Average Revenue / Trip", formatMoney(performance.average_revenue_per_trip || 0)],
+                ["Outstanding Payments", formatMoney(financial.outstanding_payments || 0)],
+              ]}
+            />
+
+            <DetailGrid
+              title="Fuel Management"
+              rows={[
+                ["Average Mileage", `${Number(fuel.average_mileage || 0).toFixed(2)} km/l`],
+                ["Fuel Efficiency", `${Number(fuel.fuel_efficiency_km_per_l || 0).toFixed(2)} km/l`],
+                ["Last Fuel Entry", fuel.last_fuel_entry?.filled_date ? `${formatDateDDMMYYYY(fuel.last_fuel_entry.filled_date)} | ${formatMoney(fuel.last_fuel_entry.total_cost)}` : "-"],
+                ["Trip Fuel Cost", formatMoney(fuel.fuel_expense_comparison?.trip_fuel_cost || 0)],
+                ["Direct Fuel Cost", formatMoney(fuel.fuel_expense_comparison?.direct_fuel_cost || 0)],
+                ["Total Fuel Cost", formatMoney(fuel.fuel_expense_comparison?.total_fuel_cost || 0)],
+              ]}
+            />
+
+            <DetailGrid
+              title="Maintenance Insights"
+              rows={[
+                ["Last Service Date", maintenance.last_service_date ? formatDateDDMMYYYY(maintenance.last_service_date) : "-"],
+                ["Next Service Due", maintenance.next_service_due ? formatDateDDMMYYYY(maintenance.next_service_due) : "-"],
+                ["Spare Parts Replaced", maintenance.spare_parts_replaced || 0],
+                ["Oil Entries", maintenance.oil_entries_count || 0],
+                ["Oil Total Cost", formatMoney(maintenance.oil_total_cost || 0)],
+                ["Breakdown History", (maintenance.breakdown_history || []).length],
+                ["Maintenance Alerts", (maintenance.maintenance_alerts || []).length],
+              ]}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <MiniTable
+                title="Driver-wise Performance"
+                headers={["Driver", "Trips", "Revenue"]}
+                rows={(performance.driver_wise_performance || []).slice(0, 6).map((row) => [row.driver_name, row.trips, formatMoney(row.revenue)])}
+                emptyText="No driver performance records"
+              />
+              <MiniTable
+                title="Monthly Fuel Trend"
+                headers={["Month", "Litres", "Expense"]}
+                rows={(fuel.monthly_fuel_trend || []).map((row) => [row.month, Number(row.litres || 0).toFixed(2), formatMoney(row.expense)])}
+                emptyText="No fuel trend data"
+              />
+              <MiniTable
+                title="Recent Service History"
+                headers={["Date", "Work", "Cost"]}
+                rows={(maintenance.service_history || []).slice(0, 6).map((row) => [formatDateDDMMYYYY(row.service_date), row.work_description, formatMoney(row.cost)])}
+                emptyText="No service history"
+              />
+            </div>
+
+            <DetailGrid
+              title="Driver Details"
+              rows={[
+                ["Assigned Driver", driver.assigned_driver?.name || "-"],
+                ["License Number", driver.assigned_driver?.license_number || "-"],
+                ["Attendance (This Month)", driver.driver_attendance || 0],
+                ["Salary Pending", formatMoney(driver.driver_salary_pending || 0)],
+                ["Driver Performance Entries", (driver.driver_performance || []).length],
+              ]}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GraphCard title="Monthly Expense vs Income" rows={smart.monthly_expense_vs_income_graph || []} mode="income_expense" />
+              <GraphCard title="Profit Trend" rows={smart.profit_trend_graph || []} mode="profit" />
+            </div>
+
+            <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100">
+              <h3 className="text-xl font-black text-slate-800 tracking-tight mb-4">Alerts Section</h3>
+              {(alerts || []).length === 0 ? (
+                <p className="text-sm text-slate-500">No active alerts.</p>
+              ) : (
+                <div className="space-y-2">
+                  {alerts.map((item, idx) => (
+                    <div key={`${item.type}-${idx}`} className={`p-3 rounded-xl border ${item.severity === "danger" ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                      <p className="text-[10px] uppercase font-black tracking-widest">{item.type}</p>
+                      <p className="text-sm font-semibold mt-1">{item.message}</p>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
 
-            <div className="glass-card p-8 rounded-[2.5rem] border border-slate-100">
-              <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2 mb-8">
-                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
-                Quick Summary
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Customers</p>
-                  <p className="text-3xl font-black text-slate-800 tracking-tighter">{summary.customers_served}</p>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1">Total customers served</p>
-                </div>
-                <div className="border-l border-slate-100 pl-8">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Average Distance</p>
-                  <p className="text-3xl font-black text-slate-800 tracking-tighter">
-                    {summary.total_trips > 0 ? (summary.total_km / summary.total_trips).toFixed(0) : 0}
-                    <span className="text-sm font-bold ml-1 text-slate-400">km/trip</span>
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1">Average km per trip</p>
-                </div>
-                <div className="border-l border-slate-100 pl-8">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Cost Per Km</p>
-                  <p className="text-3xl font-black text-emerald-600 tracking-tighter">
-                    Rs. {summary.total_km > 0 ? (summary.total_vehicle_cost / summary.total_km).toFixed(2) : 0}
-                    <span className="text-sm font-bold ml-1 text-emerald-400/60">/km</span>
-                  </p>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1">Total cost divided by total km</p>
-                </div>
+        {activeTab === "fuel" ? (
+          <DataTable
+            title="Fuel Entries For This Vehicle"
+            empty="No Fuel Entries Found"
+            headers={["Fill Date", "Source", "Invoice", "Fuel Type", "Vendor", "Litres", "Rate", "Total"]}
+            rows={fuelLogEntries.map((entry) => [
+              formatDateDDMMYYYY(entry.filled_date),
+              entry.source === "trip_usage" || entry.source === "party_fuel" ? entry.reference : "Fuel Entry",
+              entry.source === "trip_usage" || entry.source === "party_fuel" ? entry.reference || "-" : "-",
+              entry.fuel_type,
+              entry.vendor || "-",
+              entry.quantity !== null && entry.quantity !== undefined && entry.quantity !== "-" ? Number(entry.quantity || 0).toFixed(2) : "-",
+              entry.rate_per_litre !== null && entry.rate_per_litre !== undefined ? formatMoney(entry.rate_per_litre) : "-",
+              formatMoney(entry.total_cost),
+            ])}
+          />
+        ) : null}
+
+        {activeTab === "spares" ? (
+          <DataTable
+            title="Spare Parts For This Vehicle"
+            empty="No Spare Parts Found"
+            headers={["Installation Date", "Part", "Vendor", "Quantity", "Unit Cost", "Total"]}
+            rows={spareEntries.map((sp) => [
+              formatDateDDMMYYYY(sp.replaced_date),
+              sp.part_name,
+              sp.vendor || "-",
+              Number(sp.quantity || 0),
+              formatMoney(sp.cost),
+              formatMoney(Number(sp.cost || 0) * Number(sp.quantity || 0)),
+            ])}
+          />
+        ) : null}
+
+        {activeTab === "maintenance" ? (
+          <DataTable
+            title="Mistry Work For This Vehicle"
+            empty="No Mistry Or Maintenance Records Found"
+            headers={["Service Date", "Type", "Work / Particular", "Vendor", "Amount"]}
+            rows={[
+              ...maintenanceEntries.map((m) => ({
+                date: m.service_date,
+                row: [
+                  formatDateDDMMYYYY(m.service_date),
+                  "Mechanic",
+                  m.work_description,
+                  m.vendor || "-",
+                  formatMoney(m.cost ?? m.amount ?? 0),
+                ],
+              })),
+              ...oilEntries.map((o) => ({
+                date: o.bill_date,
+                row: [
+                  formatDateDDMMYYYY(o.bill_date),
+                  "Oil",
+                  `${o.particular_name} (${Number(o.liters || 0).toFixed(2)} L x ${formatMoney(o.rate || 0)})`,
+                  o.vendor_name || "-",
+                  formatMoney(o.total_amount || 0),
+                ],
+              })),
+            ]
+              .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+              .map((item) => item.row)}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ title, value, tone = "blue" }) {
+  const toneMap = {
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    green: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+    red: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+  return (
+    <div className={`p-5 rounded-2xl border ${toneMap[tone] || toneMap.blue}`}>
+      <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{title}</p>
+      <p className="text-2xl font-black tracking-tight mt-1">{value}</p>
+    </div>
+  );
+}
+
+function DetailGrid({ title, rows }) {
+  return (
+    <div className="glass-card rounded-[2.5rem] border border-slate-100 overflow-hidden">
+      <div className="p-6 border-b border-slate-100">
+        <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="p-5 border-b border-slate-100 md:border-r md:odd:border-r border-slate-100">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+            <p className="text-lg font-black text-slate-700 mt-1">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GraphCard({ title, rows, mode }) {
+  const maxValue = Math.max(
+    1,
+    ...rows.map((row) => (mode === "profit" ? Math.abs(Number(row.profit || 0)) : Math.max(Number(row.income || 0), Number(row.expense || 0))))
+  );
+
+  return (
+    <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100">
+      <h3 className="text-xl font-black text-slate-800 tracking-tight mb-4">{title}</h3>
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <div key={row.month} className="space-y-1">
+            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span>{row.month}</span>
+              {mode === "profit" ? <span>{formatMoney(row.profit)}</span> : <span>I {formatMoney(row.income)} | E {formatMoney(row.expense)}</span>}
+            </div>
+            {mode === "profit" ? (
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className={`h-full ${Number(row.profit || 0) >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${Math.max((Math.abs(Number(row.profit || 0)) / maxValue) * 100, 2)}%` }} />
               </div>
             </div>
           </div>

@@ -5,6 +5,12 @@ from datetime import date, datetime
 import calendar
 
 from app.database.session import SessionLocal
+from app.models.driver_salary import DriverSalary
+from app.models.fuel import Fuel
+from app.models.maintenance import Maintenance
+from app.models.mechanic import MechanicEntry
+from app.models.oil_bill import OilBill, OilBillEntry
+from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.fuel import Fuel
 from app.models.vehicle import Vehicle
@@ -111,6 +117,13 @@ def dashboard_summary(
         func.coalesce(func.sum(SparePart.cost * SparePart.quantity), 0)
     ).scalar()
 
+    oil_query = db.query(OilBillEntry).join(OilBill, OilBill.id == OilBillEntry.oil_bill_id)
+    if start_date and end_date:
+        oil_query = oil_query.filter(OilBill.bill_date.between(start_date, end_date))
+    oil_cost = safe_amount(
+        oil_query.with_entities(func.coalesce(func.sum(OilBillEntry.total_amount), 0)).scalar()
+    )
+
     vendor_payment_query = db.query(VendorPayment)
     if start_date and end_date:
         vendor_payment_query = vendor_payment_query.filter(VendorPayment.paid_on.between(start_date, end_date))
@@ -147,6 +160,11 @@ def dashboard_summary(
         + spare_cost
         + toll_cost
         + parking_cost
+        + maintenance_cost
+        + spare_parts_cost
+        + mechanic_cost
+        + oil_cost
+        + daily_running_expense
         + vendor_payment_cost
         + driver_salary_cost
     )
@@ -175,9 +193,78 @@ def dashboard_summary(
 
     return {
         "trips": total_trips,
-        "income": income,
-        "expenses": expenses,
-        "profit": profit,
-        "total_due": total_due,
-        "vehicles": vehicle_summary
+        "income": safe_amount(invoice_revenue),
+        "expenses": operating_expense,
+        "profit": net_profit,
+        "total_due": safe_amount(pending_amount),
+        "vehicles": vehicle_summary,
+
+        # Expanded dashboard payload
+        "trip_status_counts": {
+            "total_trips": total_trips,
+            "completed_trips": completed_trips,
+            "upcoming_trips": upcoming_trips,
+            "ongoing_trips": ongoing_trips,
+        },
+        "revenue_breakdown": {
+            "base_fare": safe_amount(base_fare),
+            "custom_pricing": safe_amount(invoice_custom_pricing),
+            "charged_toll_recovery": safe_amount(charged_toll_recovery),
+            "charged_parking_recovery": safe_amount(charged_parking_recovery),
+            "night_charges": safe_amount(night_charges),
+            "waiting_charges": safe_amount(waiting_charges),
+            "additional_charges": safe_amount(additional_charges),
+            "other_additional_charges": safe_amount(other_additional_charges),
+            "discount": safe_amount(discount_total),
+            "invoice_revenue": safe_amount(invoice_revenue),
+            "customer_payment_received": safe_amount(paid_amount),
+        },
+        "operating_expense_breakdown": {
+            "trip_fuel_cost": safe_amount(trip_fuel_cost),
+            "direct_fuel_cost": safe_amount(direct_fuel_cost),
+            "fuel_cost": total_fuel_cost,
+            "driver_bhatta_cost": safe_amount(driver_bhatta_cost),
+            "driver_salary_cost": safe_amount(driver_salary_cost),
+            "driver_payment": total_driver_payment,
+            "toll_charges": safe_amount(toll_cost),
+            "parking_charges": safe_amount(parking_cost),
+            "maintenance_cost": safe_amount(maintenance_cost),
+            "spare_parts_cost": safe_amount(spare_parts_cost),
+            "mechanic_cost": safe_amount(mechanic_cost),
+            "oil_cost": safe_amount(oil_cost),
+            "daily_running_expenses": safe_amount(daily_running_expense),
+            "vendor_payments": safe_amount(vendor_payment_cost),
+            "total_operating_expense": operating_expense,
+        },
+        "balance_due_breakdown": {
+            "total_invoice_amount": safe_amount(invoice_revenue),
+            "received_payment": safe_amount(paid_amount),
+            "balance_due": safe_amount(pending_amount),
+            "pending_customer_payments": pending_customer_payments,
+            "partial_payments": partial_payments,
+            "unpaid_invoices": unpaid_invoices,
+        },
+        "monthly_finance_summary": {
+            "operating_expense": operating_expense,
+            "monthly_emi": safe_amount(finance_summary.get("total_monthly_emi_outflow", 0)),
+            "monthly_insurance": safe_amount(finance_summary.get("total_monthly_insurance_outflow", 0)),
+            "monthly_tax": safe_amount(finance_summary.get("total_monthly_tax_outflow", 0)),
+            "permit_charges": 0.0,
+            "monthly_expense": monthly_expense,
+        },
+        "dashboard_summary_cards": {
+            "total_trips": total_trips,
+            "total_revenue": safe_amount(invoice_revenue),
+            "total_expenses": operating_expense,
+            "net_profit": net_profit,
+            "pending_payments": safe_amount(pending_amount),
+            "vehicle_alerts": len(finance_summary.get("alert_cards", [])),
+            "insurance_expiry": int(finance_summary.get("insurance_expiring_soon", 0)) + int(finance_summary.get("insurance_expired", 0)),
+            "emi_due": int(finance_summary.get("emi_pending_installments", 0)) + int(finance_summary.get("emi_overdue_installments", 0)),
+            "tax_due": int(finance_summary.get("tax_expiring_soon", 0)) + int(finance_summary.get("tax_expired", 0)),
+        },
+        "net_profit": net_profit,
+        "actual_profit": actual_profit,
+        "fixed_vehicle_expenses": fixed_vehicle_expenses,
+        "finance_dashboard": finance_summary,
     }
