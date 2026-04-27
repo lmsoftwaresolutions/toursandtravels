@@ -770,12 +770,6 @@ export default function TripForm() {
     entry.cost_per_km !== "" ? Number(entry.cost_per_km) : Number(form.cost_per_km || 0);
   const getEntryPackageValue = (entry) =>
     entry.package_amount !== "" ? Number(entry.package_amount) : Number(form.package_amount || 0);
-  const getEntryFuelCost = (entry) => {
-    const fuelCost = Number(entry.fuel_cost || 0);
-    if (fuelCost > 0) return fuelCost;
-    return Number(entry.diesel_used || 0) + Number(entry.petrol_used || 0);
-  };
-
   const perKmTotal = vehicleEntries.reduce((sum, entry) => {
     const startKm = entry.start_km !== "" ? Number(entry.start_km) : null;
     const endKm = entry.end_km !== "" ? Number(entry.end_km) : null;
@@ -799,11 +793,7 @@ export default function TripForm() {
       entryPricingType === "package"
         ? packageValue
         : Number(distance || 0) * Number(rateValue || 0);
-    const netBaseFare = Math.max(
-      Number(entryBase || 0) - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0),
-      0
-    );
-    return sum + netBaseFare;
+    return sum + Number(entryBase || 0);
   }, 0);
 
   const pricingItemsCharged = pricingItemsTotal * plannedVehicleCount;
@@ -832,10 +822,9 @@ export default function TripForm() {
     const rate = getEntryRate(entry);
     const entryPricingType = getEntryPricingType(entry);
     const packageValue = getEntryPackageValue(entry);
-    const baseFare = entryPricingType === "package"
+    return entryPricingType === "package"
       ? Number(packageValue || 0)
       : Number(distance || 0) * Number(rate || 0);
-    return Math.max(baseFare - getEntryFuelCost(entry) - Number(entry.driver_bhatta || 0), 0);
   };
 
   const getEntryDescription = (entry, idx) => {

@@ -1,5 +1,10 @@
-from sqlalchemy.orm import Session, selectinload
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.driver import Driver
 from app.models.driver_salary import DriverSalary
@@ -10,116 +15,176 @@ from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.trip_vehicle import TripVehicle
 from app.models.vehicle import Vehicle
-from app.models.fuel import Fuel
-from app.models.spare_part import SparePart
 from app.services.maintenance_service import calculate_monthly_maintenance_cost
+from app.services.vehicle_finance_service import get_vehicle_finance_summary
+
+
+def _round_2(value: float) -> float:
+    return round(float(value or 0), 2)
+
+
+def _month_key(value: date | datetime | None) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        value = value.date()
+    return value.strftime("%Y-%m")
+
+
+def _last_six_months(today: date) -> list[str]:
+    keys: list[str] = []
+    y, m = today.year, today.month
+    for offset in range(5, -1, -1):
+        year = y
+        month = m - offset
+        while month <= 0:
+            month += 12
+            year -= 1
+        keys.append(f"{year:04d}-{month:02d}")
+    return keys
 
 
 def vehicle_summary(db: Session, vehicle_number: str):
-    # -------- VEHICLE (SOFT DELETE SAFE) --------
+    today = date.today()
+
     vehicle = (
         db.query(Vehicle)
-        .filter(
-            func.lower(Vehicle.vehicle_number) == vehicle_number.lower(),
-            Vehicle.is_deleted == False
-        )
+        .filter(func.lower(Vehicle.vehicle_number) == vehicle_number.lower(), Vehicle.is_deleted == False)
         .first()
     )
-
     if not vehicle:
-        return None  # handled in route with 404
+        return None
 
-    # -------- TRIP DATA --------
-    total_trips = (
-        db.query(func.count(func.distinct(Trip.id)))
-        .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
-        .scalar()
-        or 0
-    )
+    vehicle_key = vehicle_number.lower()
 
     vehicle_trips = (
         db.query(Trip)
         .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_key)
         .options(selectinload(Trip.vehicles))
         .all()
     )
+    total_trips = len({trip.id for trip in vehicle_trips})
 
-    vehicle_key = vehicle_number.lower()
     total_km = 0.0
     trip_cost = 0.0
     trip_fuel_cost = 0.0
+    route_counter: Counter[str] = Counter()
+    driver_counter: Counter[int] = Counter()
+    driver_revenue: defaultdict[int, float] = defaultdict(float)
+    monthly_income: defaultdict[str, float] = defaultdict(float)
+
+    completed_trips = 0
+    upcoming_trips = 0
+    cancelled_trips = 0
+
+    highest_trip = None
+    lowest_trip = None
 
     for trip in vehicle_trips:
+        effective_date = (trip.departure_datetime.date() if trip.departure_datetime else trip.trip_date) or today
+        if effective_date > today:
+            upcoming_trips += 1
+        elif (trip.total_charged or 0) <= 0:
+            cancelled_trips += 1
+        else:
+            completed_trips += 1
+
+        route = f"{trip.from_location or '-'} -> {trip.to_location or '-'}"
+        route_counter[route] += 1
+
+        trip_total = float(trip.total_charged or 0)
+        month = _month_key(effective_date)
+        if month:
+            monthly_income[month] += trip_total
+
+        if highest_trip is None or trip_total > highest_trip["revenue"]:
+            highest_trip = {
+                "trip_id": trip.id,
+                "invoice_number": trip.invoice_number,
+                "route": route,
+                "revenue": _round_2(trip_total),
+            }
+        if lowest_trip is None or trip_total < lowest_trip["revenue"]:
+            lowest_trip = {
+                "trip_id": trip.id,
+                "invoice_number": trip.invoice_number,
+                "route": route,
+                "revenue": _round_2(trip_total),
+            }
+
         vehicles = list(trip.vehicles or [])
         if not vehicles:
             continue
 
         subtotals = []
-        for v in vehicles:
-            pricing_type = (v.pricing_type or "per_km").lower()
-            base = (v.package_amount or 0) if pricing_type == "package" else (v.distance_km or 0) * (v.cost_per_km or 0)
-            subtotal = (base or 0) + (v.toll_amount or 0) + (v.parking_amount or 0) + (v.other_expenses or 0)
-            subtotals.append((v, subtotal))
+        for tv in vehicles:
+            pricing_type = (tv.pricing_type or "per_km").lower()
+            base = (tv.package_amount or 0) if pricing_type == "package" else (tv.distance_km or 0) * (tv.cost_per_km or 0)
+            subtotal = float((base or 0) + (tv.toll_amount or 0) + (tv.parking_amount or 0) + (tv.other_expenses or 0))
+            subtotals.append((tv, subtotal))
 
-        sum_subtotal = sum(value for _, value in subtotals)
-        trip_total = trip.total_charged or 0
+        subtotal_sum = sum(value for _, value in subtotals)
         vehicle_count = len(subtotals) if subtotals else max(trip.number_of_vehicles or 1, 1)
 
-        for v, subtotal in subtotals:
-            if (v.vehicle_number or "").lower() != vehicle_key:
+        for tv, subtotal in subtotals:
+            if (tv.vehicle_number or "").lower() != vehicle_key:
                 continue
 
-            total_km += v.distance_km or 0
+            total_km += float(tv.distance_km or 0)
+            fuel_cost = float(tv.fuel_cost or 0)
+            if not fuel_cost:
+                fuel_cost = float(tv.diesel_used or 0) + float(tv.petrol_used or 0)
+            trip_fuel_cost += fuel_cost
 
-            vehicle_fuel_cost = v.fuel_cost or 0
-            if not vehicle_fuel_cost:
-                vehicle_fuel_cost = (v.diesel_used or 0) + (v.petrol_used or 0)
-            trip_fuel_cost += vehicle_fuel_cost
-
-            if sum_subtotal > 0:
-                trip_cost += subtotal + (trip_total - sum_subtotal) * (subtotal / sum_subtotal)
+            allocated_revenue = 0.0
+            if subtotal_sum > 0:
+                allocated_revenue = subtotal + (trip_total - subtotal_sum) * (subtotal / subtotal_sum)
             else:
-                trip_cost += trip_total / vehicle_count
+                allocated_revenue = trip_total / vehicle_count
+            trip_cost += allocated_revenue
+
+            if tv.driver_id:
+                driver_counter[tv.driver_id] += 1
+                driver_revenue[tv.driver_id] += allocated_revenue
 
     customers = (
         db.query(func.count(func.distinct(Trip.customer_id)))
         .join(TripVehicle, TripVehicle.trip_id == Trip.id)
-        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_number.lower())
+        .filter(func.lower(TripVehicle.vehicle_number) == vehicle_key)
         .scalar()
         or 0
     )
 
-    # -------- MAINTENANCE COST (including EMI, Insurance, Tax) --------
     monthly_maintenance_cost = calculate_monthly_maintenance_cost(db, vehicle_number)
-    maintenance_cost = vehicle.total_maintenance_cost or 0
+    maintenance_cost = float(vehicle.total_maintenance_cost or 0)
 
-    # -------- FUEL COST (BY TYPE) --------
-    trip_fuel_cost = trip_fuel_cost or 0
-
-    fuel_by_type = (
-        db.query(
-            Fuel.fuel_type,
-            func.coalesce(func.sum(Fuel.total_cost), 0).label("cost")
-        )
-        .filter(
-            func.lower(Fuel.vehicle_number) == vehicle_number.lower()
-        )
-        .group_by(Fuel.fuel_type)
+    fuel_rows = (
+        db.query(Fuel)
+        .filter(func.lower(Fuel.vehicle_number) == vehicle_key)
+        .order_by(Fuel.filled_date.desc())
         .all()
     )
+    fuel_costs: dict[str, float] = defaultdict(float)
+    direct_fuel_cost = 0.0
+    direct_fuel_litres = 0.0
+    monthly_fuel_cost: defaultdict[str, float] = defaultdict(float)
+    monthly_fuel_litres: defaultdict[str, float] = defaultdict(float)
+    for row in fuel_rows:
+        fuel_costs[row.fuel_type] += float(row.total_cost or 0)
+        direct_fuel_cost += float(row.total_cost or 0)
+        direct_fuel_litres += float(row.quantity or 0)
+        month = _month_key(row.filled_date)
+        if month:
+            monthly_fuel_cost[month] += float(row.total_cost or 0)
+            monthly_fuel_litres[month] += float(row.quantity or 0)
 
-    fuel_costs = {f.fuel_type: f.cost for f in fuel_by_type}
-    direct_fuel_cost = sum(fuel_costs.values())
-    total_fuel_cost = direct_fuel_cost + trip_fuel_cost
+    fuel_costs = {key: _round_2(value) for key, value in fuel_costs.items()}
+    total_fuel_cost = _round_2(direct_fuel_cost + trip_fuel_cost)
 
-    # -------- SPARE PARTS --------
     spare_parts = (
         db.query(SparePart)
-        .filter(
-            func.lower(SparePart.vehicle_number) == vehicle_number.lower()
-        )
+        .filter(func.lower(SparePart.vehicle_number) == vehicle_key)
         .order_by(SparePart.replaced_date.desc())
         .all()
     )
@@ -294,21 +359,18 @@ def vehicle_summary(db: Session, vehicle_number: str):
         ((trip.trip_date or today) >= today - timedelta(days=30)) for trip in vehicle_trips
     ) else "inactive"
 
-    # -------- FINAL SUMMARY --------
     return {
         "vehicle_number": vehicle_number,
-
-        # core stats
         "total_trips": total_trips,
-        "total_km": total_km,
-        "trip_cost": trip_cost,
-        "maintenance_cost": maintenance_cost,
-        "monthly_maintenance_cost": monthly_maintenance_cost,
+        "total_km": _round_2(total_km),
+        "trip_cost": _round_2(trip_cost),
+        "maintenance_cost": _round_2(maintenance_cost),
+        "monthly_maintenance_cost": _round_2(monthly_maintenance_cost),
         "fuel_costs": fuel_costs,
-        "direct_fuel_cost": direct_fuel_cost,
-        "trip_fuel_cost": trip_fuel_cost,
-        "total_fuel_cost": total_fuel_cost,
-        "total_vehicle_cost": trip_cost + maintenance_cost + total_fuel_cost + monthly_maintenance_cost,
+        "direct_fuel_cost": _round_2(direct_fuel_cost),
+        "trip_fuel_cost": _round_2(trip_fuel_cost),
+        "total_fuel_cost": _round_2(total_fuel_cost),
+        "total_vehicle_cost": total_vehicle_cost,
         "customers_served": customers,
         "finance_summary": finance_summary,
 
@@ -400,7 +462,6 @@ def vehicle_summary(db: Session, vehicle_number: str):
 
         "alerts_section": alerts,
 
-        # spare parts table
         "spare_parts": [
             {
                 "id": sp.id,
@@ -408,7 +469,7 @@ def vehicle_summary(db: Session, vehicle_number: str):
                 "cost": sp.cost,
                 "quantity": sp.quantity,
                 "vendor": sp.vendor,
-                "replaced_date": sp.replaced_date
+                "replaced_date": sp.replaced_date,
             }
             for sp in spare_parts
         ],

@@ -16,6 +16,12 @@ class VendorCreate(BaseModel):
     category: Optional[VendorCategory] = None
 
 
+class VendorUpdate(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    category: Optional[VendorCategory] = None
+
+
 class VendorResponse(BaseModel):
     id: int
     name: str

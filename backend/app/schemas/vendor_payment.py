@@ -5,7 +5,7 @@ from typing import Optional
 
 class VendorPaymentCreate(BaseModel):
     vendor_id: int
-    trip_id: int
+    trip_id: int | None = None
     amount: float
     paid_on: date
     notes: Optional[str] = None

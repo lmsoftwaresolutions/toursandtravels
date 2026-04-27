@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -50,7 +50,9 @@ export default function VendorDetails() {
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("fuel");
   const [payments, setPayments] = useState([]);
-  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "", trip_id: "" });
+  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "" });
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const paymentSubmitLockRef = useRef(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -70,7 +72,7 @@ export default function VendorDetails() {
       setOilHistory([]);
       setPayments([]);
       setSummary(null);
-      setPayForm({ amount: "", paid_on: "", notes: "", trip_id: "" });
+      setPayForm({ amount: "", paid_on: "", notes: "" });
       setSelectedPayment(null);
 
       // Get vendor details
@@ -473,22 +475,36 @@ export default function VendorDetails() {
 
   const submitPayment = async (e) => {
     e.preventDefault();
-    if (!payForm.amount || !payForm.paid_on || !payForm.trip_id) return;
+    if (paymentSubmitting || paymentSubmitLockRef.current) return;
+    if (!payForm.amount || !payForm.paid_on) return;
+    const amount = Number(payForm.amount || 0);
+    if (amount <= 0) {
+      alert("Payment amount must be greater than zero.");
+      return;
+    }
+    if (amount > Number(pendingAmount || 0)) {
+      alert(`Payment cannot exceed pending amount (Rs. ${Number(pendingAmount || 0).toFixed(2)}).`);
+      return;
+    }
     const payload = {
       vendor_id: Number(id),
-      trip_id: Number(payForm.trip_id),
-      amount: Number(payForm.amount),
+      amount,
       paid_on: payForm.paid_on,
       notes: payForm.notes || undefined,
     };
     try {
+      paymentSubmitLockRef.current = true;
+      setPaymentSubmitting(true);
       await api.post("/vendor-payments", payload);
       alert("Payment recorded successfully");
       await loadVendorData();
-      setPayForm({ amount: "", paid_on: "", notes: "", trip_id: "" });
+      setPayForm({ amount: "", paid_on: "", notes: "" });
     } catch (err) {
       console.error("Payment submit error:", err);
       alert("Error recording payment: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setPaymentSubmitting(false);
+      paymentSubmitLockRef.current = false;
     }
   };
 
@@ -534,7 +550,7 @@ export default function VendorDetails() {
       if (activeTab === "payments") {
         return {
           title: "Payments",
-          headers: ["Date", "Amount", "Trip / Invoice", "Reference"],
+          headers: ["Date", "Amount", "Linked Trip", "Reference"],
           rows: payments.map((p) => [
             formatDateDDMMYYYY(p.paid_on),
             formatMoney(p.amount),
@@ -1078,16 +1094,18 @@ export default function VendorDetails() {
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Add Payment
             </h2>
-            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
+            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
+                  max={Number(pendingAmount || 0).toFixed(2)}
                   value={payForm.amount}
                   onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
                   required
                 />
               </div>
@@ -1098,24 +1116,9 @@ export default function VendorDetails() {
                   value={payForm.paid_on}
                   onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                  disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Trip / Invoice</label>
-                <select
-                  value={payForm.trip_id}
-                  onChange={(e) => setPayForm({ ...payForm, trip_id: e.target.value })}
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                  required
-                >
-                  <option value="">Select Trip / Invoice</option>
-                  {allTrips.map((trip) => (
-                    <option key={trip.id} value={trip.id}>
-                      {formatTripLabel(trip)}
-                    </option>
-                  ))}
-                </select>
               </div>
               <div className="space-y-2 md:col-span-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference</label>
@@ -1125,12 +1128,22 @@ export default function VendorDetails() {
                   onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                   placeholder="Invoice no, UPI ref"
+                  disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
                 />
               </div>
-              <button type="submit" className="h-12 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95">
-                Save Payment
+              <button
+                type="submit"
+                disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
+                className="h-12 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {paymentSubmitting ? "Saving..." : "Save Payment"}
               </button>
             </form>
+            {Number(pendingAmount || 0) <= 0 ? (
+              <p className="mt-4 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+                No pending amount. Payments are disabled.
+              </p>
+            ) : null}
           </div>
 
           <div className="glass-card rounded-[2rem] overflow-hidden border border-slate-100 bg-white shadow-2xl shadow-slate-200/50">
@@ -1139,7 +1152,7 @@ export default function VendorDetails() {
                 <tr className="bg-slate-50/50">
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Date</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Amount</th>
-                  <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Trip / Invoice</th>
+                  <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Linked Trip</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Reference</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Charge Details</th>
                   <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
@@ -1461,7 +1474,7 @@ export default function VendorDetails() {
                 <p className="mt-2 text-base font-black text-slate-900">Rs. {Number(selectedPayment.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Trip / Invoice</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Linked Trip</p>
                 <p className="mt-2 text-base font-black text-slate-900">{getPaymentTripLabel(selectedPayment.trip_id)}</p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">

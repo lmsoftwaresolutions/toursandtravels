@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from datetime import date, datetime
 import calendar
+from datetime import date, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from app.database.session import SessionLocal
 from app.models.driver_salary import DriverSalary
@@ -13,14 +14,15 @@ from app.models.oil_bill import OilBill, OilBillEntry
 from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.fuel import Fuel
-from app.models.vehicle import Vehicle
-from app.models.spare_part import SparePart
 from app.models.maintenance import Maintenance
+from app.models.mechanic import MechanicEntry
+from app.models.spare_part import SparePart
+from app.models.trip import Trip
+from app.models.trip_vehicle import TripVehicle
+from app.models.vehicle import Vehicle
 from app.models.vendor_payment import VendorPayment
-from app.models.driver_salary import DriverSalary
-from app.models.vendor_payment import VendorPayment
-from app.models.driver_salary import DriverSalary
 from app.services.auth_service import get_current_user
+from app.services.vehicle_finance_service import get_finance_dashboard_summary
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -43,72 +45,174 @@ def dashboard_summary(
     ),
     _current_user=Depends(get_current_user),
 ):
-    start_date = None
-    end_date = None
+    start_date: date | None = None
+    end_date: date | None = None
     if month:
         try:
             year, mon = map(int, month.split("-"))
             last_day = calendar.monthrange(year, mon)[1]
             start_date = date(year, mon, 1)
             end_date = date(year, mon, last_day)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM") from exc
 
-    # -------- TRIPS --------
-    trip_query = db.query(Trip)
+    today = date.today()
+
+    def is_aware(value: datetime | None) -> bool:
+        return bool(value and value.tzinfo and value.tzinfo.utcoffset(value) is not None)
+
+    def align_datetime(value: datetime, target_tz) -> datetime:
+        if target_tz is None:
+            return value.replace(tzinfo=None) if is_aware(value) else value
+        if is_aware(value):
+            return value.astimezone(target_tz)
+        return value.replace(tzinfo=target_tz)
+
+    def within_range(value: date | None) -> bool:
+        if not value:
+            return True
+        if start_date and value < start_date:
+            return False
+        if end_date and value > end_date:
+            return False
+        return True
+
+    def trip_effective_date(trip: Trip) -> date | None:
+        if trip.departure_datetime:
+            return trip.departure_datetime.date()
+        return trip.trip_date
+
+    def safe_amount(value: float | None) -> float:
+        return round(float(value or 0), 2)
+
+    def classify_charge_item(description: str) -> str:
+        d = (description or "").strip().lower()
+        if "night" in d:
+            return "night_charges"
+        if "wait" in d:
+            return "waiting_charges"
+        if "add" in d or "extra" in d:
+            return "additional_charges"
+        return "other_additional_charges"
+
+    trip_query = db.query(Trip).options(
+        selectinload(Trip.pricing_items),
+        selectinload(Trip.vehicles).selectinload(TripVehicle.expenses),
+    )
     if start_date and end_date:
-        # Pivot: Use departure_datetime if available, else fallback to trip_date
-        # We compare just the date part of departure_datetime
         trip_query = trip_query.filter(
             func.coalesce(func.date(Trip.departure_datetime), Trip.trip_date).between(start_date, end_date)
         )
-    total_trips = trip_query.with_entities(func.count(Trip.id)).scalar() or 0
+    trips = trip_query.all()
 
-    # -------- REVENUE --------
-    income = trip_query.with_entities(func.coalesce(func.sum(Trip.total_charged), 0)).scalar()
-    total_due = sum(
-        max(
-            (trip.total_charged or 0)
-            - (trip.amount_received or 0)
-            - trip.get_party_fuel_credit(),
-            0,
-        )
-        for trip in trip_query.all()
-    )
-    total_due = sum(
-        max(
-            (trip.total_charged or 0)
-            - (trip.amount_received or 0)
-            - trip.get_party_fuel_credit(),
-            0,
-        )
-        for trip in trip_query.all()
-    )
+    total_trips = len(trips)
+    completed_trips = 0
+    upcoming_trips = 0
+    ongoing_trips = 0
 
-    # -------- OPERATING EXPENSES --------
-    trip_fuel_cost = trip_query.with_entities(
-        func.coalesce(func.sum(Trip.diesel_used + Trip.petrol_used), 0)
-    ).scalar()
-    driver_bhatta_cost = trip_query.with_entities(
-        func.coalesce(func.sum(Trip.driver_bhatta), 0)
-    ).scalar()
-    driver_bhatta_cost = trip_query.with_entities(
-        func.coalesce(func.sum(Trip.driver_bhatta), 0)
-    ).scalar()
-    toll_cost = trip_query.with_entities(func.coalesce(func.sum(Trip.toll_amount), 0)).scalar()
-    parking_cost = trip_query.with_entities(func.coalesce(func.sum(Trip.parking_amount), 0)).scalar()
+    invoice_revenue = 0.0
+    paid_amount = 0.0
+    pending_amount = 0.0
+    partial_payments = 0
+    unpaid_invoices = 0
+    pending_customer_payments = 0
+
+    invoice_custom_pricing = 0.0
+    charged_toll_recovery = 0.0
+    charged_parking_recovery = 0.0
+    night_charges = 0.0
+    waiting_charges = 0.0
+    additional_charges = 0.0
+    other_additional_charges = 0.0
+    discount_total = 0.0
+
+    trip_fuel_cost = 0.0
+    driver_bhatta_cost = 0.0
+    toll_cost = 0.0
+    parking_cost = 0.0
+    daily_running_expense = 0.0
+
+    for trip in trips:
+        effective_date = trip_effective_date(trip)
+        if trip.departure_datetime and trip.return_datetime:
+            dep = trip.departure_datetime
+            ret = trip.return_datetime
+            target_tz = dep.tzinfo if is_aware(dep) else (ret.tzinfo if is_aware(ret) else None)
+            dep_cmp = align_datetime(dep, target_tz)
+            ret_cmp = align_datetime(ret, target_tz)
+            now_cmp = datetime.now(target_tz) if target_tz else datetime.now()
+            if dep_cmp <= now_cmp <= ret_cmp:
+                ongoing_trips += 1
+            elif dep_cmp > now_cmp:
+                upcoming_trips += 1
+            else:
+                completed_trips += 1
+        elif effective_date and effective_date > today:
+            upcoming_trips += 1
+        else:
+            completed_trips += 1
+
+        charged = safe_amount(trip.total_charged)
+        party_fuel_credit = safe_amount(trip.get_party_fuel_credit())
+        received = safe_amount(trip.amount_received) + party_fuel_credit
+        due = max(charged - received, 0)
+
+        invoice_revenue += charged
+        paid_amount += received
+        pending_amount += due
+        if due > 0:
+            pending_customer_payments += 1
+            if received <= 0:
+                unpaid_invoices += 1
+            else:
+                partial_payments += 1
+
+        number_of_vehicles = max(int(trip.number_of_vehicles or 1), 1)
+        pricing_total = 0.0
+        for item in trip.pricing_items or []:
+            base_amount = safe_amount(item.amount) if item.amount else safe_amount((item.quantity or 1) * (item.rate or 0))
+            if item.item_type == "pricing":
+                pricing_total += base_amount * number_of_vehicles
+            elif item.item_type == "charge":
+                tag = classify_charge_item(item.description or "")
+                if tag == "night_charges":
+                    night_charges += base_amount
+                elif tag == "waiting_charges":
+                    waiting_charges += base_amount
+                elif tag == "additional_charges":
+                    additional_charges += base_amount
+                else:
+                    other_additional_charges += base_amount
+
+        invoice_custom_pricing += pricing_total
+        charged_toll_recovery += safe_amount(trip.charged_toll_amount)
+        charged_parking_recovery += safe_amount(trip.charged_parking_amount)
+        discount_total += safe_amount(trip.discount_amount)
+
+        trip_fuel_cost += safe_amount(trip.diesel_used) + safe_amount(trip.petrol_used)
+        driver_bhatta_cost += safe_amount(trip.driver_bhatta)
+        toll_cost += safe_amount(trip.toll_amount)
+        parking_cost += safe_amount(trip.parking_amount)
+        daily_running_expense += safe_amount(trip.other_expenses)
 
     fuel_query = db.query(Fuel)
     if start_date and end_date:
         fuel_query = fuel_query.filter(Fuel.filled_date.between(start_date, end_date))
-    vendor_fuel_cost = fuel_query.with_entities(func.coalesce(func.sum(Fuel.total_cost), 0)).scalar()
+    direct_fuel_cost = safe_amount(
+        fuel_query.with_entities(func.coalesce(func.sum(Fuel.total_cost), 0)).scalar()
+    )
 
     maintenance_query = db.query(Maintenance)
     if start_date and end_date:
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        maintenance_query = maintenance_query.filter(Maintenance.start_date.between(start_dt, end_dt))
-    maintenance_cost = maintenance_query.with_entities(func.coalesce(func.sum(Maintenance.amount), 0)).scalar()
+        maintenance_query = maintenance_query.filter(
+            Maintenance.start_date.between(
+                datetime.combine(start_date, datetime.min.time()),
+                datetime.combine(end_date, datetime.max.time()),
+            )
+        )
+    maintenance_cost = safe_amount(
+        maintenance_query.with_entities(func.coalesce(func.sum(Maintenance.amount), 0)).scalar()
+    )
 
     spare_query = db.query(SparePart)
     if start_date and end_date:
@@ -131,19 +235,19 @@ def dashboard_summary(
         func.coalesce(func.sum(VendorPayment.amount), 0)
     ).scalar()
 
-    driver_salary_query = db.query(DriverSalary)
+    mechanic_query = db.query(MechanicEntry)
     if start_date and end_date:
-        driver_salary_query = driver_salary_query.filter(DriverSalary.paid_on.between(start_date, end_date))
-    driver_salary_cost = driver_salary_query.with_entities(
-        func.coalesce(func.sum(DriverSalary.amount), 0)
-    ).scalar()
+        mechanic_query = mechanic_query.filter(MechanicEntry.service_date.between(start_date, end_date))
+    mechanic_cost = safe_amount(
+        mechanic_query.with_entities(func.coalesce(func.sum(MechanicEntry.cost), 0)).scalar()
+    )
 
     vendor_payment_query = db.query(VendorPayment)
     if start_date and end_date:
         vendor_payment_query = vendor_payment_query.filter(VendorPayment.paid_on.between(start_date, end_date))
-    vendor_payment_cost = vendor_payment_query.with_entities(
-        func.coalesce(func.sum(VendorPayment.amount), 0)
-    ).scalar()
+    vendor_payment_cost = safe_amount(
+        vendor_payment_query.with_entities(func.coalesce(func.sum(VendorPayment.amount), 0)).scalar()
+    )
 
     driver_salary_query = db.query(DriverSalary)
     if start_date and end_date:
@@ -168,30 +272,57 @@ def dashboard_summary(
         + vendor_payment_cost
         + driver_salary_cost
     )
-    expenses = (
-        fuel_cost
-        + driver_bhatta_cost
-        + maintenance_cost
-        + spare_cost
+
+    total_fuel_cost = safe_amount(trip_fuel_cost + direct_fuel_cost)
+    total_driver_payment = safe_amount(driver_bhatta_cost + driver_salary_cost)
+    operating_expense = safe_amount(
+        total_fuel_cost
+        + total_driver_payment
         + toll_cost
         + parking_cost
+        + maintenance_cost
+        + spare_parts_cost
+        + mechanic_cost
+        + daily_running_expense
         + vendor_payment_cost
-        + driver_salary_cost
     )
-    profit = income - expenses
 
-    # -------- VEHICLE SUMMARY --------
-    vehicles = db.query(Vehicle).all()
+    net_profit = safe_amount(invoice_revenue - operating_expense)
+    finance_summary = get_finance_dashboard_summary(db)
+    monthly_finance_outflow = safe_amount(finance_summary.get("total_monthly_finance_outflow", 0))
+    monthly_expense = safe_amount(operating_expense + monthly_finance_outflow)
+    fixed_vehicle_expenses = 0.0
+    actual_profit = safe_amount(
+        invoice_revenue
+        - (operating_expense + monthly_finance_outflow + fixed_vehicle_expenses)
+    )
+
+    vehicles = db.query(Vehicle).filter(Vehicle.is_deleted == False).all()
     vehicle_summary = [
         {
             "id": v.id,
             "vehicle_number": v.vehicle_number,
-            "maintenance_cost": v.total_maintenance_cost
+            "maintenance_cost": safe_amount(v.total_maintenance_cost),
         }
         for v in vehicles
     ]
 
+    base_fare = max(
+        invoice_revenue
+        - invoice_custom_pricing
+        - charged_toll_recovery
+        - charged_parking_recovery
+        - night_charges
+        - waiting_charges
+        - additional_charges
+        - other_additional_charges
+        - daily_running_expense
+        + discount_total,
+        0,
+    )
+
     return {
+        # Backward-compatible keys
         "trips": total_trips,
         "income": safe_amount(invoice_revenue),
         "expenses": operating_expense,

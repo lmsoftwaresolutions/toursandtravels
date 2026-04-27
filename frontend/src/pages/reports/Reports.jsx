@@ -11,6 +11,8 @@ const getMonthKey = (dateStr) => {
   return String(datePart).slice(0, 7);
 };
 
+const normalizeVendorName = (value) => String(value || "").trim().toLowerCase();
+
 const inRange = (dateStr, fromDate, toDate, monthFilter) => {
   if (!dateStr) return true;
   const [datePart] = String(dateStr).split("T");
@@ -37,6 +39,55 @@ const getChargeItemAmount = (item) => {
   return Number(item?.amount || 0) || (Number(item?.quantity || 1) * Number(item?.rate || 0));
 };
 
+const getVehicleFuelExpense = (vehicleEntry) => {
+  const directFuel = Number(vehicleEntry?.fuel_cost || 0);
+  if (directFuel > 0) return directFuel;
+  return Number(vehicleEntry?.diesel_used || 0) + Number(vehicleEntry?.petrol_used || 0);
+};
+
+const getTripFuelExpense = (trip) => {
+  const linkedVehicles = Array.isArray(trip?.vehicles) ? trip.vehicles : [];
+  if (linkedVehicles.length > 0) {
+    return linkedVehicles.reduce((sum, entry) => sum + getVehicleFuelExpense(entry), 0);
+  }
+  return Number(trip?.diesel_used || 0) + Number(trip?.petrol_used || 0);
+};
+
+const getTripFuelByVendor = (trip) => {
+  const buckets = new Map();
+  const add = (vendorName, amount) => {
+    const vendor = String(vendorName || "").trim();
+    const value = Number(amount || 0);
+    if (!vendor || value <= 0) return;
+    buckets.set(vendor, Number(buckets.get(vendor) || 0) + value);
+  };
+
+  const linkedVehicles = Array.isArray(trip?.vehicles) ? trip.vehicles : [];
+  if (linkedVehicles.length > 0) {
+    linkedVehicles.forEach((entry) => {
+      const amount = getVehicleFuelExpense(entry);
+      add(entry?.fuel_vendor || trip?.vendor, amount);
+    });
+    return buckets;
+  }
+
+  add(trip?.vendor, getTripFuelExpense(trip));
+  return buckets;
+};
+
+const getTripPartyFuelCredit = (trip) => {
+  const linkedVehicles = Array.isArray(trip?.vehicles) ? trip.vehicles : [];
+  if (linkedVehicles.length === 0) return 0;
+
+  return linkedVehicles.reduce((sum, vehicleEntry) => {
+    const vendorDeduction = Number(vehicleEntry?.vendor_deduction_amount || 0);
+    const expenseCredits = Array.isArray(vehicleEntry?.expenses)
+      ? vehicleEntry.expenses.reduce((inner, exp) => inner + Number(exp?.amount || 0), 0)
+      : 0;
+    return sum + vendorDeduction + expenseCredits;
+  }, 0);
+};
+
 export default function Reports() {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
@@ -50,10 +101,15 @@ export default function Reports() {
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
   const [mechanicEntries, setMechanicEntries] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [driverSalaries, setDriverSalaries] = useState([]);
+  const [financeDashboard, setFinanceDashboard] = useState(null);
 
   const [filterVehicle, setFilterVehicle] = useState("");
   const [filterDriver, setFilterDriver] = useState("");
   const [filterCustomer, setFilterCustomer] = useState("");
+  const [filterVendor, setFilterVendor] = useState("");
+  const [filterExpenseType, setFilterExpenseType] = useState("");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -105,10 +161,15 @@ export default function Reports() {
     return map;
   }, [customers]);
 
-  const vendorCategoryByName = useMemo(() => {
+  const vendorMetaByNormalizedName = useMemo(() => {
     const map = new Map();
     vendors.forEach((vendor) => {
-      map.set(vendor.name, vendor.category || "");
+      const normalized = normalizeVendorName(vendor.name);
+      if (!normalized) return;
+      map.set(normalized, {
+        name: String(vendor.name || "").trim(),
+        category: vendor.category || "",
+      });
     });
     return map;
   }, [vendors]);
@@ -144,7 +205,15 @@ export default function Reports() {
       if (filterVehicle && t.vehicle_number !== filterVehicle) return false;
       if (filterDriver && t.driver_id !== Number(filterDriver)) return false;
       if (filterCustomer && t.customer_id !== Number(filterCustomer)) return false;
+      if (normalizedFilterVendor && normalizeVendorName(t.vendor) !== normalizedFilterVendor) return false;
       if (!inRange(t.trip_date, dateFrom, dateTo, monthFilter)) return false;
+      if (filterPaymentStatus) {
+        const charged = Number(t.total_charged || 0);
+        const paid = Number(t.amount_received || 0);
+        const pending = Math.max(charged - paid, 0);
+        const status = charged <= 0 ? "not_billed" : pending <= 0 ? "paid" : paid <= 0 ? "unpaid" : "partial";
+        if (status !== filterPaymentStatus) return false;
+      }
 
       const customerName = String(customerNameById.get(t.customer_id) || "").toLowerCase();
       const customerPhone = String(customerPhoneById.get(t.customer_id) || "").toLowerCase();
@@ -158,7 +227,7 @@ export default function Reports() {
       if (searchInvoiceQuery && !invoice.includes(searchInvoiceQuery)) return false;
       return true;
     });
-  }, [trips, filterVehicle, filterDriver, filterCustomer, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById, customerPhoneById]);
+  }, [trips, filterVehicle, filterDriver, filterCustomer, normalizedFilterVendor, filterPaymentStatus, dateFrom, dateTo, monthFilter, searchCustomer, searchInvoice, customerNameById, customerPhoneById]);
 
   const paymentsByTrip = useMemo(() => {
     const map = new Map();
@@ -175,30 +244,37 @@ export default function Reports() {
     const totalCharged = Number(trip?.total_charged || 0);
     const storedReceived = Number(trip?.amount_received || 0);
     const paymentReceived = Number(paymentsByTrip.get(Number(trip?.id)) || 0);
-    const totalPaid = Math.max(storedReceived, paymentReceived);
+    const partyFuelCredit = getTripPartyFuelCredit(trip);
+    const totalPaid = Math.max(storedReceived, paymentReceived) + partyFuelCredit;
     const totalPending = Math.max(totalCharged - totalPaid, 0);
     return { totalCharged, totalPaid, totalPending };
   };
 
-  const tripVehicleSet = useMemo(() => new Set(filteredTrips.map((t) => t.vehicle_number)), [filteredTrips]);
+  const getTripPaymentStatus = (trip) => {
+    const { totalCharged, totalPaid, totalPending } = getTripFinancials(trip);
+    if (totalCharged <= 0) return "not_billed";
+    if (totalPending <= 0) return "paid";
+    if (totalPaid <= 0) return "unpaid";
+    return "partial";
+  };
 
   const filteredFuelEntries = useMemo(() => {
     return fuelEntries.filter((f) => {
       if (!inRange(f.filled_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && f.vehicle_number !== filterVehicle) return false;
-      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(f.vehicle_number)) return false;
+      if (normalizedFilterVendor && normalizeVendorName(f.vendor) !== normalizedFilterVendor) return false;
       return true;
     });
-  }, [fuelEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+  }, [fuelEntries, dateFrom, dateTo, monthFilter, filterVehicle, normalizedFilterVendor]);
 
   const filteredSpareEntries = useMemo(() => {
     return spareEntries.filter((s) => {
       if (!inRange(s.replaced_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && s.vehicle_number !== filterVehicle) return false;
-      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(s.vehicle_number)) return false;
+      if (normalizedFilterVendor && normalizeVendorName(s.vendor) !== normalizedFilterVendor) return false;
       return true;
     });
-  }, [spareEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+  }, [spareEntries, dateFrom, dateTo, monthFilter, filterVehicle, normalizedFilterVendor]);
 
   const oilEntries = useMemo(() => {
     return (oilBills || []).flatMap((bill) =>
@@ -228,21 +304,28 @@ export default function Reports() {
 
   const filteredMaintenance = useMemo(() => {
     return maintenanceEntries.filter((m) => {
-      if (!inRange(m.start_date, dateFrom, dateTo, monthFilter)) return false;
+      if (!inRange(m.start_date || m.service_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && m.vehicle_number !== filterVehicle) return false;
-      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(m.vehicle_number)) return false;
       return true;
     });
-  }, [maintenanceEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+  }, [maintenanceEntries, dateFrom, dateTo, monthFilter, filterVehicle]);
 
   const filteredMechanicEntries = useMemo(() => {
     return mechanicEntries.filter((m) => {
       if (!inRange(m.service_date, dateFrom, dateTo, monthFilter)) return false;
       if (filterVehicle && m.vehicle_number !== filterVehicle) return false;
-      if (!filterVehicle && tripVehicleSet.size > 0 && !tripVehicleSet.has(m.vehicle_number)) return false;
+      if (normalizedFilterVendor && normalizeVendorName(m.vendor) !== normalizedFilterVendor) return false;
       return true;
     });
-  }, [mechanicEntries, dateFrom, dateTo, monthFilter, filterVehicle, tripVehicleSet]);
+  }, [mechanicEntries, dateFrom, dateTo, monthFilter, filterVehicle, normalizedFilterVendor]);
+
+  const filteredDriverSalaries = useMemo(() => {
+    return driverSalaries.filter((salary) => {
+      if (!inRange(salary.paid_on, dateFrom, dateTo, monthFilter)) return false;
+      if (filterDriver && Number(salary.driver_id) !== Number(filterDriver)) return false;
+      return true;
+    });
+  }, [driverSalaries, dateFrom, dateTo, monthFilter, filterDriver]);
 
   const totals = useMemo(() => {
     const totalTrips = filteredTrips.length;
@@ -264,8 +347,7 @@ export default function Reports() {
     }, 0);
     const invoiceOtherExpenses = filteredTrips.reduce((sum, t) => sum + Number(t.other_expenses || 0), 0);
     const invoiceDiscount = filteredTrips.reduce((sum, t) => sum + Number(t.discount_amount || 0), 0);
-    const tripDriverBhatta = filteredTrips.reduce((sum, t) => sum + Number(t.driver_bhatta || 0), 0);
-    const rawInvoiceBaseFare = Math.max(
+    const invoiceBaseFare = Math.max(
       totalRevenue -
         invoiceCustomPricing -
         invoiceChargedToll -
@@ -275,14 +357,13 @@ export default function Reports() {
         invoiceDiscount,
       0
     );
-    const tripFuelExpenses = filteredTrips.reduce(
-      (sum, t) => sum + Number(t.diesel_used || 0) + Number(t.petrol_used || 0),
-      0
-    );
-    const invoiceBaseFare = Math.max(rawInvoiceBaseFare - tripFuelExpenses - tripDriverBhatta, 0);
+    const tripFuelExpenses = filteredTrips.reduce((sum, t) => sum + getTripFuelExpense(t), 0);
 
     const directFuelExpenses = filteredFuelEntries.reduce((sum, f) => sum + Number(f.total_cost || 0), 0);
     const fuelExpenses = tripFuelExpenses + directFuelExpenses;
+    const driverBhattaExpenses = filteredTrips.reduce((sum, t) => sum + Number(t.driver_bhatta || 0), 0);
+    const driverSalaryExpenses = filteredDriverSalaries.reduce((sum, salary) => sum + Number(salary.amount || 0), 0);
+    const driverExpenses = driverBhattaExpenses + driverSalaryExpenses;
     const spareExpenses = filteredSpareEntries.reduce((sum, s) => sum + Number(s.cost || 0) * Number(s.quantity || 0), 0);
     const oilExpenses = filteredOilEntries.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
     const maintenanceExpenses = filteredMaintenance.reduce((sum, m) => sum + Number(m.amount || 0), 0);
@@ -322,6 +403,7 @@ export default function Reports() {
 
     const totalOperatingExpense = selectedOperatingExpense;
     const netProfit = totalRevenue - totalOperatingExpense;
+    const actualProfit = netProfit;
 
     return {
       totalTrips,
@@ -339,14 +421,21 @@ export default function Reports() {
       tripFuelExpenses,
       directFuelExpenses,
       fuelExpenses,
+      driverExpenses,
+      driverBhattaExpenses,
+      driverSalaryExpenses,
       tollExpenses,
       parkingExpenses,
       spareExpenses,
       oilExpenses,
       maintenanceExpenses,
       mechanicExpenses,
+      dailyRunningExpenses,
+      financeExpenses,
+      monthlyFinanceOutflow,
       totalOperatingExpense,
       netProfit,
+      actualProfit,
     };
   }, [filteredTrips, filteredFuelEntries, filteredSpareEntries, filteredOilEntries, filteredMaintenance, filteredMechanicEntries, filteredDriverSalaries, financeDashboard, filterExpenseType, paymentsByTrip]);
 
@@ -411,12 +500,15 @@ export default function Reports() {
   const vendorWiseExpenses = useMemo(() => {
     const map = new Map();
     const add = (vendorName, type, amount) => {
-      const key = String(vendorName || "").trim();
-      if (!key || !vendorNameSet.has(key) || Number(amount || 0) <= 0) return;
-      if (!map.has(key)) {
-        map.set(key, {
-          vendor: key,
-          category: vendorCategoryByName.get(key) || "",
+      const normalized = normalizeVendorName(vendorName);
+      const value = Number(amount || 0);
+      if (!normalized || value <= 0) return;
+      const vendorMeta = vendorMetaByNormalizedName.get(normalized);
+      const displayName = vendorMeta?.name || String(vendorName || "").trim();
+      if (!map.has(normalized)) {
+        map.set(normalized, {
+          vendor: displayName,
+          category: vendorMeta?.category || "",
           fuel: 0,
           spare_parts: 0,
           oil: 0,
@@ -424,11 +516,14 @@ export default function Reports() {
           total: 0
         });
       }
-      map.get(key)[type] += amount;
-      map.get(key).total += amount;
+      map.get(normalized)[type] += value;
+      map.get(normalized).total += value;
     };
     filteredFuelEntries.forEach((f) => add(f.vendor, "fuel", Number(f.total_cost || 0)));
-    filteredTrips.forEach((t) => add(t.vendor, "fuel", Number(t.diesel_used || 0) + Number(t.petrol_used || 0)));
+    filteredTrips.forEach((trip) => {
+      const vendorFuelBreakdown = getTripFuelByVendor(trip);
+      vendorFuelBreakdown.forEach((amount, vendorName) => add(vendorName, "fuel", amount));
+    });
     filteredSpareEntries.forEach((s) => add(s.vendor, "spare_parts", Number(s.cost || 0) * Number(s.quantity || 0)));
     filteredOilEntries.forEach((o) => add(o.vendor, "oil", Number(o.total_amount || 0)));
     filteredMechanicEntries.forEach((m) => add(m.vendor, "mechanic", Number(m.cost || 0)));
@@ -439,15 +534,22 @@ export default function Reports() {
   const vendorMonthlySummary = useMemo(() => {
     const map = new Map();
     const add = (month, vendorName, amount) => {
-      const vendor = String(vendorName || "").trim();
-      if (!month || !vendor || !vendorNameSet.has(vendor) || Number(amount || 0) <= 0) return;
-      const key = `${month}|${vendor}`;
-      if (!map.has(key)) map.set(key, { month, vendor, amount: 0 });
-      map.get(key).amount += amount;
+      const normalized = normalizeVendorName(vendorName);
+      const value = Number(amount || 0);
+      if (!month || !normalized || value <= 0) return;
+      const vendorMeta = vendorMetaByNormalizedName.get(normalized);
+      const displayName = vendorMeta?.name || String(vendorName || "").trim();
+      const key = `${month}|${normalized}`;
+      if (!map.has(key)) map.set(key, { month, vendor: displayName, amount: 0 });
+      map.get(key).amount += value;
     };
 
     filteredFuelEntries.forEach((f) => add(getMonthKey(f.filled_date), f.vendor, Number(f.total_cost || 0)));
-    filteredTrips.forEach((t) => add(getMonthKey(t.trip_date), t.vendor, Number(t.diesel_used || 0) + Number(t.petrol_used || 0)));
+    filteredTrips.forEach((trip) => {
+      const monthKey = getMonthKey(trip.trip_date);
+      const vendorFuelBreakdown = getTripFuelByVendor(trip);
+      vendorFuelBreakdown.forEach((amount, vendorName) => add(monthKey, vendorName, amount));
+    });
     filteredSpareEntries.forEach((s) => add(getMonthKey(s.replaced_date), s.vendor, Number(s.cost || 0) * Number(s.quantity || 0)));
     filteredOilEntries.forEach((o) => add(getMonthKey(o.bill_date), o.vendor, Number(o.total_amount || 0)));
     filteredMechanicEntries.forEach((m) => add(getMonthKey(m.service_date), m.vendor, Number(m.cost || 0)));
@@ -632,6 +734,7 @@ export default function Reports() {
       ["Discount", -totals.invoiceDiscount],
       ["Invoice Total", totals.totalRevenue],
     ]
+      .filter(([label, amount]) => label === "Base Fare" || label === "Invoice Total" || Math.abs(Number(amount || 0)) > 0)
       .map(([label, amount]) => `
         <tr>
           <td>${label}</td>
@@ -641,9 +744,7 @@ export default function Reports() {
       .join("");
     const operatingExpenseRows = [
       ["Fuel Expenses", totals.fuelExpenses],
-      ["Spare Parts", totals.spareExpenses],
-      ["Maintenance", totals.maintenanceExpenses],
-      ["Mechanic (Mistry)", totals.mechanicExpenses],
+      ["Driver Expenses (Bhatta + Salary)", totals.driverExpenses],
       ["Toll Paid", totals.tollExpenses],
       ["Parking Paid", totals.parkingExpenses],
       ["Maintenance (Service)", totals.maintenanceExpenses],
@@ -654,6 +755,7 @@ export default function Reports() {
       ["EMI + Insurance + Tax", totals.financeExpenses],
       ["Total Operating Expense", totals.totalOperatingExpense],
     ]
+      .filter(([label, amount]) => label === "Total Operating Expense" || Number(amount || 0) > 0)
       .map(([label, amount]) => `
         <tr>
           <td>${label}</td>
@@ -911,6 +1013,10 @@ export default function Reports() {
                 <div class="label">Net Profit</div>
                 <div class="value">Rs. ${formatMoney(totals.netProfit)}</div>
               </div>
+              <div class="summary-card">
+                <div class="label">Actual Profit</div>
+                <div class="value">Rs. ${formatMoney(totals.actualProfit)}</div>
+              </div>
             </div>
 
             <div class="section">
@@ -958,6 +1064,25 @@ export default function Reports() {
             </div>
 
             <div class="section">
+              <div class="section-title">Vehicle-wise Report</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th class="num">Trips</th>
+                    <th class="num">Revenue</th>
+                    <th class="num">Expense</th>
+                    <th class="num">EMI+Insurance+Tax</th>
+                    <th class="num">Running Cost/KM</th>
+                    <th class="num">Profit/Loss</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>${vehicleRows}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
               <div class="section-title">Filtered Trips</div>
               <table class="report-table">
                 <thead>
@@ -972,6 +1097,24 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody>${tripRows}</tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Pending Payments Report</div>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>Invoice No.</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th class="num">Charged</th>
+                    <th class="num">Paid</th>
+                    <th class="num">Pending</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>${pendingRows}</tbody>
               </table>
             </div>
 
@@ -1106,6 +1249,13 @@ export default function Reports() {
           <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
           Export Report
         </button>
+        <button
+          onClick={handleExportExcel}
+          className="group flex items-center justify-center gap-3 px-6 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-700/20 active:scale-95 no-print"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v8m-4-4h8M4 6h16M4 18h16" /></svg>
+          Export Excel
+        </button>
       </div>
       </div>
 
@@ -1115,7 +1265,7 @@ export default function Reports() {
           <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
           <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Filter Records</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-5 md:gap-6">
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Vehicle</label>
             <select
@@ -1229,6 +1379,15 @@ export default function Reports() {
               placeholder="Customer name or phone..."
             />
           </div>
+          <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Invoice Search</label>
+            <input
+              value={searchInvoice}
+              onChange={(e) => setSearchInvoice(e.target.value)}
+              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+              placeholder="Invoice number..."
+            />
+          </div>
         </div>
       </div>
 
@@ -1273,7 +1432,7 @@ export default function Reports() {
           </div>
           <p className="text-slate-500 font-black text-xs uppercase tracking-widest mb-4">Total Operating Expense</p>
           <p className="text-4xl md:text-6xl font-black text-white tracking-tighter">₹ {totals.totalOperatingExpense.toFixed(2)}</p>
-          <p className="text-slate-500 text-[11px] font-medium mt-4 uppercase tracking-widest">Fuel + spare parts + maintenance + toll + parking</p>
+          <p className="text-slate-500 text-[11px] font-medium mt-4 uppercase tracking-widest">Includes driver and EMI/insurance/tax when available</p>
         </div>
       </div>
 
@@ -1284,13 +1443,15 @@ export default function Reports() {
           Invoice Breakdown
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
-          <ExpenseBox title="Base Fare" amount={totals.invoiceBaseFare} subtext="Invoice base fare" />
-          <ExpenseBox title="Custom Pricing" amount={totals.invoiceCustomPricing} subtext="Pricing items billed to customer" icon="bg-indigo-50 text-indigo-600" />
-          <ExpenseBox title="Charged Toll" amount={totals.invoiceChargedToll} subtext="Toll charged in invoice" icon="bg-blue-50 text-blue-600" />
-          <ExpenseBox title="Charged Parking" amount={totals.invoiceChargedParking} subtext="Parking charged in invoice" icon="bg-cyan-50 text-cyan-600" />
-          <ExpenseBox title="Extra Charges" amount={totals.invoiceExtraCharges} subtext="Charge items billed to customer" icon="bg-violet-50 text-violet-600" />
-          <ExpenseBox title="Other Charges" amount={totals.invoiceOtherExpenses} subtext="Other expenses billed to customer" icon="bg-fuchsia-50 text-fuchsia-600" />
-          <ExpenseBox title="Discount" amount={totals.invoiceDiscount} subtext="Discount given in invoice" icon="bg-amber-50 text-amber-600" />
+          {invoiceBreakdownCards.map((card) => (
+            <ExpenseBox
+              key={card.title}
+              title={card.title}
+              amount={card.amount}
+              subtext={card.subtext}
+              icon={card.icon}
+            />
+          ))}
           <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-lg">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Invoice Revenue Total</p>
             <p className="text-3xl font-black text-white tracking-tight">₹ {totals.totalRevenue.toFixed(0)}</p>
@@ -1306,16 +1467,18 @@ export default function Reports() {
           Operating Expenses
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
-          <ExpenseDetailCard label="Fuel Expenses" value={totals.fuelExpenses} color="text-blue-700" />
-          <ExpenseDetailCard label="Spare Parts" value={totals.spareExpenses} color="text-amber-700" />
-          <ExpenseDetailCard label="Maintenance" value={totals.maintenanceExpenses} color="text-emerald-700" />
-          <ExpenseDetailCard label="Mechanic (Mistry)" value={totals.mechanicExpenses} color="text-emerald-700" />
-          <ExpenseDetailCard label="Toll Paid" value={totals.tollExpenses} color="text-rose-700" />
-          <ExpenseDetailCard label="Parking Paid" value={totals.parkingExpenses} color="text-cyan-700" />
+          {operatingExpenseCards.map((card) => (
+            <ExpenseDetailCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              color={card.color}
+            />
+          ))}
           <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-lg">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Operating Expense</p>
             <p className="text-3xl font-black text-white tracking-tight">₹ {totals.totalOperatingExpense.toFixed(0)}</p>
-            <p className="text-[10px] font-medium text-slate-600 mt-4 uppercase tracking-widest">Fuel + Spare Parts + Maintenance + Mechanic + Toll + Parking</p>
+            <p className="text-[10px] font-medium text-slate-600 mt-4 uppercase tracking-widest">Includes Driver + EMI/Insurance/Tax when available</p>
           </div>
         </div>
       </div>
@@ -1362,6 +1525,78 @@ export default function Reports() {
                 <td className="p-6 font-black text-slate-800">₹ {getTripFinancials(t).totalCharged.toFixed(0)}</td>
                 <td className="p-6 text-emerald-600 font-black">₹ {getTripFinancials(t).totalPaid.toFixed(0)}</td>
                 <td className="p-6 text-amber-600 font-black">₹ {getTripFinancials(t).totalPending.toFixed(0)}</td>
+              </tr>
+            ))
+          )}
+        </TableSection>
+
+        <TableSection title="Vehicle-wise Report" columns={["Vehicle", "Trips", "Revenue", "Expense", "EMI", "Insurance", "Tax", "Running Cost/KM", "Profit/Loss", "Status"]}>
+          {vehicleWiseReport.length === 0 ? (
+            <EmptyRow colSpan={10} />
+          ) : (
+            vehicleWiseReport.map((row) => (
+              <tr key={row.vehicle_number} className="group hover:bg-slate-50 transition-colors">
+                <td className="p-6 font-black text-slate-700">{row.vehicle_number}</td>
+                <td className="p-6 text-slate-500 font-bold">{row.total_trips}</td>
+                <td className="p-6 font-black text-slate-800">₹ {row.total_revenue.toFixed(2)}</td>
+                <td className="p-6 font-black text-slate-700">₹ {row.total_expense.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.emi.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.insurance.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.tax.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.running_cost_per_km.toFixed(2)}</td>
+                <td className={`p-6 font-black ${row.profit_loss >= 0 ? "text-emerald-600" : "text-rose-600"}`}>₹ {row.profit_loss.toFixed(2)}</td>
+                <td className="p-6">
+                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${row.status === "active" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                    {row.status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
+        </TableSection>
+
+        <TableSection title="Trip-wise Profitability" columns={["Invoice #", "Trip Date", "Customer", "Driver", "Vehicle", "Route", "Distance", "Charged", "Paid", "Pending", "Fuel", "Driver Cost", "Toll", "Parking", "Maintenance Share", "Fixed Share", "Trip Profit", "Payment Status"]}>
+          {tripWiseReport.length === 0 ? (
+            <EmptyRow colSpan={18} />
+          ) : (
+            tripWiseReport.map((row) => (
+              <tr key={row.id} className="group hover:bg-slate-50 transition-colors">
+                <td className="p-6 font-black text-slate-700">{row.invoice_number}</td>
+                <td className="p-6 text-slate-500 font-bold">{formatDateDDMMYYYY(row.trip_date)}</td>
+                <td className="p-6 text-slate-700 font-bold">{row.customer_name}</td>
+                <td className="p-6 text-slate-500 font-bold">{row.driver_name}</td>
+                <td className="p-6 text-slate-500 font-bold">{row.vehicle_number}</td>
+                <td className="p-6 text-slate-500 font-bold">{row.route}</td>
+                <td className="p-6 text-slate-500 font-bold">{row.distance_km}</td>
+                <td className="p-6 font-black text-slate-800">₹ {row.charged_amount.toFixed(2)}</td>
+                <td className="p-6 font-black text-emerald-600">₹ {row.paid_amount.toFixed(2)}</td>
+                <td className="p-6 font-black text-amber-600">₹ {row.pending_amount.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.fuel_used.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.driver_cost.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.toll.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.parking.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.maintenance_share.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {row.fixed_cost_share.toFixed(2)}</td>
+                <td className={`p-6 font-black ${row.trip_profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>₹ {row.trip_profit.toFixed(2)}</td>
+                <td className="p-6 text-slate-600 font-black uppercase text-[10px]">{row.payment_status}</td>
+              </tr>
+            ))
+          )}
+        </TableSection>
+
+        <TableSection title="Pending Payments Report" columns={["Invoice #", "Trip Date", "Customer", "Charged", "Paid", "Pending", "Status"]}>
+          {pendingPaymentRows.length === 0 ? (
+            <EmptyRow colSpan={7} />
+          ) : (
+            pendingPaymentRows.map((row) => (
+              <tr key={`pending-${row.id}`} className="group hover:bg-slate-50 transition-colors">
+                <td className="p-6 font-black text-slate-700">{row.invoice_number}</td>
+                <td className="p-6 text-slate-500 font-bold">{formatDateDDMMYYYY(row.trip_date)}</td>
+                <td className="p-6 text-slate-700 font-bold">{row.customer_name}</td>
+                <td className="p-6 font-black text-slate-800">₹ {row.charged_amount.toFixed(2)}</td>
+                <td className="p-6 font-black text-emerald-600">₹ {row.paid_amount.toFixed(2)}</td>
+                <td className="p-6 font-black text-amber-600">₹ {row.pending_amount.toFixed(2)}</td>
+                <td className="p-6 text-slate-600 font-black uppercase text-[10px]">{row.payment_status}</td>
               </tr>
             ))
           )}

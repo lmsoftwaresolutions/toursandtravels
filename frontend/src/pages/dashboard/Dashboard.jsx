@@ -102,6 +102,10 @@ export default function Dashboard() {
     return <div className="p-6 text-gray-500">Loading dashboard...</div>;
   }
 
+  const monthlyFinance = data?.monthly_finance_summary || {};
+  const dashboardOperatingExpense = Number(monthlyFinance.monthly_expense ?? data?.expenses ?? 0);
+  const dashboardProfit = Number(data?.actual_profit ?? data?.profit ?? 0);
+
   return (
     <div className="p-2 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -135,12 +139,12 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <KPI title="Total Trips" value={data.trips} note="This month" />
           <KPI title="Total Revenue" value={`₹${data.income.toLocaleString()}`} note="Invoice total" />
-          <KPI title="Operating Expense" value={`₹${data.expenses.toLocaleString()}`} note="Fuel + driver bhatta + driver salary + vendor payments + spare + maintenance + toll + parking" />
+          <KPI title="Operating Expense" value={`₹${dashboardOperatingExpense.toLocaleString()}`} note="Fuel + driver + maintenance + vendor + EMI + insurance + tax" />
           <KPI
             title="Net Profit"
-            value={`₹${data.profit.toLocaleString()}`}
-            note="Revenue minus operating expense"
-            highlight={data.profit >= 0 ? "green" : "red"}
+            value={`₹${dashboardProfit.toLocaleString()}`}
+            note="Revenue minus all-in expense (including EMI/insurance/tax)"
+            highlight={dashboardProfit >= 0 ? "green" : "red"}
           />
           <KPI
             title="Balance Due"
@@ -632,3 +636,4 @@ function TripScheduleChart({
     </>
   );
 }
+

@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from fastapi import HTTPException
 from app.models.vendor_payment import VendorPayment
 from app.models.trip import Trip
@@ -16,6 +17,13 @@ def list_payments_by_vendor(db: Session, vendor_id: int):
         db.query(VendorPayment)
         .filter(VendorPayment.vendor_id == vendor_id)
         .order_by(VendorPayment.paid_on.desc())
+        .all()
+    )
+
+def list_all_payments(db: Session):
+    return (
+        db.query(VendorPayment)
+        .order_by(VendorPayment.paid_on.desc(), VendorPayment.id.desc())
         .all()
     )
 

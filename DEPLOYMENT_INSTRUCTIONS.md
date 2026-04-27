@@ -3,6 +3,42 @@
 These steps deploy the production stack and apply database migrations automatically.
 
 
+## 1. PR 45
+```
+git pull
+docker compose down
+docker compose build backend
+docker compose up --build -d
+docker compose exec backend alembic upgrade head
+```
+
+## 1. PR 38
+```
+git pull
+docker compose down
+docker compose build backend
+docker compose up --build -d
+docker compose exec backend alembic upgrade head
+```
+
+## 1. PR 34
+```
+git pull
+docker compose down
+docker compose build backend
+docker compose up --build -d
+docker compose exec backend alembic upgrade head
+```
+
+## 1. PR 33
+```
+git pull
+docker compose down
+docker compose build backend
+docker compose up --build -d
+docker compose exec backend alembic upgrade head
+```
+
 ## 1. PR 31
 ```
 git pull

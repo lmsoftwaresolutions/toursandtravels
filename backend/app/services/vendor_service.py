@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from app.models.vendor import Vendor
 from app.models.oil_bill import OilBill
 from app.models.vendor_payment import VendorPayment
-from app.schemas.vendor import VendorCreate
+from app.schemas.vendor import VendorCreate, VendorUpdate
 
 ALLOWED_CATEGORIES = {"fuel", "spare_parts", "mechanic", "oil"}
 
@@ -51,6 +51,32 @@ def list_vendors(db: Session, category: str | None = None):
     if category:
         query = query.filter(Vendor.category == _normalize_category(category))
     return query.order_by(Vendor.name.asc()).all()
+
+
+def update_vendor(db: Session, vendor_id: int, data: VendorUpdate):
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    name = (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Vendor name is required")
+
+    existing = (
+        db.query(Vendor)
+        .filter(Vendor.name == name, Vendor.id != vendor_id)
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Vendor already exists")
+
+    vendor.name = name
+    vendor.phone = (data.phone or "").strip() or None
+    vendor.category = _normalize_category(data.category)
+
+    db.commit()
+    db.refresh(vendor)
+    return vendor
 
 
 def delete_vendor(db: Session, vendor_id: int):

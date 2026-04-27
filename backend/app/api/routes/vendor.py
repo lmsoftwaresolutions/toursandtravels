@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database.session import SessionLocal
-from app.schemas.vendor import VendorCreate, VendorResponse
-from app.services.vendor_service import add_vendor, list_vendors, delete_vendor
+from app.schemas.vendor import VendorCreate, VendorResponse, VendorUpdate
+from app.services.vendor_service import add_vendor, list_vendors, delete_vendor, update_vendor
 from app.services.vendor_stats_service import vendor_summary
 from app.services.auth_service import require_write_access
 
@@ -32,6 +32,16 @@ def get_vendors(category: str | None = Query(None), db: Session = Depends(get_db
 def get_vendor_summary(vendor_id: int, db: Session = Depends(get_db)):
     summary = vendor_summary(db, vendor_id)
     return summary or {"error": "Vendor not found"}
+
+
+@router.put("/{vendor_id}", response_model=VendorResponse)
+def edit_vendor(
+    vendor_id: int,
+    data: VendorUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_write_access),
+):
+    return update_vendor(db, vendor_id, data)
 
 
 @router.delete("/{vendor_id}")
