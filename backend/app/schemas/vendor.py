@@ -7,9 +7,16 @@ class VendorCategory(str, Enum):
     FUEL = "fuel"
     SPARE_PARTS = "spare_parts"
     MECHANIC = "mechanic"
+    OIL = "oil"
 
 
 class VendorCreate(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    category: Optional[VendorCategory] = None
+
+
+class VendorUpdate(BaseModel):
     name: str
     phone: Optional[str] = None
     category: Optional[VendorCategory] = None

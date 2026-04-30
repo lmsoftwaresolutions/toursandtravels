@@ -3,6 +3,7 @@ from sqlalchemy import func
 from app.models.vendor import Vendor
 from app.models.fuel import Fuel
 from app.models.mechanic import MechanicEntry
+from app.models.oil_bill import OilBill, OilBillEntry
 from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.trip_vehicle import TripVehicle
@@ -60,6 +61,13 @@ def vendor_summary(db: Session, vendor_id: int):
         .scalar()
     )
 
+    oil_total = (
+        db.query(func.coalesce(func.sum(OilBillEntry.total_amount), 0.0))
+        .join(OilBill, OilBill.id == OilBillEntry.oil_bill_id)
+        .filter(OilBill.vendor_id == vendor_id)
+        .scalar()
+    )
+
     paid_total = (
         db.query(func.coalesce(func.sum(VendorPayment.amount), 0.0))
         .filter(VendorPayment.vendor_id == vendor_id)
@@ -70,7 +78,8 @@ def vendor_summary(db: Session, vendor_id: int):
         float(fuel_total or 0) +
         float(trip_fuel_total or 0) +
         float(spare_total or 0) +
-        float(mechanic_total or 0)
+        float(mechanic_total or 0) +
+        float(oil_total or 0)
     )
     pending = max(total_owed - float(paid_total or 0), 0)
 
@@ -81,6 +90,7 @@ def vendor_summary(db: Session, vendor_id: int):
         "trip_fuel_total": float(trip_fuel_total or 0),
         "spare_total": float(spare_total or 0),
         "mechanic_total": float(mechanic_total or 0),
+        "oil_total": float(oil_total or 0),
         "total_owed": total_owed,
         "paid_total": float(paid_total or 0),
         "pending": pending,

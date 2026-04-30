@@ -78,28 +78,7 @@ def _calculate_party_fuel_credit(trip_vehicles):
     return total
 
 
-def _calculate_total_fuel_cost(trip_vehicles, default_diesel_used=0, default_petrol_used=0):
-    if trip_vehicles:
-        total = 0
-        for entry in trip_vehicles:
-            fuel_cost = entry.get("fuel_cost", 0) or 0
-            if fuel_cost > 0:
-                total += fuel_cost
-                continue
-            total += (entry.get("diesel_used", 0) or 0) + (entry.get("petrol_used", 0) or 0)
-        return total
-    return (default_diesel_used or 0) + (default_petrol_used or 0)
 
-
-def _calculate_party_fuel_credit(trip_vehicles):
-    total = 0
-    for entry in trip_vehicles or []:
-        total += entry.get("vendor_deduction_amount", 0) or 0
-        total += sum(
-            (exp.get("amount", 0) if isinstance(exp, dict) else (exp.amount or 0))
-            for exp in entry.get("expenses", [])
-        )
-    return total
 
 
 def _normalize_trip_vehicles(trip_data):
@@ -435,8 +414,6 @@ def create_trip(db: Session, trip_data: TripCreate):
     )
     total_credits = (trip_data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
     pending_amount = max(total_charged - total_credits, 0)
-    total_credits = (trip_data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
-    pending_amount = max(total_charged - total_credits, 0)
 
     trip = Trip(
         invoice_number=trip_data.invoice_number,
@@ -589,7 +566,6 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
     trip.charged_parking_amount = data.charged_parking_amount
     trip.discount_amount = data.discount_amount
     trip.estimate_amount = data.estimate_amount
-    trip.estimate_amount = data.estimate_amount
     trip.amount_received = data.amount_received
     trip.advance_payment = data.advance_payment
     trip.total_cost = (
@@ -637,8 +613,6 @@ def update_trip(db: Session, trip_id: int, data: TripUpdate, current_user=None):
         data.other_expenses -
         (data.discount_amount or 0)
     )
-    total_credits = (data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
-    trip.pending_amount = max(trip.total_charged - total_credits, 0)
     total_credits = (data.amount_received or 0) + _calculate_party_fuel_credit(validated_trip_vehicles)
     trip.pending_amount = max(trip.total_charged - total_credits, 0)
 

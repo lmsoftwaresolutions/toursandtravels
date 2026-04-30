@@ -9,6 +9,7 @@ export default function CustomerEdit() {
     name: "",
     phone: "",
     email: "",
+    alternate_phone: "",
     address: "",
   });
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ export default function CustomerEdit() {
         name: res.data.name || "",
         phone: res.data.phone || "",
         email: res.data.email || "",
+        alternate_phone: res.data.alternate_phone || "",
         address: res.data.address || "",
       }))
       .catch(() => setError("Failed to load customer"));
@@ -59,6 +61,7 @@ export default function CustomerEdit() {
       await api.put(`/customers/${id}`, {
         name: formData.name.trim(),
         phone: normalizeIndianPhone(formData.phone),
+        alternate_phone: formData.alternate_phone ? normalizeIndianPhone(formData.alternate_phone) : null,
         email: formData.email.trim() || null,
         address: formData.address.trim() || null,
       });
@@ -98,7 +101,7 @@ export default function CustomerEdit() {
                 required
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone Number</label>
                 <input
@@ -109,6 +112,16 @@ export default function CustomerEdit() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   inputMode="numeric"
                   pattern="[0-9]*"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Alternate Phone</label>
+                <input
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="Secondary Phone"
+                  type="tel"
+                  value={formData.alternate_phone}
+                  onChange={(e) => setFormData({ ...formData, alternate_phone: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
