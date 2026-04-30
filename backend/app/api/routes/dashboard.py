@@ -256,7 +256,7 @@ def dashboard_summary(
         func.coalesce(func.sum(DriverSalary.amount), 0)
     ).scalar()
 
-    fuel_cost = trip_fuel_cost + vendor_fuel_cost
+    fuel_cost = trip_fuel_cost + direct_fuel_cost
     expenses = (
         fuel_cost
         + driver_bhatta_cost
@@ -265,7 +265,7 @@ def dashboard_summary(
         + toll_cost
         + parking_cost
         + maintenance_cost
-        + spare_parts_cost
+        + spare_cost
         + mechanic_cost
         + oil_cost
         + daily_running_expense
@@ -281,7 +281,7 @@ def dashboard_summary(
         + toll_cost
         + parking_cost
         + maintenance_cost
-        + spare_parts_cost
+        + spare_cost
         + mechanic_cost
         + daily_running_expense
         + vendor_payment_cost
@@ -360,7 +360,7 @@ def dashboard_summary(
             "toll_charges": safe_amount(toll_cost),
             "parking_charges": safe_amount(parking_cost),
             "maintenance_cost": safe_amount(maintenance_cost),
-            "spare_parts_cost": safe_amount(spare_parts_cost),
+            "spare_parts_cost": safe_amount(spare_cost),
             "mechanic_cost": safe_amount(mechanic_cost),
             "oil_cost": safe_amount(oil_cost),
             "daily_running_expenses": safe_amount(daily_running_expense),

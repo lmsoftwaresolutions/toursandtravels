@@ -288,8 +288,10 @@ export default function VehicleDetails() {
                     </div>
                   ))}
                 </div>
-              ))}
+              )}
             </div>
+          </div>
+        ) : null}
 
         {activeTab === "fuel" ? (
           <DataTable
@@ -354,116 +356,6 @@ export default function VehicleDetails() {
             ]
               .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
               .map((item) => item.row)}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function KpiCard({ title, value, tone = "blue" }) {
-  const toneMap = {
-    blue: "bg-blue-50 text-blue-700 border-blue-100",
-    green: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    amber: "bg-amber-50 text-amber-700 border-amber-100",
-    rose: "bg-rose-50 text-rose-700 border-rose-100",
-    red: "bg-rose-50 text-rose-700 border-rose-100",
-  };
-  return (
-    <div className={`p-5 rounded-2xl border ${toneMap[tone] || toneMap.blue}`}>
-      <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{title}</p>
-      <p className="text-2xl font-black tracking-tight mt-1">{value}</p>
-    </div>
-  );
-}
-
-function DetailGrid({ title, rows }) {
-  return (
-    <div className="glass-card rounded-[2.5rem] border border-slate-100 overflow-hidden">
-      <div className="p-6 border-b border-slate-100">
-        <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="p-5 border-b border-slate-100 md:border-r md:odd:border-r border-slate-100">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-            <p className="text-lg font-black text-slate-700 mt-1">{value}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function GraphCard({ title, rows, mode }) {
-  const maxValue = Math.max(
-    1,
-    ...rows.map((row) => (mode === "profit" ? Math.abs(Number(row.profit || 0)) : Math.max(Number(row.income || 0), Number(row.expense || 0))))
-  );
-
-  return (
-    <div className="glass-card p-6 rounded-[2.5rem] border border-slate-100">
-      <h3 className="text-xl font-black text-slate-800 tracking-tight mb-4">{title}</h3>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.month} className="space-y-1">
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <span>{row.month}</span>
-              {mode === "profit" ? <span>{formatMoney(row.profit)}</span> : <span>I {formatMoney(row.income)} | E {formatMoney(row.expense)}</span>}
-            </div>
-            {mode === "profit" ? (
-              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div className={`h-full ${Number(row.profit || 0) >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${Math.max((Math.abs(Number(row.profit || 0)) / maxValue) * 100, 2)}%` }} />
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {activeTab === "fuel" ? (
-          <DataTable
-            title="Fuel Entries For This Vehicle"
-            empty="No Fuel Entries Found"
-            headers={["Fill Date", "Source", "Invoice", "Fuel Type", "Vendor", "Litres", "Rate", "Total"]}
-            rows={fuelLogEntries.map((entry) => [
-              formatDateDDMMYYYY(entry.filled_date),
-              entry.source === "trip_usage" || entry.source === "party_fuel" ? entry.reference : "Fuel Entry",
-              entry.source === "trip_usage" || entry.source === "party_fuel" ? entry.reference || "-" : "-",
-              entry.fuel_type,
-              entry.vendor || "-",
-              entry.quantity !== null && entry.quantity !== undefined && entry.quantity !== "-" ? Number(entry.quantity || 0).toFixed(2) : "-",
-              entry.rate_per_litre !== null && entry.rate_per_litre !== undefined ? formatMoney(entry.rate_per_litre) : "-",
-              formatMoney(entry.total_cost),
-            ])}
-          />
-        ) : null}
-
-        {activeTab === "spares" ? (
-          <DataTable
-            title="Spare Parts For This Vehicle"
-            empty="No Spare Parts Found"
-            headers={["Installation Date", "Part", "Vendor", "Quantity", "Unit Cost", "Total"]}
-            rows={spareEntries.map((sp) => [
-              formatDateDDMMYYYY(sp.replaced_date),
-              sp.part_name,
-              sp.vendor || "-",
-              Number(sp.quantity || 0),
-              formatMoney(sp.cost),
-              formatMoney(Number(sp.cost || 0) * Number(sp.quantity || 0)),
-            ])}
-          />
-        ) : null}
-
-        {activeTab === "maintenance" ? (
-          <DataTable
-            title="Mistry Work For This Vehicle"
-            empty="No Mistry Or Maintenance Records Found"
-            headers={["Service Date", "Work Description", "Vendor", "Amount"]}
-            rows={maintenanceEntries.map((m) => [
-              formatDateDDMMYYYY(m.service_date),
-              m.work_description,
-              m.vendor || "-",
-              formatMoney(m.cost ?? m.amount ?? 0),
-            ])}
           />
         ) : null}
       </div>
@@ -605,3 +497,6 @@ function MiniTable({ title, headers, rows, emptyText }) {
     </div>
   );
 }
+
+
+
