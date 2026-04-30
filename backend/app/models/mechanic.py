@@ -12,4 +12,5 @@ class MechanicEntry(Base):
     cost = Column(Float, nullable=False)
     vendor = Column(String)
     service_date = Column(Date, nullable=False)
+    notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

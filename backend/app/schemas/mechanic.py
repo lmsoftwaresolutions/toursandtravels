@@ -9,6 +9,7 @@ class MechanicCreate(BaseModel):
     cost: float
     vendor: str | None = None
     service_date: date
+    notes: str | None = None
 
     @field_validator("service_date")
     @classmethod
