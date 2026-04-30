@@ -1759,6 +1759,7 @@ export default function TripForm() {
                   <option value="fuel">Fuel Vendor</option>
                   <option value="spare_parts">Spare Parts Vendor</option>
                   <option value="mechanic">Mechanic / Garage</option>
+                  <option value="oil">Oil Vendor</option>
                 </select>
               </div>
             </div>

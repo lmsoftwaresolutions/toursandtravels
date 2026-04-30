@@ -97,6 +97,7 @@ export default function Reports() {
   const [vendors, setVendors] = useState([]);
   const [fuelEntries, setFuelEntries] = useState([]);
   const [spareEntries, setSpareEntries] = useState([]);
+  const [oilBills, setOilBills] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
   const [mechanicEntries, setMechanicEntries] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -128,6 +129,7 @@ export default function Reports() {
       ["/vendors", setVendors, []],
       ["/fuel", setFuelEntries, []],
       ["/spare-parts", setSpareEntries, []],
+      ["/oil-bills", setOilBills, []],
       ["/maintenance", setMaintenanceEntries, []],
       ["/mechanic", setMechanicEntries, []],
       ["/payments", setPayments, []],
@@ -183,6 +185,7 @@ export default function Reports() {
     vendors.forEach((v) => add(v.name));
     fuelEntries.forEach((entry) => add(entry.vendor));
     spareEntries.forEach((entry) => add(entry.vendor));
+    oilBills.forEach((bill) => add(bill.vendor_name));
     mechanicEntries.forEach((entry) => add(entry.vendor));
     trips.forEach((trip) => {
       add(trip.vendor);
@@ -190,7 +193,7 @@ export default function Reports() {
     });
 
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
-  }, [vendors, fuelEntries, spareEntries, mechanicEntries, trips]);
+  }, [vendors, fuelEntries, spareEntries, oilBills, mechanicEntries, trips]);
 
   const normalizedFilterVendor = useMemo(() => normalizeVendorName(filterVendor), [filterVendor]);
 
@@ -273,6 +276,32 @@ export default function Reports() {
     });
   }, [spareEntries, dateFrom, dateTo, monthFilter, filterVehicle, normalizedFilterVendor]);
 
+  const oilEntries = useMemo(() => {
+    return (oilBills || []).flatMap((bill) =>
+      (bill.entries || []).map((entry) => ({
+        bill_id: bill.id,
+        vendor: bill.vendor_name,
+        bill_number: bill.bill_number,
+        bill_date: bill.bill_date,
+        vehicle_number: entry.vehicle_number,
+        particular_name: entry.particular_name,
+        liters: Number(entry.liters || 0),
+        rate: Number(entry.rate || 0),
+        total_amount: Number(entry.total_amount || 0),
+        note: entry.note,
+      }))
+    );
+  }, [oilBills]);
+
+  const filteredOilEntries = useMemo(() => {
+    return oilEntries.filter((o) => {
+      if (!inRange(o.bill_date, dateFrom, dateTo, monthFilter)) return false;
+      if (filterVehicle && o.vehicle_number !== filterVehicle) return false;
+      if (normalizedFilterVendor && normalizeVendorName(o.vendor) !== normalizedFilterVendor) return false;
+      return true;
+    });
+  }, [oilEntries, dateFrom, dateTo, monthFilter, filterVehicle, normalizedFilterVendor]);
+
   const filteredMaintenance = useMemo(() => {
     return maintenanceEntries.filter((m) => {
       if (!inRange(m.start_date || m.service_date, dateFrom, dateTo, monthFilter)) return false;
@@ -336,6 +365,7 @@ export default function Reports() {
     const driverSalaryExpenses = filteredDriverSalaries.reduce((sum, salary) => sum + Number(salary.amount || 0), 0);
     const driverExpenses = driverBhattaExpenses + driverSalaryExpenses;
     const spareExpenses = filteredSpareEntries.reduce((sum, s) => sum + Number(s.cost || 0) * Number(s.quantity || 0), 0);
+    const oilExpenses = filteredOilEntries.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
     const maintenanceExpenses = filteredMaintenance.reduce((sum, m) => sum + Number(m.amount || 0), 0);
     const mechanicExpenses = filteredMechanicEntries.reduce((sum, m) => sum + Number(m.cost || 0), 0);
     const tollExpenses = filteredTrips.reduce((sum, t) => sum + Number(t.toll_amount || 0), 0);
@@ -351,6 +381,7 @@ export default function Reports() {
       parking: parkingExpenses,
       maintenance: maintenanceExpenses,
       spare: spareExpenses,
+      oil: oilExpenses,
       mechanic: mechanicExpenses,
       other: dailyRunningExpenses,
       finance: financeExpenses,
@@ -364,6 +395,7 @@ export default function Reports() {
         expenseBuckets.parking +
         expenseBuckets.maintenance +
         expenseBuckets.spare +
+        expenseBuckets.oil +
         expenseBuckets.mechanic +
         expenseBuckets.other +
         expenseBuckets.finance
@@ -395,6 +427,7 @@ export default function Reports() {
       tollExpenses,
       parkingExpenses,
       spareExpenses,
+      oilExpenses,
       maintenanceExpenses,
       mechanicExpenses,
       dailyRunningExpenses,
@@ -404,7 +437,7 @@ export default function Reports() {
       netProfit,
       actualProfit,
     };
-  }, [filteredTrips, filteredFuelEntries, filteredSpareEntries, filteredMaintenance, filteredMechanicEntries, filteredDriverSalaries, financeDashboard, filterExpenseType, paymentsByTrip]);
+  }, [filteredTrips, filteredFuelEntries, filteredSpareEntries, filteredOilEntries, filteredMaintenance, filteredMechanicEntries, filteredDriverSalaries, financeDashboard, filterExpenseType, paymentsByTrip]);
 
   const invoiceBreakdownCards = useMemo(() => {
     const cards = [
@@ -427,6 +460,7 @@ export default function Reports() {
       { label: "Parking Paid", value: totals.parkingExpenses, color: "text-cyan-700" },
       { label: "Maintenance (Service)", value: totals.maintenanceExpenses, color: "text-emerald-700" },
       { label: "Spare Parts", value: totals.spareExpenses, color: "text-amber-700" },
+      { label: "Oil", value: totals.oilExpenses, color: "text-orange-700" },
       { label: "Mechanic (Mistry)", value: totals.mechanicExpenses, color: "text-emerald-700" },
       { label: "Other Running Expenses", value: totals.dailyRunningExpenses, color: "text-fuchsia-700" },
       { label: "EMI + Insurance + Tax", value: totals.financeExpenses, color: "text-violet-700" },
@@ -438,7 +472,7 @@ export default function Reports() {
     const monthlyMap = new Map();
     const add = (month, key, amount) => {
       if (!month) return;
-      if (!monthlyMap.has(month)) monthlyMap.set(month, { tyres: 0, spare_parts: 0, other_expenses: 0 });
+      if (!monthlyMap.has(month)) monthlyMap.set(month, { tyres: 0, spare_parts: 0, oil: 0, other_expenses: 0 });
       monthlyMap.get(month)[key] += amount;
     };
 
@@ -454,10 +488,14 @@ export default function Reports() {
       add(getMonthKey(t.trip_date), "other_expenses", Number(t.other_expenses || 0));
     });
 
+    filteredOilEntries.forEach((o) => {
+      add(getMonthKey(o.bill_date), "oil", Number(o.total_amount || 0));
+    });
+
     return Array.from(monthlyMap.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([month, values]) => ({ month, ...values }));
-  }, [filteredSpareEntries, filteredTrips]);
+  }, [filteredSpareEntries, filteredTrips, filteredOilEntries]);
 
   const vendorWiseExpenses = useMemo(() => {
     const map = new Map();
@@ -473,6 +511,7 @@ export default function Reports() {
           category: vendorMeta?.category || "",
           fuel: 0,
           spare_parts: 0,
+          oil: 0,
           mechanic: 0,
           total: 0
         });
@@ -486,10 +525,11 @@ export default function Reports() {
       vendorFuelBreakdown.forEach((amount, vendorName) => add(vendorName, "fuel", amount));
     });
     filteredSpareEntries.forEach((s) => add(s.vendor, "spare_parts", Number(s.cost || 0) * Number(s.quantity || 0)));
+    filteredOilEntries.forEach((o) => add(o.vendor, "oil", Number(o.total_amount || 0)));
     filteredMechanicEntries.forEach((m) => add(m.vendor, "mechanic", Number(m.cost || 0)));
 
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filteredFuelEntries, filteredSpareEntries, filteredTrips, filteredMechanicEntries, vendorMetaByNormalizedName]);
+  }, [filteredFuelEntries, filteredSpareEntries, filteredOilEntries, filteredTrips, filteredMechanicEntries, vendorMetaByNormalizedName]);
 
   const vendorMonthlySummary = useMemo(() => {
     const map = new Map();
@@ -511,6 +551,7 @@ export default function Reports() {
       vendorFuelBreakdown.forEach((amount, vendorName) => add(monthKey, vendorName, amount));
     });
     filteredSpareEntries.forEach((s) => add(getMonthKey(s.replaced_date), s.vendor, Number(s.cost || 0) * Number(s.quantity || 0)));
+    filteredOilEntries.forEach((o) => add(getMonthKey(o.bill_date), o.vendor, Number(o.total_amount || 0)));
     filteredMechanicEntries.forEach((m) => add(getMonthKey(m.service_date), m.vendor, Number(m.cost || 0)));
 
     return Array.from(map.values()).sort((a, b) => {
@@ -518,7 +559,7 @@ export default function Reports() {
       if (monthCompare !== 0) return monthCompare;
       return b.amount - a.amount;
     });
-  }, [filteredFuelEntries, filteredSpareEntries, filteredTrips, filteredMechanicEntries, vendorMetaByNormalizedName]);
+  }, [filteredFuelEntries, filteredSpareEntries, filteredOilEntries, filteredTrips, filteredMechanicEntries, vendorMetaByNormalizedName]);
 
   const vehicleFinanceMap = useMemo(() => {
     const map = new Map();
@@ -590,6 +631,9 @@ export default function Reports() {
       const spareCost = filteredSpareEntries
         .filter((s) => s.vehicle_number === vehicleNumber)
         .reduce((sum, row) => sum + Number(row.cost || 0) * Number(row.quantity || 0), 0);
+      const oilCost = filteredOilEntries
+        .filter((o) => o.vehicle_number === vehicleNumber)
+        .reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
       const mechanicCost = filteredMechanicEntries
         .filter((m) => m.vehicle_number === vehicleNumber)
         .reduce((sum, row) => sum + Number(row.cost || 0), 0);
@@ -597,7 +641,7 @@ export default function Reports() {
       const emi = Number(finance.monthly_emi || 0);
       const insurance = Number(finance.monthly_insurance || 0);
       const tax = Number(finance.monthly_tax || 0);
-      const totalExpense = tripFuel + directFuel + driverCost + tollCost + parkingCost + maintenanceCost + spareCost + mechanicCost + emi + insurance + tax;
+      const totalExpense = tripFuel + directFuel + driverCost + tollCost + parkingCost + maintenanceCost + spareCost + oilCost + mechanicCost + emi + insurance + tax;
       const profit = revenue - totalExpense;
       const runningCostPerKm = distance > 0 ? (totalExpense / distance) : 0;
 
@@ -618,15 +662,15 @@ export default function Reports() {
         emi,
         insurance,
         tax,
-        maintenance_cost: maintenanceCost + spareCost + mechanicCost,
+        maintenance_cost: maintenanceCost + spareCost + oilCost + mechanicCost,
         running_cost_per_km: runningCostPerKm,
         profit_loss: profit,
         status: isActive ? "active" : "inactive",
       };
     });
-  }, [vehicles, filterVehicle, filteredTrips, filteredFuelEntries, filteredMaintenance, filteredSpareEntries, filteredMechanicEntries, vehicleFinanceMap]);
+  }, [vehicles, filterVehicle, filteredTrips, filteredFuelEntries, filteredMaintenance, filteredSpareEntries, filteredOilEntries, filteredMechanicEntries, vehicleFinanceMap]);
 
-  const maintenanceUnitCost = totals.totalTrips > 0 ? ((totals.maintenanceExpenses + totals.spareExpenses + totals.mechanicExpenses) / totals.totalTrips) : 0;
+  const maintenanceUnitCost = totals.totalTrips > 0 ? ((totals.maintenanceExpenses + totals.spareExpenses + totals.oilExpenses + totals.mechanicExpenses) / totals.totalTrips) : 0;
   const fixedCostSharePerTrip = totals.totalTrips > 0 ? (totals.financeExpenses / totals.totalTrips) : 0;
 
   const tripWiseReport = useMemo(() => {
@@ -705,6 +749,7 @@ export default function Reports() {
       ["Parking Paid", totals.parkingExpenses],
       ["Maintenance (Service)", totals.maintenanceExpenses],
       ["Spare Parts", totals.spareExpenses],
+      ["Oil", totals.oilExpenses],
       ["Mechanic (Mistry)", totals.mechanicExpenses],
       ["Other Running Expenses", totals.dailyRunningExpenses],
       ["EMI + Insurance + Tax", totals.financeExpenses],
@@ -738,11 +783,12 @@ export default function Reports() {
             <td>${vendor.category || "General"}</td>
             <td class="num">${formatMoney(vendor.fuel)}</td>
             <td class="num">${formatMoney(vendor.spare_parts)}</td>
+            <td class="num">${formatMoney(vendor.oil)}</td>
             <td class="num">${formatMoney(vendor.mechanic)}</td>
             <td class="num">${formatMoney(vendor.total)}</td>
           </tr>
         `).join("")
-      : `<tr><td colspan="6" class="empty">No vendor expenses found for the selected filters.</td></tr>`;
+      : `<tr><td colspan="7" class="empty">No vendor expenses found for the selected filters.</td></tr>`;
     const vehicleRows = vehicleWiseReport.length
       ? vehicleWiseReport.map((row) => `
           <tr>
@@ -1008,6 +1054,7 @@ export default function Reports() {
                     <th>Category</th>
                     <th class="num">Diesel + Petrol</th>
                     <th class="num">Spare Parts Cost</th>
+                    <th class="num">Oil Cost</th>
                     <th class="num">Mechanic Cost</th>
                     <th class="num">Total Amount</th>
                   </tr>
@@ -1153,9 +1200,9 @@ export default function Reports() {
     addRow([]);
 
     addRow(["Vendor Report"]);
-    addRow(["Vendor", "Category", "Fuel", "Spare Parts", "Mechanic", "Total"]);
+    addRow(["Vendor", "Category", "Fuel", "Spare Parts", "Oil", "Mechanic", "Total"]);
     vendorWiseExpenses.forEach((row) => {
-      addRow([row.vendor, row.category || "general", row.fuel.toFixed(2), row.spare_parts.toFixed(2), row.mechanic.toFixed(2), row.total.toFixed(2)]);
+      addRow([row.vendor, row.category || "general", row.fuel.toFixed(2), row.spare_parts.toFixed(2), row.oil.toFixed(2), row.mechanic.toFixed(2), row.total.toFixed(2)]);
     });
     addRow([]);
 
@@ -1303,6 +1350,7 @@ export default function Reports() {
               <option value="parking">Parking</option>
               <option value="maintenance">Maintenance</option>
               <option value="spare">Spare Parts</option>
+              <option value="oil">Oil</option>
               <option value="mechanic">Mechanic</option>
               <option value="other">Other Running</option>
               <option value="finance">EMI + Insurance + Tax</option>
@@ -1437,9 +1485,9 @@ export default function Reports() {
 
       {/* ---------- TABLES ---------- */}
       <div className="space-y-12 pb-20 no-print">
-        <TableSection title="Vendor Expenses" columns={["Vendor Name", "Category", "Diesel + Petrol", "Spare Parts Cost", "Mechanic Cost", "Total Amount"]}>
+        <TableSection title="Vendor Expenses" columns={["Vendor Name", "Category", "Diesel + Petrol", "Spare Parts Cost", "Oil Cost", "Mechanic Cost", "Total Amount"]}>
           {vendorWiseExpenses.length === 0 ? (
-            <EmptyRow colSpan={6} />
+            <EmptyRow colSpan={7} />
           ) : (
             vendorWiseExpenses.map((v) => (
               <tr key={v.vendor} className="group hover:bg-slate-50 transition-colors">
@@ -1447,6 +1495,7 @@ export default function Reports() {
                 <td className="p-6 text-slate-500 font-bold uppercase">{v.category || "general"}</td>
                 <td className="p-6 text-slate-500 font-bold">₹ {v.fuel.toFixed(2)}</td>
                 <td className="p-6 text-slate-500 font-bold">₹ {v.spare_parts.toFixed(2)}</td>
+                <td className="p-6 text-slate-500 font-bold">₹ {v.oil.toFixed(2)}</td>
                 <td className="p-6 text-slate-500 font-bold">₹ {v.mechanic.toFixed(2)}</td>
                 <td className="p-6 font-black text-slate-800">₹ {v.total.toFixed(2)}</td>
               </tr>

@@ -8,6 +8,7 @@ const CATEGORY_OPTIONS = [
   { value: "fuel", label: "Fuel" },
   { value: "spare_parts", label: "Spare Parts" },
   { value: "mechanic", label: "Mechanic" },
+  { value: "oil", label: "Oil" },
 ];
 
 const formatCategoryLabel = (category) => {

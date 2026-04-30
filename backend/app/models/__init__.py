@@ -6,6 +6,7 @@ from app.models.driver_salary import DriverSalary  # noqa: F401
 from app.models.fuel import Fuel  # noqa: F401
 from app.models.mechanic import MechanicEntry  # noqa: F401
 from app.models.maintenance import Maintenance  # noqa: F401
+from app.models.oil_bill import OilBill, OilBillEntry  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
 from app.models.spare_part import SparePart  # noqa: F401
 from app.models.trip import Trip  # noqa: F401

@@ -6,6 +6,7 @@ from app.models.trip import Trip
 from app.models.vendor import Vendor
 from app.models.fuel import Fuel
 from app.models.mechanic import MechanicEntry
+from app.models.oil_bill import OilBill, OilBillEntry
 from app.models.spare_part import SparePart
 from app.models.trip_vehicle import TripVehicle
 from app.schemas.vendor_payment import VendorPaymentCreate
@@ -57,6 +58,12 @@ def create_vendor_payment(db: Session, data: VendorPaymentCreate):
         .filter(func.lower(func.trim(MechanicEntry.vendor)) == normalized_name)
         .scalar()
     )
+    oil_total = (
+        db.query(func.coalesce(func.sum(OilBillEntry.total_amount), 0.0))
+        .join(OilBill, OilBill.id == OilBillEntry.oil_bill_id)
+        .filter(OilBill.vendor_id == data.vendor_id)
+        .scalar()
+    )
     trip_vehicle_total = (
         db.query(func.coalesce(func.sum(TripVehicle.fuel_cost), 0.0))
         .filter(func.lower(func.trim(TripVehicle.fuel_vendor)) == normalized_name)
@@ -84,6 +91,7 @@ def create_vendor_payment(db: Session, data: VendorPaymentCreate):
         float(fuel_total or 0)
         + float(spare_total or 0)
         + float(mechanic_total or 0)
+        + float(oil_total or 0)
         + float(trip_vehicle_total or 0)
         + float(trip_no_vehicle_total or 0)
     )

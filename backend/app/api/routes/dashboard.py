@@ -10,6 +10,12 @@ from app.models.driver_salary import DriverSalary
 from app.models.fuel import Fuel
 from app.models.maintenance import Maintenance
 from app.models.mechanic import MechanicEntry
+from app.models.oil_bill import OilBill, OilBillEntry
+from app.models.spare_part import SparePart
+from app.models.trip import Trip
+from app.models.fuel import Fuel
+from app.models.maintenance import Maintenance
+from app.models.mechanic import MechanicEntry
 from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.trip_vehicle import TripVehicle
@@ -211,9 +217,23 @@ def dashboard_summary(
     spare_query = db.query(SparePart)
     if start_date and end_date:
         spare_query = spare_query.filter(SparePart.replaced_date.between(start_date, end_date))
-    spare_parts_cost = safe_amount(
-        spare_query.with_entities(func.coalesce(func.sum(SparePart.cost * SparePart.quantity), 0)).scalar()
+    spare_cost = spare_query.with_entities(
+        func.coalesce(func.sum(SparePart.cost * SparePart.quantity), 0)
+    ).scalar()
+
+    oil_query = db.query(OilBillEntry).join(OilBill, OilBill.id == OilBillEntry.oil_bill_id)
+    if start_date and end_date:
+        oil_query = oil_query.filter(OilBill.bill_date.between(start_date, end_date))
+    oil_cost = safe_amount(
+        oil_query.with_entities(func.coalesce(func.sum(OilBillEntry.total_amount), 0)).scalar()
     )
+
+    vendor_payment_query = db.query(VendorPayment)
+    if start_date and end_date:
+        vendor_payment_query = vendor_payment_query.filter(VendorPayment.paid_on.between(start_date, end_date))
+    vendor_payment_cost = vendor_payment_query.with_entities(
+        func.coalesce(func.sum(VendorPayment.amount), 0)
+    ).scalar()
 
     mechanic_query = db.query(MechanicEntry)
     if start_date and end_date:
@@ -232,8 +252,25 @@ def dashboard_summary(
     driver_salary_query = db.query(DriverSalary)
     if start_date and end_date:
         driver_salary_query = driver_salary_query.filter(DriverSalary.paid_on.between(start_date, end_date))
-    driver_salary_cost = safe_amount(
-        driver_salary_query.with_entities(func.coalesce(func.sum(DriverSalary.amount), 0)).scalar()
+    driver_salary_cost = driver_salary_query.with_entities(
+        func.coalesce(func.sum(DriverSalary.amount), 0)
+    ).scalar()
+
+    fuel_cost = trip_fuel_cost + direct_fuel_cost
+    expenses = (
+        fuel_cost
+        + driver_bhatta_cost
+        + maintenance_cost
+        + spare_cost
+        + toll_cost
+        + parking_cost
+        + maintenance_cost
+        + spare_cost
+        + mechanic_cost
+        + oil_cost
+        + daily_running_expense
+        + vendor_payment_cost
+        + driver_salary_cost
     )
 
     total_fuel_cost = safe_amount(trip_fuel_cost + direct_fuel_cost)
@@ -244,7 +281,7 @@ def dashboard_summary(
         + toll_cost
         + parking_cost
         + maintenance_cost
-        + spare_parts_cost
+        + spare_cost
         + mechanic_cost
         + daily_running_expense
         + vendor_payment_cost
@@ -323,8 +360,9 @@ def dashboard_summary(
             "toll_charges": safe_amount(toll_cost),
             "parking_charges": safe_amount(parking_cost),
             "maintenance_cost": safe_amount(maintenance_cost),
-            "spare_parts_cost": safe_amount(spare_parts_cost),
+            "spare_parts_cost": safe_amount(spare_cost),
             "mechanic_cost": safe_amount(mechanic_cost),
+            "oil_cost": safe_amount(oil_cost),
             "daily_running_expenses": safe_amount(daily_running_expense),
             "vendor_payments": safe_amount(vendor_payment_cost),
             "total_operating_expense": operating_expense,

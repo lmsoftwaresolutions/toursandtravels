@@ -28,16 +28,18 @@ export default function VehicleDetails() {
   const [tripFuelEntries, setTripFuelEntries] = useState([]);
   const [spareEntries, setSpareEntries] = useState([]);
   const [maintenanceEntries, setMaintenanceEntries] = useState([]);
+  const [oilEntries, setOilEntries] = useState([]);
 
   const loadVehicleData = useCallback(async () => {
     try {
       const targetVehicleNumber = normalizeVehicleNumber(vehicle_number);
-      const [summaryRes, fuelRes, spareRes, maintenanceRes, tripsRes] = await Promise.all([
+      const [summaryRes, fuelRes, spareRes, maintenanceRes, tripsRes, oilRes] = await Promise.all([
         api.get(`/vehicles/${vehicle_number}/summary`),
         api.get("/fuel"),
         api.get("/spare-parts"),
         api.get(`/mechanic/vehicle/${vehicle_number}`),
         api.get("/trips"),
+        api.get("/oil-bills"),
       ]);
 
       const summaryData = summaryRes.data;
@@ -54,6 +56,18 @@ export default function VehicleDetails() {
       );
       setSpareEntries((spareRes.data || []).filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber));
       setMaintenanceEntries(maintenanceRes.data || []);
+      setOilEntries(
+        (oilRes.data || []).flatMap((bill) =>
+          (bill.entries || [])
+            .filter((entry) => normalizeVehicleNumber(entry.vehicle_number) === targetVehicleNumber)
+            .map((entry) => ({
+              ...entry,
+              bill_date: bill.bill_date,
+              bill_number: bill.bill_number,
+              vendor_name: bill.vendor_name,
+            }))
+        )
+      );
     } catch {
       alert("Failed to load vehicle summary");
     }
@@ -150,7 +164,7 @@ export default function VehicleDetails() {
           { key: "overview", label: "Overview" },
           { key: "fuel", label: `Fuel Details (${fuelLogEntries.length})` },
           { key: "spares", label: `Spare Parts (${spareEntries.length})` },
-          { key: "maintenance", label: `Mistry Details (${maintenanceEntries.length})` },
+          { key: "maintenance", label: `Mistry Details (${maintenanceEntries.length + oilEntries.length})` },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -217,6 +231,8 @@ export default function VehicleDetails() {
                 ["Last Service Date", maintenance.last_service_date ? formatDateDDMMYYYY(maintenance.last_service_date) : "-"],
                 ["Next Service Due", maintenance.next_service_due ? formatDateDDMMYYYY(maintenance.next_service_due) : "-"],
                 ["Spare Parts Replaced", maintenance.spare_parts_replaced || 0],
+                ["Oil Entries", maintenance.oil_entries_count || 0],
+                ["Oil Total Cost", formatMoney(maintenance.oil_total_cost || 0)],
                 ["Breakdown History", (maintenance.breakdown_history || []).length],
                 ["Maintenance Alerts", (maintenance.maintenance_alerts || []).length],
               ]}
@@ -315,13 +331,31 @@ export default function VehicleDetails() {
           <DataTable
             title="Mistry Work For This Vehicle"
             empty="No Mistry Or Maintenance Records Found"
-            headers={["Service Date", "Work Description", "Vendor", "Amount"]}
-            rows={maintenanceEntries.map((m) => [
-              formatDateDDMMYYYY(m.service_date),
-              m.work_description,
-              m.vendor || "-",
-              formatMoney(m.cost ?? m.amount ?? 0),
-            ])}
+            headers={["Service Date", "Type", "Work / Particular", "Vendor", "Amount"]}
+            rows={[
+              ...maintenanceEntries.map((m) => ({
+                date: m.service_date,
+                row: [
+                  formatDateDDMMYYYY(m.service_date),
+                  "Mechanic",
+                  m.work_description,
+                  m.vendor || "-",
+                  formatMoney(m.cost ?? m.amount ?? 0),
+                ],
+              })),
+              ...oilEntries.map((o) => ({
+                date: o.bill_date,
+                row: [
+                  formatDateDDMMYYYY(o.bill_date),
+                  "Oil",
+                  `${o.particular_name} (${Number(o.liters || 0).toFixed(2)} L x ${formatMoney(o.rate || 0)})`,
+                  o.vendor_name || "-",
+                  formatMoney(o.total_amount || 0),
+                ],
+              })),
+            ]
+              .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime())
+              .map((item) => item.row)}
           />
         ) : null}
       </div>
@@ -463,3 +497,6 @@ function MiniTable({ title, headers, rows, emptyText }) {
     </div>
   );
 }
+
+
+

@@ -3,16 +3,18 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.vendor import Vendor
+from app.models.oil_bill import OilBill
 from app.models.vendor_payment import VendorPayment
 from app.schemas.vendor import VendorCreate, VendorUpdate
 
-ALLOWED_CATEGORIES = {"fuel", "spare_parts", "mechanic"}
+ALLOWED_CATEGORIES = {"fuel", "spare_parts", "mechanic", "oil"}
 
 CATEGORY_ALIASES = {
     "spare": "spare_parts",
     "spare_parts": "spare_parts",
     "fuel": "fuel",
     "mechanic": "mechanic",
+    "oil": "oil",
 }
 
 
@@ -83,6 +85,9 @@ def delete_vendor(db: Session, vendor_id: int):
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     db.query(VendorPayment).filter(VendorPayment.vendor_id == vendor_id).delete(
+        synchronize_session=False
+    )
+    db.query(OilBill).filter(OilBill.vendor_id == vendor_id).delete(
         synchronize_session=False
     )
     db.delete(vendor)

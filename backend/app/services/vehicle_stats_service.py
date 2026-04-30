@@ -10,6 +10,7 @@ from app.models.driver import Driver
 from app.models.driver_salary import DriverSalary
 from app.models.fuel import Fuel
 from app.models.mechanic import MechanicEntry
+from app.models.oil_bill import OilBill, OilBillEntry
 from app.models.spare_part import SparePart
 from app.models.trip import Trip
 from app.models.trip_vehicle import TripVehicle
@@ -189,6 +190,15 @@ def vehicle_summary(db: Session, vehicle_number: str):
     )
     spare_parts_replaced = len(spare_parts)
 
+    oil_entries = (
+        db.query(OilBillEntry, OilBill.bill_date.label("bill_date"))
+        .join(OilBill, OilBill.id == OilBillEntry.oil_bill_id)
+        .filter(func.lower(OilBillEntry.vehicle_number) == vehicle_key)
+        .order_by(OilBill.bill_date.desc())
+        .all()
+    )
+    oil_total_cost = sum(float(entry.total_amount or 0) for entry, _ in oil_entries)
+
     mechanic_entries = (
         db.query(MechanicEntry)
         .filter(func.lower(MechanicEntry.vehicle_number) == vehicle_key)
@@ -198,6 +208,7 @@ def vehicle_summary(db: Session, vehicle_number: str):
     mechanic_total_cost = sum(float(m.cost or 0) for m in mechanic_entries)
 
     finance_summary = get_vehicle_finance_summary(db, vehicle_number)
+    emi_details = finance_summary.get("emi") or {}
     monthly_finance_total = float(finance_summary.get("monthly_finance_total", 0) or 0)
 
     # Driver details and salary pending
@@ -233,8 +244,10 @@ def vehicle_summary(db: Session, vehicle_number: str):
         driver_attendance = int(attendance_rows or 0)
 
     # Derived analytics
-    total_vehicle_cost = _round_2(trip_cost + maintenance_cost + total_fuel_cost + monthly_maintenance_cost + monthly_finance_total + mechanic_total_cost)
-    total_profit_loss = _round_2(trip_cost - (maintenance_cost + total_fuel_cost + mechanic_total_cost + monthly_finance_total))
+    total_vehicle_cost = _round_2(
+        trip_cost + maintenance_cost + total_fuel_cost + monthly_maintenance_cost + monthly_finance_total + mechanic_total_cost + oil_total_cost
+    )
+    total_profit_loss = _round_2(trip_cost - (maintenance_cost + total_fuel_cost + mechanic_total_cost + oil_total_cost + monthly_finance_total))
     running_cost_per_km = _round_2(total_vehicle_cost / total_km) if total_km > 0 else 0.0
     fuel_efficiency = _round_2(total_km / direct_fuel_litres) if direct_fuel_litres > 0 else 0.0
 
@@ -250,6 +263,11 @@ def vehicle_summary(db: Session, vehicle_number: str):
         key = _month_key(row.replaced_date)
         if key:
             monthly_expense[key] += float(row.cost or 0) * float(row.quantity or 1)
+
+    for row, bill_date in oil_entries:
+        key = _month_key(bill_date)
+        if key:
+            monthly_expense[key] += float(row.total_amount or 0)
 
     for key, value in monthly_fuel_cost.items():
         monthly_expense[key] += value
@@ -274,9 +292,9 @@ def vehicle_summary(db: Session, vehicle_number: str):
     ]
 
     # ROI and health score
-    estimated_investment = float(finance_summary.get("emi", {}).get("vehicle_purchase_price", 0) or 0)
+    estimated_investment = float(emi_details.get("vehicle_purchase_price", 0) or 0)
     if estimated_investment <= 0:
-        estimated_investment = float(finance_summary.get("emi", {}).get("loan_amount", 0) or 0) + float(finance_summary.get("emi", {}).get("down_payment", 0) or 0)
+        estimated_investment = float(emi_details.get("loan_amount", 0) or 0) + float(emi_details.get("down_payment", 0) or 0)
     roi = _round_2((total_profit_loss / estimated_investment) * 100) if estimated_investment > 0 else 0.0
 
     health_score = 100
@@ -284,7 +302,7 @@ def vehicle_summary(db: Session, vehicle_number: str):
         health_score -= 20
     if running_cost_per_km > 0 and running_cost_per_km > 80:
         health_score -= 15
-    if finance_summary.get("emi", {}).get("overdue_installments", 0) > 0:
+    if emi_details.get("overdue_installments", 0) > 0:
         health_score -= 20
     if mechanic_entries and mechanic_entries[0].service_date and mechanic_entries[0].service_date < today - timedelta(days=180):
         health_score -= 10
@@ -414,6 +432,8 @@ def vehicle_summary(db: Session, vehicle_number: str):
                 for row in mechanic_entries[:20]
             ],
             "spare_parts_replaced": spare_parts_replaced,
+            "oil_entries_count": len(oil_entries),
+            "oil_total_cost": _round_2(oil_total_cost),
             "maintenance_alerts": [item for item in alerts if item["type"] in {"service"}],
             "breakdown_history": breakdown_history,
         },
@@ -452,5 +472,18 @@ def vehicle_summary(db: Session, vehicle_number: str):
                 "replaced_date": sp.replaced_date,
             }
             for sp in spare_parts
+        ],
+        "oil_entries": [
+            {
+                "id": entry.id,
+                "bill_id": entry.oil_bill_id,
+                "bill_date": bill_date,
+                "particular_name": entry.particular_name,
+                "liters": _round_2(entry.liters),
+                "rate": _round_2(entry.rate),
+                "total_amount": _round_2(entry.total_amount),
+                "note": entry.note,
+            }
+            for entry, bill_date in oil_entries
         ],
     }

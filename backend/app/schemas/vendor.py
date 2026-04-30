@@ -7,6 +7,7 @@ class VendorCategory(str, Enum):
     FUEL = "fuel"
     SPARE_PARTS = "spare_parts"
     MECHANIC = "mechanic"
+    OIL = "oil"
 
 
 class VendorCreate(BaseModel):
