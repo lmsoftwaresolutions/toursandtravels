@@ -17,7 +17,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('mechanic_entries', sa.Column('notes', sa.String(), nullable=True))
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c['name'] for c in inspector.get_columns('mechanic_entries')]
+    
+    if 'notes' not in columns:
+        op.add_column('mechanic_entries', sa.Column('notes', sa.String(), nullable=True))
 
 def downgrade() -> None:
-    op.drop_column('mechanic_entries', 'notes')
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c['name'] for c in inspector.get_columns('mechanic_entries')]
+    
+    if 'notes' in columns:
+        op.drop_column('mechanic_entries', 'notes')
