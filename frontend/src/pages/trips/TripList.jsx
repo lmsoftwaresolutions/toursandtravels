@@ -16,7 +16,7 @@ export default function Trips() {
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [customers, setCustomers] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [activeTab, setActiveTab] = useState("upcoming");
+  const [activeTab, setActiveTab] = useState("all");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchInvoice, setSearchInvoice] = useState("");
@@ -42,7 +42,7 @@ export default function Trips() {
 
   // Modal State
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "error", onConfirm: null });
-  const showModal = (title, message, type = "error", onConfirm = null) => 
+  const showModal = (title, message, type = "error", onConfirm = null) =>
     setModal({ isOpen: true, title, message, type, onConfirm });
   const closeModal = () => setModal({ ...modal, isOpen: false });
 
@@ -133,8 +133,8 @@ export default function Trips() {
   /* ---------------- DELETE ---------------- */
   const handleDelete = async (id) => {
     showModal(
-      "Confirm Delete", 
-      "Are you sure you want to delete this trip? This action cannot be undone.", 
+      "Confirm Delete",
+      "Are you sure you want to delete this trip? This action cannot be undone.",
       "warning",
       async () => {
         try {
@@ -172,13 +172,13 @@ export default function Trips() {
       {/* ---------- FILTERS & TABS ---------- */}
       <div className="space-y-6">
         <div className="flex flex-wrap gap-2 p-1 bg-slate-100/50 rounded-2xl w-fit">
-          {["completed", "upcoming", "all"].map(tab => (
+          {["all", "upcoming", "completed"].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab
-                  ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-400 hover:text-slate-600"
+                ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-400 hover:text-slate-600"
                 }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -270,11 +270,10 @@ export default function Trips() {
                             <span className="text-sm font-black text-blue-600 tracking-tight">{trip.invoice_number || "PENDING"}</span>
                             <span className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{formatDateDDMMYYYY(trip.trip_date)}</span>
                             <span
-                              className={`mt-2 inline-flex w-fit items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                                hasVehicleAssigned
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                  : "bg-amber-50 text-amber-600 border-amber-200"
-                              }`}
+                              className={`mt-2 inline-flex w-fit items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${hasVehicleAssigned
+                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                : "bg-amber-50 text-amber-600 border-amber-200"
+                                }`}
                             >
                               {hasVehicleAssigned ? "Vehicle Assigned" : "Pending Vehicle"}
                             </span>
@@ -346,22 +345,22 @@ export default function Trips() {
         />
       </div>
       {/* MODAL */}
-      <Modal 
-        isOpen={modal.isOpen} 
-        onClose={modal.onConfirm ? () => {} : closeModal} 
-        title={modal.title} 
-        message={modal.message} 
-        type={modal.type} 
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={modal.onConfirm ? () => { } : closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
       >
         {modal.onConfirm && (
           <div className="flex gap-3 mt-6">
-            <button 
+            <button
               onClick={modal.onConfirm}
               className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold text-xs"
             >
               Delete
             </button>
-            <button 
+            <button
               onClick={closeModal}
               className="px-6 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold text-xs"
             >

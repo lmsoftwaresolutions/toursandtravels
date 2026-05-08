@@ -6,6 +6,7 @@ from app.schemas.date_validators import validate_reasonable_past_or_today_date
 
 class SparePartCreate(BaseModel):
     vehicle_number: str
+    bill_number: Optional[str] = None
     part_name: str
     cost: float
     quantity: int = 1
@@ -20,6 +21,7 @@ class SparePartCreate(BaseModel):
 
 class SparePartResponse(BaseModel):
     id: int
+    bill_number: Optional[str] = None
     vehicle_number: str
     part_name: str
     cost: float

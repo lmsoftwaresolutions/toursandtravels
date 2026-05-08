@@ -59,8 +59,160 @@ export default function VendorDetails() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [entryForm, setEntryForm] = useState({});
   const [entrySubmitting, setEntrySubmitting] = useState(false);
+  const [editingSpareId, setEditingSpareId] = useState(null);
   const todayISODate = useMemo(() => getTodayISODate(), []);
   const canWrite = !authService.hasLimitedAccess();
+
+  // ---- Bill state for spare parts ----
+  const [billData, setBillData] = useState({ bill_number: "", bill_date: new Date().toISOString().split("T")[0], vehicle_number: "" });
+  const [billItems, setBillItems] = useState([{ particulars: "", qty: 1, rate: "" }]);
+  const billTotal = billItems.reduce((s, it) => s + Number(it.qty || 0) * Number(it.rate || 0), 0);
+  const handleBillChange = (e) => setBillData({ ...billData, [e.target.name]: e.target.value });
+  const handleItemChange = (idx, field, val) => { const u = [...billItems]; u[idx][field] = val; setBillItems(u); };
+  const addBillItem = () => setBillItems([...billItems, { particulars: "", qty: 1, rate: "" }]);
+  const removeBillItem = (idx) => { if (billItems.length > 1) setBillItems(billItems.filter((_, i) => i !== idx)); };
+  const resetBillState = () => { setBillData({ bill_number: "", bill_date: new Date().toISOString().split("T")[0], vehicle_number: "" }); setBillItems([{ particulars: "", qty: 1, rate: "" }]); };
+
+  // ---- Mechanic multi-work state ----
+  const [mechData, setMechData] = useState({ vehicle_number: "", service_date: new Date().toISOString().split("T")[0] });
+  const [mechWorkItems, setMechWorkItems] = useState([{ work_description: "", cost: "" }]);
+  const mechTotal = mechWorkItems.reduce((s, it) => s + Number(it.cost || 0), 0);
+  const handleMechChange = (e) => setMechData({ ...mechData, [e.target.name]: e.target.value });
+  const handleMechItemChange = (idx, field, val) => { const u = [...mechWorkItems]; u[idx][field] = val; setMechWorkItems(u); };
+  const addMechItem = () => setMechWorkItems([...mechWorkItems, { work_description: "", cost: "" }]);
+  const removeMechItem = (idx) => { if (mechWorkItems.length > 1) setMechWorkItems(mechWorkItems.filter((_, i) => i !== idx)); };
+  const resetMechState = () => { setMechData({ vehicle_number: "", service_date: new Date().toISOString().split("T")[0] }); setMechWorkItems([{ work_description: "", cost: "" }]); };
+
+  const printBill = () => {
+    const fmtDate = (d) => { if (!d) return ""; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`; };
+    const total = billItems.reduce((s, it) => s + Number(it.qty || 0) * Number(it.rate || 0), 0);
+    const itemRows = billItems.map((it, i) => `<tr><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:40px">${i + 1}</td><td style="border:1px solid #000;padding:5px 8px;width:45%">${it.particulars}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:50px">${it.qty}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center">${Number(it.rate || 0).toFixed(0)}</td><td style="border:1px solid #000;padding:5px 8px;text-align:right">${(Number(it.qty || 0) * Number(it.rate || 0)).toFixed(2)}</td></tr>`).join("");
+    const emptyRows = Array.from({ length: Math.max(0, 8 - billItems.length) }).map(() => `<tr>${[...Array(5)].map(() => `<td style="border:1px solid #000;padding:5px 8px;height:28px">&nbsp;</td>`).join("")}</tr>`).join("");
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>Bill - ${billData.bill_number}</title><style>@page{margin:0}body{margin:10mm;font-family:Arial,sans-serif}*{margin:0;padding:0;box-sizing:border-box}@media print{body{-webkit-print-color-adjust:exact}}</style></head><body><div style="font-size:13px;color:#000;background:#fff"><div style="text-align:right;font-size:11px;margin-bottom:2px">Phone : 0241-2425005 <br/>Mo.: 9595950930</div><div style="text-align:center;margin-bottom:4px"><h1 style="font-size:26px;font-weight:bold;margin:0;font-family:Georgia,serif">Nathkrupa Travles</h1><p style="font-size:11px;margin:2px 0 0">Nathkrupa Travels, B-28, Amber Plaza near Sahkar sabhagruha (ADCC Bank), Maliwada Stand Ahilyanagar -414001 (Maharashtra).</p></div><hr style="border:1px solid #000;margin:8px 0"/><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div><strong>No.:</strong> <span style="font-size:18px;font-weight:bold;border-bottom:1px solid #000;padding:0 10px">${billData.bill_number}</span></div><div><strong>Date:</strong> <span style="border-bottom:1px solid #000;padding:0 10px">${fmtDate(billData.bill_date)}</span></div></div><div style="margin-bottom:12px"><strong>Vehicle No.:</strong><span style="border-bottom:1px solid #000;padding:0 10px;">${billData.vehicle_number}</span></div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">No.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:left;font-weight:bold;font-size:13px;background:#f9f9f9">Particulars</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Qty.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Rate</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Amount</th></tr></thead><tbody>${itemRows}${emptyRows}<tr><td colspan="4" style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:14px">TOTAL</td><td style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:16px">${total.toFixed(2)}</td></tr></tbody></table><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:60px;font-size:13px"><div>Signature of Receiver</div><div><strong>For Nathkrupa Travles</strong></div></div></div></body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 400);
+  };
+
+  const printSpecificBill = (e, s) => {
+    e.stopPropagation();
+    const fmtDate = (d) => { if (!d) return ""; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`; };
+
+    // Support grouped items
+    const items = s.items || [s];
+    const total = items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.cost || 0)), 0);
+
+    const itemRows = items.map((it, i) => `<tr><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:40px">${i + 1}</td><td style="border:1px solid #000;padding:5px 8px;width:45%">${it.part_name}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:50px">${it.quantity}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center">${Number(it.cost || 0).toFixed(0)}</td><td style="border:1px solid #000;padding:5px 8px;text-align:right">${(Number(it.quantity || 0) * Number(it.cost || 0)).toFixed(2)}</td></tr>`).join("");
+    const emptyRows = Array.from({ length: Math.max(0, 8 - items.length) }).map(() => `<tr>${[...Array(5)].map(() => `<td style="border:1px solid #000;padding:5px 8px;height:28px">&nbsp;</td>`).join("")}</tr>`).join("");
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<html><head><title>Bill - ${s.bill_number || 'Spare Part'}</title><style>@page{margin:0}body{margin:10mm;font-family:Arial,sans-serif}*{margin:0;padding:0;box-sizing:border-box}@media print{body{-webkit-print-color-adjust:exact}}</style></head><body><div style="font-size:13px;color:#000;background:#fff"><div style="text-align:right;font-size:11px;margin-bottom:2px">Phone : 0241-2425005 <br/>Mo.: 9595950930</div><div style="text-align:center;margin-bottom:4px"><h1 style="font-size:26px;font-weight:bold;margin:0;font-family:Georgia,serif">Nathkrupa Travles</h1><p style="font-size:11px;margin:2px 0 0">Nathkrupa Travels, B-28, Amber Plaza near Sahkar sabhagruha (ADCC Bank), Maliwada Stand Ahilyanagar -414001 (Maharashtra).</p></div><hr style="border:1px solid #000;margin:8px 0"/><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div><strong>No.:</strong> <span style="font-size:18px;font-weight:bold;border-bottom:1px solid #000;padding:0 10px">${s.bill_number || ''}</span></div><div><strong>Date:</strong> <span style="border-bottom:1px solid #000;padding:0 10px">${fmtDate(s.bill_date || s.replaced_date)}</span></div></div><div style="margin-bottom:4px"><strong>M/s.:</strong> <span style="border-bottom:1px solid #000;padding:0 10px;font-size:15px"></span></div><div style="margin-bottom:12px"><strong>Vehicle No.:</strong><span style="border-bottom:1px solid #000;padding:0 10px;">${s.vehicle_number}</span></div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">No.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:left;font-weight:bold;font-size:13px;background:#f9f9f9">Particulars</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Qty.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Rate</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Amount</th></tr></thead><tbody>${itemRows}${emptyRows}<tr><td colspan="4" style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:14px">TOTAL</td><td style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:16px">${total.toFixed(2)}</td></tr></tbody></table><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:60px;font-size:13px"><div>Signature of Receiver</div><div><strong>For Nathkrupa Travles</strong></div></div></div></body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 400);
+  };
+
+  const viewSpecificBill = (e, s) => {
+    e.stopPropagation();
+    const fmtDate = (d) => { if (!d) return ""; const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`; };
+
+    const items = s.items || [s];
+    const total = items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.cost || 0)), 0);
+
+    const itemRows = items.map((it, i) => `<tr><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:40px">${i + 1}</td><td style="border:1px solid #000;padding:5px 8px;width:45%">${it.part_name}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center;width:50px">${it.quantity}</td><td style="border:1px solid #000;padding:5px 8px;text-align:center">${Number(it.cost || 0).toFixed(0)}</td><td style="border:1px solid #000;padding:5px 8px;text-align:right">${(Number(it.quantity || 0) * Number(it.cost || 0)).toFixed(2)}</td></tr>`).join("");
+    const emptyRows = Array.from({ length: Math.max(0, 8 - items.length) }).map(() => `<tr>${[...Array(5)].map(() => `<td style="border:1px solid #000;padding:5px 8px;height:28px">&nbsp;</td>`).join("")}</tr>`).join("");
+
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<html><head><title>Bill - ${s.bill_number || 'Spare Part'}</title><style>@page{margin:0}body{margin:10mm;font-family:Arial,sans-serif}*{margin:0;padding:0;box-sizing:border-box}@media print{body{-webkit-print-color-adjust:exact}}</style></head><body><div style="font-size:13px;color:#000;background:#fff"><div style="text-align:right;font-size:11px;margin-bottom:2px">Phone : 0241-2425005 <br/>Mo.: 9595950930</div><div style="text-align:center;margin-bottom:4px"><h1 style="font-size:26px;font-weight:bold;margin:0;font-family:Georgia,serif">Nathkrupa Travles</h1><p style="font-size:11px;margin:2px 0 0">Nathkrupa Travels, B-28, Amber Plaza near Sahkar sabhagruha (ADCC Bank), Maliwada Stand Ahilyanagar -414001 (Maharashtra).</p></div><hr style="border:1px solid #000;margin:8px 0"/><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div><strong>No.:</strong> <span style="font-size:18px;font-weight:bold;border-bottom:1px solid #000;padding:0 10px">${s.bill_number || ''}</span></div><div><strong>Date:</strong> <span style="border-bottom:1px solid #000;padding:0 10px">${fmtDate(s.bill_date || s.replaced_date)}</span></div></div><div style="margin-bottom:4px"><strong>M/s.:</strong> <span style="border-bottom:1px solid #000;padding:0 10px;font-size:15px"></span></div><div style="margin-bottom:12px"><strong>Vehicle No.:</strong><span style="border-bottom:1px solid #000;padding:0 10px;">${s.vehicle_number}</span></div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">No.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:left;font-weight:bold;font-size:13px;background:#f9f9f9">Particulars</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Qty.</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Rate</th><th style="border:1.5px solid #000;padding:6px 8px;text-align:center;font-weight:bold;font-size:13px;background:#f9f9f9">Amount</th></tr></thead><tbody>${itemRows}${emptyRows}<tr><td colspan="4" style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:14px">TOTAL</td><td style="border:1.5px solid #000;padding:6px 8px;text-align:right;font-weight:bold;font-size:16px">${total.toFixed(2)}</td></tr></tbody></table><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:60px;font-size:13px"><div>Signature of Receiver</div><div><strong>For Nathkrupa Travles</strong></div></div></div></body></html>`);
+    w.document.close(); w.focus();
+  };
+
+  const [editingBillItems, setEditingBillItems] = useState([]); // Track original IDs being edited
+
+  const handleEditSpareEntry = (e, s) => {
+    e.stopPropagation();
+    // Use the first item's ID as the main reference for editing state,
+    // but we will actually replace the items during submit
+    setEditingSpareId(s.items && s.items.length > 0 ? s.items[0].id : s.id);
+    setSelectedCategory("spare_parts");
+    setBillData({
+      bill_number: s.bill_number || "",
+      bill_date: s.bill_date || s.replaced_date || new Date().toISOString().split("T")[0],
+      vehicle_number: s.vehicle_number || ""
+    });
+
+    const itemsToEdit = s.items || [s];
+    setEditingBillItems(itemsToEdit); // Store original items to delete later
+
+    setBillItems(itemsToEdit.map(it => ({
+      particulars: it.part_name || "",
+      qty: it.quantity || 1,
+      rate: it.cost || ""
+    })));
+    setShowAddModal(true);
+  };
+
+  const handleDeleteSpareEntry = async (e, s) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this entire bill and all its items?")) return;
+    try {
+      const itemsToDelete = s.items || [s];
+      for (const item of itemsToDelete) {
+        if (item.id) {
+          await api.delete(`/spare-parts/${item.id}`);
+        }
+      }
+      await loadVendorData();
+    } catch (err) {
+      console.error("Delete spare error:", err);
+      alert("Error deleting entry: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  // ---- Mechanic notes + delete handlers ----
+  const [mechNotesModal, setMechNotesModal] = useState(null); // holds mechanic entry being noted
+  const [mechNotesText, setMechNotesText] = useState("");
+  const [mechNotesSaving, setMechNotesSaving] = useState(false);
+
+  const handleOpenMechNotes = (m) => {
+    setMechNotesModal(m);
+    setMechNotesText(m.notes || "");
+  };
+
+  const handleSaveMechNotes = async () => {
+    if (!mechNotesModal) return;
+    try {
+      setMechNotesSaving(true);
+      await api.put(`/mechanic/${mechNotesModal.id}`, {
+        vehicle_number: mechNotesModal.vehicle_number,
+        work_description: mechNotesModal.work_description,
+        cost: mechNotesModal.cost,
+        vendor: mechNotesModal.vendor,
+        service_date: mechNotesModal.service_date,
+        notes: mechNotesText,
+      });
+      setMechNotesModal(null);
+      setMechNotesText("");
+      await loadVendorData();
+    } catch (err) {
+      console.error("Save notes error:", err);
+      alert("Error saving notes: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setMechNotesSaving(false);
+    }
+  };
+
+  const handleDeleteMechEntry = async (m) => {
+    if (!window.confirm("Delete this mechanic entry?")) return;
+    try {
+      await api.delete(`/mechanic/${m.id}`);
+      await loadVendorData();
+    } catch (err) {
+      console.error("Delete mechanic error:", err);
+      alert("Error deleting entry: " + (err.response?.data?.detail || err.message));
+    }
+  };
 
   const loadVendorData = useCallback(async () => {
     try {
@@ -204,7 +356,30 @@ export default function VendorDetails() {
           seen.add(key);
           return true;
         });
-        setSpareHistory(unique);
+
+        // ✅ GROUP BY BILL NUMBER
+        const grouped = Object.values(
+          unique.reduce((acc, item) => {
+            const key = item.bill_number || item.id;
+
+            if (!acc[key]) {
+              acc[key] = {
+                bill_number: item.bill_number,
+                bill_date: item.replaced_date,
+                vehicle_number: item.vehicle_number,
+                items: [],
+                total: 0
+              };
+            }
+
+            acc[key].items.push(item);
+            acc[key].total += (item.cost || 0) * (item.quantity || 0);
+
+            return acc;
+          }, {})
+        );
+
+        setSpareHistory(grouped);
       }
 
       if (supportsMechanic) {
@@ -321,14 +496,14 @@ export default function VendorDetails() {
       meta: `${Number(entry.quantity || 0).toFixed(2)} L at ${formatMoney(entry.rate_per_litre)}`,
     }));
 
-    const spareCharges = spareHistory.map((entry) => ({
-      id: `spare-${entry.id}`,
+    const spareCharges = spareHistory.map((entry, idx) => ({
+      id: `spare-${entry.bill_number || idx}`,
       source: "Spare Part",
-      date: entry.replaced_date,
+      date: entry.bill_date || entry.replaced_date,
       vehicle: entry.vehicle_number || "-",
-      description: entry.part_name || "Spare part",
-      amount: Number(entry.cost || 0) * Number(entry.quantity || 0),
-      meta: `${Number(entry.quantity || 0)} qty at ${formatMoney(entry.cost)}`,
+      description: (entry.items || []).map(i => i.part_name).join(", ") || "Spare part",
+      amount: entry.total || 0,
+      meta: `${(entry.items || []).reduce((sum, i) => sum + (i.quantity || 1), 0)} units`,
     }));
 
     const mechanicCharges = mechanicHistory.map((entry) => ({
@@ -563,12 +738,12 @@ export default function VendorDetails() {
         return {
           title: "Spare Entries",
           headers: ["Date", "Vehicle", "Part", "Qty", "Amount"],
-          rows: spareHistory.map((s) => [
-            formatDateDDMMYYYY(s.replaced_date),
-            s.vehicle_number,
-            s.part_name,
-            s.quantity,
-            formatMoney((s.cost || 0) * (s.quantity || 0)),
+          rows: spareHistory.map((group) => [
+            formatDateDDMMYYYY(group.bill_date),
+            group.vehicle_number,
+            group.items.map(i => i.part_name).join(", "),   // show all items
+            group.items.length,
+            formatMoney(group.total),
           ]),
         };
       }
@@ -740,12 +915,16 @@ export default function VendorDetails() {
       return;
     }
     setSelectedCategory(category || availableCategories[0] || null);
+    setEditingSpareId(null);
     setShowAddModal(true);
   };
 
   const handleCloseModal = () => {
     setShowAddModal(false);
     setEntryForm({});
+    resetBillState();
+    resetMechState();
+    setEditingSpareId(null);
     if (availableCategories.length === 1) {
       setSelectedCategory(availableCategories[0]);
     } else {
@@ -855,14 +1034,14 @@ export default function VendorDetails() {
                 alert("No entry form configured for this vendor category.");
                 return;
               }
-            if (availableCategories.length <= 1) {
-              if (availableCategories[0] === "oil") {
-                navigate(`/oil/add?vendor_id=${id}`);
-                return;
-              }
-              handleOpenModal(availableCategories[0]);
-            } else {
-              setSelectedCategory(null);
+              if (availableCategories.length <= 1) {
+                if (availableCategories[0] === "oil") {
+                  navigate(`/oil/add?vendor_id=${id}`);
+                  return;
+                }
+                handleOpenModal(availableCategories[0]);
+              } else {
+                setSelectedCategory(null);
                 setShowAddModal(true);
               }
             }}
@@ -909,76 +1088,227 @@ export default function VendorDetails() {
       {/* ---------- DYNAMIC ENTRY MODAL ---------- */}
       {showAddModal && activeCategoryConfig && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in duration-300">
-          <div className="bg-white p-10 rounded-[2.5rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 border border-slate-100">
+          <div className="bg-white p-10 rounded-[2.5rem] w-full max-w-3xl shadow-2xl animate-in zoom-in-95 duration-300 border border-slate-100 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-8 flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
               </div>
-              Add {selectedCategory === "mechanic" ? "Mistry" : selectedCategory?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} Entry
+              {editingSpareId ? "Edit" : "Add"} {selectedCategory === "mechanic" ? "Mistry" : selectedCategory?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} Entry
             </h2>
-            <form onSubmit={handleEntrySubmit} className="space-y-6">
-              {activeCategoryConfig.fields.map((field) => {
+            <form onSubmit={selectedCategory === "spare_parts" ? async (e) => {
+              e.preventDefault();
+              if (entrySubmitting) return;
+              if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { alert("Please fill vehicle and at least one item"); return; }
+              try {
+                setEntrySubmitting(true);
+                if (editingSpareId) {
+                  // Delete original items
+                  for (const oldItem of editingBillItems) {
+                    if (oldItem.id) {
+                      await api.delete(`/spare-parts/${oldItem.id}`);
+                    }
+                  }
+                  // Post new items
+                  for (const item of billItems.filter(it => it.particulars)) {
+                    await api.post("/spare-parts", { vehicle_number: billData.vehicle_number, bill_number: billData.bill_number, part_name: item.particulars, cost: Number(item.rate || 0), quantity: Number(item.qty || 1), vendor: vendor?.name, replaced_date: billData.bill_date });
+                  }
+                } else {
+                  for (const item of billItems.filter(it => it.particulars)) {
+                    await api.post("/spare-parts", { vehicle_number: billData.vehicle_number, bill_number: billData.bill_number, part_name: item.particulars, cost: Number(item.rate || 0), quantity: Number(item.qty || 1), vendor: vendor?.name, replaced_date: billData.bill_date });
+                  }
+                }
+                alert(editingSpareId ? "Entry updated successfully" : "Entry added successfully");
+                handleCloseModal();
+                loadVendorData();
+              } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+              finally { setEntrySubmitting(false); }
+            } : selectedCategory === "mechanic" ? async (e) => {
+              e.preventDefault();
+              if (entrySubmitting) return;
+              if (!mechData.vehicle_number || mechWorkItems.every(it => !it.work_description)) { alert("Please select a vehicle and add at least one work item"); return; }
+              if (!mechData.service_date || !isReasonablePastOrTodayDate(mechData.service_date)) { alert(`Date must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`); return; }
+              try {
+                setEntrySubmitting(true);
+                for (const item of mechWorkItems.filter(it => it.work_description)) {
+                  await api.post("/mechanic", {
+                    vehicle_number: mechData.vehicle_number,
+                    service_date: mechData.service_date,
+                    work_description: item.work_description,
+                    cost: Number(item.cost || 0),
+                    vendor: vendor?.name,
+                    vendor_id: Number(id),
+                  });
+                }
+                alert("Entry added successfully");
+                handleCloseModal();
+                loadVendorData();
+              } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+              finally { setEntrySubmitting(false); }
+            } : handleEntrySubmit} className="space-y-6">
+              {/* Config fields for non-spare_parts, non-mechanic categories */}
+              {selectedCategory !== "spare_parts" && selectedCategory !== "mechanic" && activeCategoryConfig.fields.map((field) => {
                 const fieldValue = entryForm[field.name] ?? "";
-                const selectOptions =
-                  field.options ||
-                  (field.name === "vehicle_number" ? vehicles.map((v) => v.vehicle_number) : []);
-
-                const sharedInputProps = {
-                  className:
-                    "w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all",
-                  required: true,
-                };
-
+                const selectOptions = field.options || (field.name === "vehicle_number" ? vehicles.map((v) => v.vehicle_number) : []);
+                const cls = "w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all";
                 return (
-                  <div key={field.name} className={field.type === "select" && field.name === "vehicle_number" ? "space-y-2" : "space-y-2"}>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                      {field.label}
-                    </label>
+                  <div key={field.name} className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{field.label}</label>
                     {field.type === "select" ? (
-                      <select
-                        value={fieldValue}
-                        onChange={(e) => handleEntryChange(field.name, field.type, e.target.value)}
-                        className={`${sharedInputProps.className} appearance-none`}
-                        required={sharedInputProps.required}
-                      >
-                        <option value="">Select {field.label}</option>
-                        {selectOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                      <select value={fieldValue} onChange={(e) => handleEntryChange(field.name, field.type, e.target.value)} className={`${cls} appearance-none`} required><option value="">Select {field.label}</option>{selectOptions.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}</select>
                     ) : (
-                      <input
-                        type={field.type}
-                        value={fieldValue}
-                        onChange={(e) => handleEntryChange(field.name, field.type, e.target.value)}
-                        placeholder={field.placeholder || ""}
-                        {...sharedInputProps}
-                        min={field.type === "date" ? MIN_REASONABLE_DATE : field.type === "number" ? "0" : undefined}
-                        max={field.type === "date" ? todayISODate : undefined}
-                        step={field.type === "number" ? "0.01" : undefined}
-                      />
+                      <input type={field.type} value={fieldValue} onChange={(e) => handleEntryChange(field.name, field.type, e.target.value)} placeholder={field.placeholder || ""} className={cls} required min={field.type === "date" ? MIN_REASONABLE_DATE : field.type === "number" ? "0" : undefined} max={field.type === "date" ? todayISODate : undefined} step={field.type === "number" ? "0.01" : undefined} />
                     )}
                   </div>
                 );
               })}
 
+              {/* ---- MECHANIC MULTI-WORK FORM ---- */}
+              {selectedCategory === "mechanic" && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold uppercase text-slate-400 ml-1">Vehicle</label>
+                      <select name="vehicle_number" value={mechData.vehicle_number} onChange={handleMechChange} required className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none">
+                        <option value="">Select Vehicle</option>
+                        {vehicles.map(v => (<option key={v.vehicle_number} value={v.vehicle_number}>{v.vehicle_number}</option>))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold uppercase text-slate-400 ml-1">Date</label>
+                      <input name="service_date" type="date" value={mechData.service_date} onChange={handleMechChange} required min={MIN_REASONABLE_DATE} max={todayISODate} className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
+                    </div>
+                  </div>
+                  <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-3">Work Items</h4>
+                  <div className="space-y-2">
+                    {mechWorkItems.map((item, idx) => (
+                      <div key={idx} className="flex items-end gap-2 p-2 bg-white rounded-xl border border-slate-100">
+                        <span className="w-6 h-10 flex items-center justify-center text-xs font-black text-slate-400">{idx + 1}</span>
+                        <div className="flex-[3] min-w-[100px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Work Done</label>}
+                          <input value={item.work_description} onChange={(e) => handleMechItemChange(idx, "work_description", e.target.value)} placeholder="Describe work done" className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" />
+                        </div>
+                        <div className="flex-1 min-w-[80px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Cost ₹</label>}
+                          <input type="number" min="0" value={item.cost} onChange={(e) => handleMechItemChange(idx, "cost", e.target.value)} placeholder="0" className="w-full h-10 px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" onWheel={(e) => e.currentTarget.blur()} />
+                        </div>
+                        <button type="button" onClick={() => removeMechItem(idx)} className="h-10 w-8 flex items-center justify-center text-red-400 hover:text-red-600 rounded-lg transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <button type="button" onClick={addMechItem} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v12m6-6H6" /></svg>
+                      Add Work Item
+                    </button>
+                    <div className="text-right">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-2">Total</span>
+                      <span className="text-xl font-black text-slate-800">₹ {mechTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---- SPARE PARTS BILL FORM ---- */}
+              {selectedCategory === "spare_parts" && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold uppercase text-slate-400 ml-1">Bill Number</label>
+                      <input name="bill_number" placeholder="e.g. 20881" value={billData.bill_number} onChange={handleBillChange} className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold uppercase text-slate-400 ml-1">Bill Date</label>
+                      <input name="bill_date" type="date" value={billData.bill_date} onChange={handleBillChange} required className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold uppercase text-slate-400 ml-1">Vehicle Number</label>
+                      <select name="vehicle_number" value={billData.vehicle_number} onChange={handleBillChange} required className="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none">
+                        <option value="">Select Vehicle</option>
+                        {vehicles.map(v => (<option key={v.vehicle_number} value={v.vehicle_number}>{v.vehicle_number}</option>))}
+                      </select>
+                    </div>
+                  </div>
+                  <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-3">Line Items</h4>
+                  <div className="space-y-2">
+                    {billItems.map((item, idx) => (
+                      <div key={idx} className="flex items-end gap-2 p-2 bg-white rounded-xl border border-slate-100">
+                        <span className="w-6 h-10 flex items-center justify-center text-xs font-black text-slate-400">{idx + 1}</span>
+                        <div className="flex-[3] min-w-[100px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Particulars</label>}
+                          <input value={item.particulars} onChange={(e) => handleItemChange(idx, "particulars", e.target.value)} placeholder="Part name" className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" />
+                        </div>
+                        <div className="flex-1 min-w-[55px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Qty</label>}
+                          <input type="number" min="1" value={item.qty} onChange={(e) => handleItemChange(idx, "qty", e.target.value)} className="w-full h-10 px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" onWheel={(e) => e.currentTarget.blur()} />
+                        </div>
+                        <div className="flex-1 min-w-[70px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Rate ₹</label>}
+                          <input type="number" min="0" value={item.rate} onChange={(e) => handleItemChange(idx, "rate", e.target.value)} className="w-full h-10 px-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" onWheel={(e) => e.currentTarget.blur()} />
+                        </div>
+                        <div className="flex-1 min-w-[80px]">
+                          {idx === 0 && <label className="text-[8px] font-bold uppercase text-slate-400">Amount</label>}
+                          <div className="h-10 px-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center">₹{(Number(item.qty || 0) * Number(item.rate || 0)).toFixed(0)}</div>
+                        </div>
+                        <button type="button" onClick={() => removeBillItem(idx)} className="h-10 w-8 flex items-center justify-center text-red-400 hover:text-red-600 rounded-lg transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <button type="button" onClick={addBillItem} className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v12m6-6H6" /></svg>
+                      Add Item
+                    </button>
+                    <div className="text-right">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-2">Total</span>
+                      <span className="text-xl font-black text-slate-800">₹ {billTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4 mt-8">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 h-14 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={entrySubmitting}
-                  className="flex-[2] h-14 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
+                <button type="button" onClick={handleCloseModal} className="flex-1 h-14 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                <button type="submit" disabled={entrySubmitting} className="flex-[2] h-14 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed">
                   {entrySubmitting ? "Saving..." : "Save Entry"}
                 </button>
+                {selectedCategory === "spare_parts" && (
+                  <button type="button" disabled={entrySubmitting} onClick={async (e) => {
+                    e.preventDefault();
+                    if (entrySubmitting) return;
+                    if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { alert("Please fill vehicle and at least one item"); return; }
+                    try {
+                      setEntrySubmitting(true);
+                      if (editingSpareId) {
+                        // Delete original items
+                        for (const oldItem of editingBillItems) {
+                          if (oldItem.id) {
+                            await api.delete(`/spare-parts/${oldItem.id}`);
+                          }
+                        }
+                        // Post new items
+                        for (const item of billItems.filter(it => it.particulars)) {
+                          await api.post("/spare-parts", { vehicle_number: billData.vehicle_number, bill_number: billData.bill_number, part_name: item.particulars, cost: Number(item.rate || 0), quantity: Number(item.qty || 1), vendor: vendor?.name, replaced_date: billData.bill_date });
+                        }
+                      } else {
+                        for (const item of billItems.filter(it => it.particulars)) {
+                          await api.post("/spare-parts", { vehicle_number: billData.vehicle_number, bill_number: billData.bill_number, part_name: item.particulars, cost: Number(item.rate || 0), quantity: Number(item.qty || 1), vendor: vendor?.name, replaced_date: billData.bill_date });
+                        }
+                      }
+                      printBill();
+                      handleCloseModal();
+                      loadVendorData();
+                    } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+                    finally { setEntrySubmitting(false); }
+                  }} className="flex-[2] h-14 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-900/20 disabled:opacity-60 flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    {entrySubmitting ? "Saving..." : "Save & Print"}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1269,12 +1599,13 @@ export default function VendorDetails() {
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-slate-50/50">
+                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Bill Number</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Procurement Date</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicle</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Component</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Unit Count</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Unit Cost</th>
+
                 <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Total Capital</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -1283,14 +1614,44 @@ export default function VendorDetails() {
                   <td colSpan="6" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">Zero hardware logs recorded</td>
                 </tr>
               ) : (
-                spareHistory.map(s => (
-                  <tr key={s.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(s.replaced_date)}</td>
+                spareHistory.map((s, index) => (
+                  <tr key={s.bill_number || index} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="p-6 text-sm font-black text-slate-800">{s.bill_number || "-"}</td>
+                    <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(s.bill_date)}</td>
                     <td className="p-6 text-sm font-black text-slate-800">{s.vehicle_number}</td>
-                    <td className="p-6 text-sm font-bold text-slate-600">{s.part_name}</td>
-                    <td className="p-6 text-sm font-bold text-slate-500 tabular-nums">{s.quantity}</td>
-                    <td className="p-6 text-sm font-bold text-slate-400 tabular-nums">Rs. {s.cost}</td>
-                    <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {(s.cost * s.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="p-6 text-sm font-bold text-slate-600">
+                      {(s.items || []).map(item => item.part_name).join(", ")}
+                    </td>
+
+                    <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {(s.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="p-6">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={(e) => viewSpecificBill(e, s)}
+                          className="h-8 px-3 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm flex items-center gap-1"
+                          title="View Bill"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          View
+                        </button>
+                        {canWrite ? (
+                          <>
+                            <button
+                              onClick={(e) => handleEditSpareEntry(e, s)}
+                              className="h-8 px-3 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center gap-1"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteSpareEntry(e, s)}
+                              className="h-8 px-3 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-1"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -1309,20 +1670,50 @@ export default function VendorDetails() {
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Vehicle</th>
                 <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Work Done</th>
                 <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Cost</th>
+                <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {mechanicHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No mechanic entries found</td>
+                  <td colSpan="5" className="p-20 text-center opacity-20 text-[10px] font-black uppercase tracking-[0.2em]">No mechanic entries found</td>
                 </tr>
               ) : (
                 mechanicHistory.map(m => (
                   <tr key={m.id} className="group hover:bg-slate-50/50 transition-colors">
                     <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(m.service_date)}</td>
                     <td className="p-6 text-sm font-black text-slate-800">{m.vehicle_number}</td>
-                    <td className="p-6 text-sm font-bold text-slate-600">{m.work_description}</td>
+                    <td className="p-6 text-sm font-bold text-slate-600">
+                      <div>{m.work_description}</div>
+                      {m.notes && (
+                        <div className="mt-1 text-xs text-slate-400 italic truncate max-w-[200px]" title={m.notes}>
+                          📝 {m.notes}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-6 text-right text-sm font-black text-slate-800 tabular-nums">Rs. {Number(m.cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="p-6">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenMechNotes(m)}
+                          className="h-8 px-3 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm flex items-center gap-1"
+                          title="View / Edit Notes"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          Notes
+                        </button>
+                        {canWrite && (
+                          <button
+                            onClick={() => handleDeleteMechEntry(m)}
+                            className="h-8 px-3 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-1"
+                            title="Delete Entry"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12m-9 0V5a2 2 0 012-2h2a2 2 0 012 2v2m2 0v12a2 2 0 01-2 2H8a2 2 0 01-2-2V7z" /></svg>
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}

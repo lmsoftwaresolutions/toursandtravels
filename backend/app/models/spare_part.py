@@ -6,6 +6,8 @@ class SparePart(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    bill_number = Column(String, nullable=True)   # ✅ ADD THIS LINE
+
     vehicle_number = Column(
         String,
         ForeignKey("vehicles.vehicle_number"),
