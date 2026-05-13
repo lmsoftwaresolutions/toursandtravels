@@ -6,6 +6,7 @@ from typing import Optional
 class VendorPaymentCreate(BaseModel):
     vendor_id: int
     trip_id: int | None = None
+    oil_bill_id: int | None = None
     amount: float
     paid_on: date
     notes: Optional[str] = None
@@ -15,6 +16,7 @@ class VendorPaymentResponse(BaseModel):
     id: int
     vendor_id: int
     trip_id: int | None = None
+    oil_bill_id: int | None = None
     amount: float
     paid_on: date
     notes: Optional[str] = None

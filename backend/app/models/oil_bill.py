@@ -14,6 +14,8 @@ class OilBill(Base):
     bill_date = Column(Date, nullable=False, index=True)
     payment_status = Column(String, nullable=False, default="unpaid")
     payment_mode = Column(String, nullable=True)
+    quantity_total_oil = Column(Float, nullable=True, default=0)
+    rate_per_liter = Column(Float, nullable=True, default=0)
     overall_note = Column(Text, nullable=True)
     grand_total_amount = Column(Float, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -25,6 +27,7 @@ class OilBill(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    payments = relationship("VendorPayment", back_populates="oil_bill")
 
 
 class OilBillEntry(Base):

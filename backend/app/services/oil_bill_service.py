@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.oil_bill import OilBill, OilBillEntry
+from app.models.vendor_payment import VendorPayment
 from app.models.vehicle import Vehicle
 from app.models.vendor import Vendor
 from app.schemas.oil_bill import OilBillCreate
@@ -78,9 +79,28 @@ def _validate_bill_payload(db: Session, payload: OilBillCreate, bill_id: Optiona
     return vendor, bill_number
 
 
+def _compute_payment_amounts(bill: OilBill):
+    """Calculate paid_amount and pending_amount from linked payments."""
+    paid = sum(float(p.amount or 0) for p in (bill.payments or []))
+    grand = float(bill.grand_total_amount or 0)
+    pending = max(grand - paid, 0)
+    return paid, pending
+
+
+def _derive_payment_status(grand_total: float, paid_amount: float) -> str:
+    if paid_amount <= 0:
+        return "unpaid"
+    if paid_amount >= grand_total:
+        return "paid"
+    return "partially_paid"
+
+
 def _build_bill_response(bill: OilBill, vendor_name: str):
     entries_sorted = sorted(list(bill.entries or []), key=lambda item: item.row_order)
     distinct_vehicles = len({(entry.vehicle_number or "").strip().lower() for entry in entries_sorted if entry.vehicle_number})
+    grand_total = float(bill.grand_total_amount or 0)
+    paid_amount, pending_amount = _compute_payment_amounts(bill)
+    payment_status = _derive_payment_status(grand_total, paid_amount)
 
     return {
         "id": bill.id,
@@ -88,11 +108,15 @@ def _build_bill_response(bill: OilBill, vendor_name: str):
         "vendor_name": vendor_name,
         "bill_number": bill.bill_number,
         "bill_date": bill.bill_date,
-        "payment_status": bill.payment_status,
+        "payment_status": payment_status,
         "payment_mode": bill.payment_mode,
+        "quantity_total_oil": float(bill.quantity_total_oil or 0),
+        "rate_per_liter": float(bill.rate_per_liter or 0),
         "overall_note": bill.overall_note,
-        "grand_total_amount": float(bill.grand_total_amount or 0),
+        "grand_total_amount": grand_total,
         "total_vehicles": distinct_vehicles,
+        "paid_amount": paid_amount,
+        "pending_amount": pending_amount,
         "entries": entries_sorted,
         "created_at": bill.created_at,
         "updated_at": bill.updated_at,
@@ -126,6 +150,8 @@ def create_oil_bill(db: Session, payload: OilBillCreate):
         bill_date=payload.bill_date,
         payment_status=payment_status,
         payment_mode=(payload.payment_mode or "").strip() or None,
+        quantity_total_oil=float(payload.quantity_total_oil or 0),
+        rate_per_liter=float(payload.rate_per_liter or 0),
         overall_note=(payload.overall_note or "").strip() or None,
         grand_total_amount=grand_total,
         entries=entry_rows,
@@ -135,7 +161,7 @@ def create_oil_bill(db: Session, payload: OilBillCreate):
     db.refresh(bill)
     bill = (
         db.query(OilBill)
-        .options(joinedload(OilBill.entries))
+        .options(joinedload(OilBill.entries), joinedload(OilBill.payments))
         .filter(OilBill.id == bill.id)
         .first()
     )
@@ -146,7 +172,7 @@ def list_oil_bills(db: Session, vendor_id: int | None = None):
     query = (
         db.query(OilBill, Vendor.name.label("vendor_name"))
         .join(Vendor, Vendor.id == OilBill.vendor_id)
-        .options(joinedload(OilBill.entries))
+        .options(joinedload(OilBill.entries), joinedload(OilBill.payments))
         .order_by(OilBill.bill_date.desc(), OilBill.id.desc())
     )
     if vendor_id:
@@ -164,8 +190,12 @@ def list_oil_bills(db: Session, vendor_id: int | None = None):
                 "bill_number": response["bill_number"],
                 "bill_date": response["bill_date"],
                 "payment_status": response["payment_status"],
+                "quantity_total_oil": response["quantity_total_oil"],
+                "rate_per_liter": response["rate_per_liter"],
                 "grand_total_amount": response["grand_total_amount"],
                 "total_vehicles": response["total_vehicles"],
+                "paid_amount": response["paid_amount"],
+                "pending_amount": response["pending_amount"],
                 "entries": response["entries"],
             }
         )
@@ -176,7 +206,7 @@ def get_oil_bill(db: Session, bill_id: int):
     row = (
         db.query(OilBill, Vendor.name.label("vendor_name"))
         .join(Vendor, Vendor.id == OilBill.vendor_id)
-        .options(joinedload(OilBill.entries))
+        .options(joinedload(OilBill.entries), joinedload(OilBill.payments))
         .filter(OilBill.id == bill_id)
         .first()
     )
@@ -216,6 +246,8 @@ def update_oil_bill(db: Session, bill_id: int, payload: OilBillCreate):
     bill.bill_date = payload.bill_date
     bill.payment_status = payment_status
     bill.payment_mode = (payload.payment_mode or "").strip() or None
+    bill.quantity_total_oil = float(payload.quantity_total_oil or 0)
+    bill.rate_per_liter = float(payload.rate_per_liter or 0)
     bill.overall_note = (payload.overall_note or "").strip() or None
     bill.grand_total_amount = grand_total
     bill.entries = new_entries

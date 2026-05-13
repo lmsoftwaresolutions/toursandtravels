@@ -41,6 +41,27 @@ def create_vendor_payment(db: Session, data: VendorPaymentCreate):
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
 
+    # Validate oil_bill_id if provided
+    if data.oil_bill_id is not None:
+        oil_bill = db.query(OilBill).filter(OilBill.id == data.oil_bill_id).first()
+        if not oil_bill:
+            raise HTTPException(status_code=404, detail="Oil bill not found")
+        if oil_bill.vendor_id != data.vendor_id:
+            raise HTTPException(status_code=400, detail="Oil bill does not belong to this vendor")
+        # Check overpayment on this specific bill
+        bill_paid_total = (
+            db.query(func.coalesce(func.sum(VendorPayment.amount), 0.0))
+            .filter(VendorPayment.oil_bill_id == data.oil_bill_id)
+            .scalar()
+        )
+        bill_grand_total = float(oil_bill.grand_total_amount or 0)
+        bill_pending = max(bill_grand_total - float(bill_paid_total or 0), 0)
+        if float(data.amount or 0) > bill_pending:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment exceeds bill pending amount. Pending for this bill is Rs. {bill_pending:.2f}",
+            )
+
     normalized_name = (vendor.name or "").strip().lower()
 
     fuel_total = (

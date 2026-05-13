@@ -30,8 +30,9 @@ export default function OilBillForm() {
     vendor_id: "",
     bill_number: "",
     bill_date: getTodayISO(),
-    payment_status: "unpaid",
-    payment_mode: "",
+
+    quantity_total_oil: "",
+    rate_per_liter: "",
     overall_note: "",
     entries: [makeEmptyRow()],
   });
@@ -67,8 +68,9 @@ export default function OilBillForm() {
           vendor_id: String(bill.vendor_id || ""),
           bill_number: bill.bill_number || "",
           bill_date: bill.bill_date || getTodayISO(),
-          payment_status: bill.payment_status || "unpaid",
-          payment_mode: bill.payment_mode || "",
+
+          quantity_total_oil: String(bill.quantity_total_oil ?? ""),
+          rate_per_liter: String(bill.rate_per_liter ?? ""),
           overall_note: bill.overall_note || "",
           entries: (bill.entries || []).length
             ? bill.entries
@@ -91,7 +93,22 @@ export default function OilBillForm() {
     loadBill();
   }, [id, isEdit]);
 
-  const grandTotal = useMemo(
+  const totalAmount = useMemo(
+    () => Number(form.quantity_total_oil || 0) * Number(form.rate_per_liter || 0),
+    [form.quantity_total_oil, form.rate_per_liter]
+  );
+
+  const consumedOilAmount = useMemo(
+    () => form.entries.reduce((sum, row) => sum + Number(row.liters || 0), 0),
+    [form.entries]
+  );
+
+  const remainingOil = useMemo(
+    () => Math.max(0, Number(form.quantity_total_oil || 0) - consumedOilAmount),
+    [form.quantity_total_oil, consumedOilAmount]
+  );
+
+  const vehicleEntryTotal = useMemo(
     () => form.entries.reduce((sum, row) => sum + calculateRowTotal(row), 0),
     [form.entries]
   );
@@ -123,6 +140,8 @@ export default function OilBillForm() {
     if (!form.vendor_id) return "Vendor is required";
     if (!String(form.bill_number || "").trim()) return "Bill number is required";
     if (!form.bill_date) return "Bill date is required";
+    if (Number(form.quantity_total_oil || 0) <= 0) return "Quantity (Total Oil) is required";
+    if (Number(form.rate_per_liter || 0) <= 0) return "Rate (Per Liter) is required";
     if (!form.entries.length) return "At least one vehicle entry is required";
 
     for (let i = 0; i < form.entries.length; i += 1) {
@@ -149,8 +168,9 @@ export default function OilBillForm() {
       vendor_id: Number(form.vendor_id),
       bill_number: String(form.bill_number || "").trim(),
       bill_date: form.bill_date,
-      payment_status: form.payment_status || "unpaid",
-      payment_mode: String(form.payment_mode || "").trim() || null,
+
+      quantity_total_oil: Number(form.quantity_total_oil || 0),
+      rate_per_liter: Number(form.rate_per_liter || 0),
       overall_note: String(form.overall_note || "").trim() || null,
       entries: form.entries.map((row) => ({
         vehicle_number: row.vehicle_number,
@@ -193,6 +213,7 @@ export default function OilBillForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        {/* 1. Create Oil Bill — Form Fields */}
         <div className="glass-card p-8 rounded-3xl border-l-4 border-l-blue-600 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vendor Name</label>
@@ -217,6 +238,7 @@ export default function OilBillForm() {
               value={form.bill_number}
               onChange={(e) => handleMainChange("bill_number", e.target.value)}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700"
+              placeholder="Enter bill number"
               required
             />
           </div>
@@ -232,28 +254,41 @@ export default function OilBillForm() {
             />
           </div>
 
+
+
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Payment Status</label>
-            <select
-              value={form.payment_status}
-              onChange={(e) => handleMainChange("payment_status", e.target.value)}
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quantity (Total Oil)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.quantity_total_oil}
+              onChange={(e) => handleMainChange("quantity_total_oil", e.target.value)}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700"
+              placeholder="Enter total quantity (in liters)"
               required
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid</option>
-            </select>
+            />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Payment Mode</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rate (Per Liter)</label>
             <input
-              value={form.payment_mode}
-              onChange={(e) => handleMainChange("payment_mode", e.target.value)}
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.rate_per_liter}
+              onChange={(e) => handleMainChange("rate_per_liter", e.target.value)}
               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700"
-              placeholder="Cash / UPI / Bank / Credit"
+              placeholder="Enter rate per liter"
+              required
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Amount</label>
+            <div className="w-full h-12 px-4 bg-slate-100 border border-slate-200 rounded-xl text-sm font-black text-slate-700 flex items-center">
+              Rs. {totalAmount.toFixed(2)}
+            </div>
           </div>
 
           <div className="md:col-span-3 space-y-2">
@@ -267,6 +302,8 @@ export default function OilBillForm() {
           </div>
         </div>
 
+
+        {/* 2. Vehicle Entries */}
         <div className="glass-card rounded-3xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-xl font-black text-slate-800">Vehicle Entries</h2>
@@ -275,7 +312,7 @@ export default function OilBillForm() {
               onClick={addRow}
               className="h-11 px-5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
             >
-              Add More
+              ADD ITEM
             </button>
           </div>
           <div className="p-6 space-y-6">
@@ -365,11 +402,82 @@ export default function OilBillForm() {
             })}
           </div>
         </div>
+        {/* 3.Summary Cards */}
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            {
+              label: "Total Oil Purchased",
+              value: `${Number(form.quantity_total_oil || 0).toFixed(2)}`,
+              unit: "Ltr",
+              icon: "💧",
+              gradient: "from-[#1a4fa0] via-[#2563eb] to-[#3b82f6]",
+              fill: "57%",
+            },
+            {
+              label: "Consumed Oil",
+              value: `${consumedOilAmount.toFixed(2)}`,
+              unit: "Ltr",
+              icon: "🔥",
+              gradient: "from-[#92400e] via-[#d97706] to-[#f59e0b]",
+              fill: "43%",
+            },
+            {
+              label: "Remaining Oil",
+              value: `${remainingOil.toFixed(2)}`,
+              unit: "Ltr",
+              icon: "🛢",
+              gradient: "from-[#065f46] via-[#059669] to-[#10b981]",
+              fill: "35%",
+            },
+            {
+              label: "Total Bill Amount",
+              value: `Rs. ${totalAmount.toFixed(2)}`,
+              unit: "",
+              icon: "🧾",
+              gradient: "from-[#1e293b] via-[#334155] to-[#475569]",
+              fill: "78%",
+            },
+            {
+              label: "Vehicle Entry Total",
+              value: `Rs. ${vehicleEntryTotal.toFixed(2)}`,
+              unit: "",
+              icon: "🚛",
+              gradient: "from-[#4c1d95] via-[#7c3aed] to-[#8b5cf6]",
+              fill: "42%",
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-[18px] flex flex-col justify-between min-h-[106px]`}
+            >
+              {/* Decorative circle */}
+              <div className="absolute -top-7 -right-7 w-24 h-24 rounded-full bg-white/20 pointer-events-none" />
 
-        <div className="flex items-center justify-between">
-          <div className="text-lg font-black text-slate-800">
-            Grand Total Bill Amount: <span className="text-blue-700">Rs. {grandTotal.toFixed(2)}</span>
-          </div>
+              <div>
+                <p className="text-[9.5px] font-bold uppercase tracking-widest text-white/65 mb-1.5">
+                  {card.label}
+                </p>
+                <p className="text-[22px] font-bold text-white leading-none tracking-tight">
+                  {card.value}
+                  {card.unit && (
+                    <span className="text-xs font-medium text-white/55 ml-1">{card.unit}</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-3 h-[2px] rounded-full bg-white/15 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-white/55"
+                  style={{ width: card.fill }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 4. Save Bill */}
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={submitting}

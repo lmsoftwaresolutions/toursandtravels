@@ -50,7 +50,8 @@ export default function VendorDetails() {
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("fuel");
   const [payments, setPayments] = useState([]);
-  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "" });
+  const [vendorOilBills, setVendorOilBills] = useState([]);
+  const [payForm, setPayForm] = useState({ amount: "", paid_on: "", notes: "", oil_bill_id: "" });
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const paymentSubmitLockRef = useRef(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -390,6 +391,7 @@ export default function VendorDetails() {
       if (supportsOil) {
         const oilRes = await api.get("/oil-bills", { params: { vendor_id: Number(id) } });
         const oilRows = oilRes.data || [];
+        setVendorOilBills(oilRows);
         const oilDetails = await Promise.all(
           oilRows.map((bill) => api.get(`/oil-bills/${bill.id}`).then((res) => res.data).catch(() => null))
         );
@@ -577,76 +579,19 @@ export default function VendorDetails() {
       });
   }, [oilHistory]);
 
-  const paymentAllocations = useMemo(() => {
-    const charges = chargeEntries.map((charge) => ({
-      ...charge,
-      remaining: Number(charge.amount || 0),
-    }));
 
-    const sortedPayments = [...payments].sort((a, b) => {
-      const first = new Date(a.paid_on || 0).getTime();
-      const second = new Date(b.paid_on || 0).getTime();
-      return first - second || Number(a.id || 0) - Number(b.id || 0);
-    });
 
-    const allocationMap = {};
+  const selectedBillForPayment = useMemo(() => {
+    if (!payForm.oil_bill_id) return null;
+    return vendorOilBills.find((b) => b.id === Number(payForm.oil_bill_id)) || null;
+  }, [payForm.oil_bill_id, vendorOilBills]);
 
-    sortedPayments.forEach((payment) => {
-      let paymentRemaining = Number(payment.amount || 0);
-      const allocations = [];
-
-      for (const charge of charges) {
-        if (paymentRemaining <= 0) break;
-        if (charge.remaining <= 0) continue;
-
-        const coveredAmount = Math.min(paymentRemaining, charge.remaining);
-        allocations.push({
-          chargeId: charge.id,
-          source: charge.source,
-          date: charge.date,
-          vehicle: charge.vehicle,
-          description: charge.description,
-          meta: charge.meta,
-          chargeAmount: Number(charge.amount || 0),
-          coveredAmount,
-        });
-        charge.remaining -= coveredAmount;
-        paymentRemaining -= coveredAmount;
-      }
-
-      allocationMap[payment.id] = {
-        allocations,
-        coveredTotal: Number(payment.amount || 0) - paymentRemaining,
-        unallocatedAmount: paymentRemaining,
-      };
-    });
-
-    return allocationMap;
-  }, [chargeEntries, payments]);
-
-  const selectedPaymentAllocation = selectedPayment
-    ? paymentAllocations[selectedPayment.id] || {
-      allocations: [],
-      coveredTotal: 0,
-      unallocatedAmount: Number(selectedPayment.amount || 0),
+  const paymentMaxAmount = useMemo(() => {
+    if (selectedBillForPayment) {
+      return Number(selectedBillForPayment.pending_amount || 0);
     }
-    : null;
-
-  const selectedPaymentActualAmount = selectedPaymentAllocation
-    ? selectedPaymentAllocation.allocations.reduce(
-      (sum, entry) => sum + Number(entry.chargeAmount || 0),
-      0
-    )
-    : 0;
-
-  const selectedPaymentReceivedAmount = selectedPaymentAllocation
-    ? Number(selectedPaymentAllocation.coveredTotal || 0)
-    : 0;
-
-  const selectedPaymentPendingAmount = Math.max(
-    selectedPaymentActualAmount - selectedPaymentReceivedAmount,
-    0
-  );
+    return Number(pendingAmount || 0);
+  }, [selectedBillForPayment, pendingAmount]);
 
   const submitPayment = async (e) => {
     e.preventDefault();
@@ -661,11 +606,16 @@ export default function VendorDetails() {
       alert(`Payment cannot exceed pending amount (Rs. ${Number(pendingAmount || 0).toFixed(2)}).`);
       return;
     }
+    if (selectedBillForPayment && amount > Number(selectedBillForPayment.pending_amount || 0)) {
+      alert(`Payment cannot exceed bill pending amount (Rs. ${Number(selectedBillForPayment.pending_amount || 0).toFixed(2)}).`);
+      return;
+    }
     const payload = {
       vendor_id: Number(id),
       amount,
       paid_on: payForm.paid_on,
       notes: payForm.notes || undefined,
+      oil_bill_id: payForm.oil_bill_id ? Number(payForm.oil_bill_id) : undefined,
     };
     try {
       paymentSubmitLockRef.current = true;
@@ -673,7 +623,7 @@ export default function VendorDetails() {
       await api.post("/vendor-payments", payload);
       alert("Payment recorded successfully");
       await loadVendorData();
-      setPayForm({ amount: "", paid_on: "", notes: "" });
+      setPayForm({ amount: "", paid_on: "", notes: "", oil_bill_id: "" });
     } catch (err) {
       console.error("Payment submit error:", err);
       alert("Error recording payment: " + (err.response?.data?.detail || err.message));
@@ -1424,20 +1374,43 @@ export default function VendorDetails() {
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Add Payment
             </h2>
-            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <form onSubmit={submitPayment} className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
+              {vendorSupportsOil && vendorOilBills.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Bill No</label>
+                  <select
+                    value={payForm.oil_bill_id}
+                    onChange={(e) => setPayForm({ ...payForm, oil_bill_id: e.target.value, amount: "" })}
+                    className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
+                    disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
+                  >
+                    <option value="">Select Bill (optional)</option>
+                    {vendorOilBills.filter((b) => Number(b.pending_amount || 0) > 0).map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.bill_number} — Pending Rs. {Number(b.pending_amount || 0).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Amount</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  max={Number(pendingAmount || 0).toFixed(2)}
+                  max={paymentMaxAmount.toFixed(2)}
                   value={payForm.amount}
                   onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
                   className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                   disabled={paymentSubmitting || Number(pendingAmount || 0) <= 0}
                   required
                 />
+                {selectedBillForPayment && (
+                  <p className="text-[9px] font-bold text-slate-400 ml-1">
+                    Bill pending: Rs. {Number(selectedBillForPayment.pending_amount || 0).toFixed(2)}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Date</label>
@@ -1450,7 +1423,7 @@ export default function VendorDetails() {
                   required
                 />
               </div>
-              <div className="space-y-2 md:col-span-1">
+              <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference</label>
                 <input
                   type="text"
@@ -1481,10 +1454,10 @@ export default function VendorDetails() {
               <thead>
                 <tr className="bg-slate-50/50">
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Date</th>
+                  <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Bill No</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Amount</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Linked Trip</th>
                   <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Reference</th>
-                  <th className="p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Charge Details</th>
                   <th className="p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">Actions</th>
                 </tr>
               </thead>
@@ -1497,34 +1470,17 @@ export default function VendorDetails() {
                   </tr>
                 ) : (
                   payments.map((p) => {
-                    const allocation = paymentAllocations[p.id] || { allocations: [], coveredTotal: 0, unallocatedAmount: Number(p.amount || 0) };
-                    const firstAllocation = allocation.allocations[0];
+                    const linkedBill = p.oil_bill_id ? vendorOilBills.find((b) => b.id === p.oil_bill_id) : null;
 
                     return (
                       <tr key={p.id} className="group hover:bg-slate-50/50 transition-colors">
                         <td className="p-6 text-sm font-black text-slate-400 tabular-nums">{formatDateDDMMYYYY(p.paid_on)}</td>
+                        <td className="p-6 text-sm font-bold text-blue-600">
+                          {linkedBill ? linkedBill.bill_number : "-"}
+                        </td>
                         <td className="p-6 text-sm font-black text-slate-800 tabular-nums">Rs. {Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                         <td className="p-6 text-sm font-bold text-slate-700">{getPaymentTripLabel(p.trip_id)}</td>
                         <td className="p-6 text-sm font-bold text-slate-500">{p.notes || "-"}</td>
-                        <td className="p-6 text-sm text-slate-500">
-                          {allocation.allocations.length === 0 ? (
-                            <span className="font-bold text-slate-400">No linked charges available</span>
-                          ) : (
-                            <div className="space-y-1">
-                              <p className="font-black text-slate-700">
-                                {allocation.allocations.length} charge{allocation.allocations.length > 1 ? "s" : ""} covered
-                              </p>
-                              <p className="text-xs font-bold text-slate-500">
-                                {firstAllocation.source} | {firstAllocation.vehicle} | {formatMoney(firstAllocation.coveredAmount)}
-                              </p>
-                              {allocation.unallocatedAmount > 0 && (
-                                <p className="text-xs font-bold text-amber-600">
-                                  Unallocated: {formatMoney(allocation.unallocatedAmount)}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </td>
                         <td className="p-6">
                           <div className="flex justify-end gap-2">
                             <button
@@ -1838,78 +1794,96 @@ export default function VendorDetails() {
         </div>
       )}
 
-      {selectedPayment && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vendor Payment</p>
-                <h3 className="text-2xl font-black text-slate-900">Payment Details</h3>
-              </div>
-              <button
-                onClick={() => setSelectedPayment(null)}
-                className="h-10 w-10 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
-                aria-label="Close payment details"
-              >
-                ×
-              </button>
-            </div>
+      {selectedPayment && (() => {
+        const linkedBill = selectedPayment.oil_bill_id
+          ? vendorOilBills.find((b) => b.id === selectedPayment.oil_bill_id)
+          : null;
+        const billTotal = linkedBill ? Number(linkedBill.grand_total_amount || 0) : 0;
+        const billPaid = linkedBill ? Number(linkedBill.paid_amount || 0) : 0;
+        const billPending = linkedBill ? Number(linkedBill.pending_amount || 0) : 0;
+        const billStatus = linkedBill
+          ? (linkedBill.payment_status === "paid" ? "Fully Paid" : linkedBill.payment_status === "partially_paid" ? "Partially Paid" : "Unpaid")
+          : null;
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
-                <p className="mt-2 text-base font-black text-slate-900">{formatDateDDMMYYYY(selectedPayment.paid_on)}</p>
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-4">
+            <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Vendor Payment</p>
+                  <h3 className="text-2xl font-black text-slate-900">Payment Details</h3>
+                </div>
+                <button
+                  onClick={() => setSelectedPayment(null)}
+                  className="h-10 w-10 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100"
+                  aria-label="Close payment details"
+                >
+                  ×
+                </button>
               </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</p>
-                <p className="mt-2 text-base font-black text-slate-900">Rs. {Number(selectedPayment.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Linked Trip</p>
-                <p className="mt-2 text-base font-black text-slate-900">{getPaymentTripLabel(selectedPayment.trip_id)}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reference</p>
-                <p className="mt-2 text-base font-black text-slate-900">{selectedPayment.notes || "-"}</p>
-              </div>
-            </div>
 
-            <div className="mt-6 rounded-2xl border border-slate-100 p-5">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Allocation</p>
-              <p className="mt-2 text-lg font-black text-slate-900">
-                {selectedPaymentAllocation?.allocations?.length || 0} charge{(selectedPaymentAllocation?.allocations?.length || 0) === 1 ? "" : "s"} covered
-              </p>
-              <div className="mt-3 space-y-2">
-                {(selectedPaymentAllocation?.allocations || []).map((entry) => (
-                  <div key={`${selectedPayment.id}-${entry.id}`} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
-                    <span>{entry.source} | {entry.vehicle}</span>
-                    <span>{formatMoney(entry.coveredAmount)}</span>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
+                  <p className="mt-2 text-base font-black text-slate-900">{formatDateDDMMYYYY(selectedPayment.paid_on)}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</p>
+                  <p className="mt-2 text-base font-black text-slate-900">Rs. {Number(selectedPayment.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Linked Trip</p>
+                  <p className="mt-2 text-base font-black text-slate-900">{getPaymentTripLabel(selectedPayment.trip_id)}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reference</p>
+                  <p className="mt-2 text-base font-black text-slate-900">{selectedPayment.notes || "-"}</p>
+                </div>
+              </div>
+
+              {linkedBill ? (
+                <div className="mt-6 rounded-2xl border border-slate-100 p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Linked Oil Bill</p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bill No</p>
+                      <p className="mt-1 font-black text-blue-600">{linkedBill.bill_number}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Amount</p>
+                      <p className="mt-1 font-black text-slate-900">{formatMoney(billTotal)}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Paid Amount</p>
+                      <p className="mt-1 font-black text-emerald-700">{formatMoney(billPaid)}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pending Amount</p>
+                      <p className={`mt-1 font-black ${billPending > 0 ? "text-rose-600" : "text-slate-900"}`}>{billPending > 0 ? formatMoney(billPending) : "-"}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-              {selectedPaymentAllocation?.unallocatedAmount > 0 && (
-                <p className="mt-3 text-sm font-black text-amber-600">
-                  Unallocated: {formatMoney(selectedPaymentAllocation.unallocatedAmount)}
-                </p>
+                  <div className="mt-3">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                      linkedBill.payment_status === "paid"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : linkedBill.payment_status === "partially_paid"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                    }`}>
+                      {billStatus}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-slate-100 p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Linked Bill</p>
+                  <p className="mt-2 text-sm font-bold text-slate-400">No bill linked to this payment</p>
+                </div>
               )}
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Covered</p>
-                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentReceivedAmount)}</p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Charges</p>
-                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentActualAmount)}</p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pending</p>
-                  <p className="mt-1 font-black text-slate-900">{formatMoney(selectedPaymentPendingAmount)}</p>
-                </div>
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

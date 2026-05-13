@@ -58,14 +58,24 @@ export default function OilBillDetails() {
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <InfoCard label="Bill Date" value={formatDateDDMMYYYY(bill.bill_date)} />
-        <InfoCard label="Payment Status" value={bill.payment_status || "-"} />
-        <InfoCard label="Payment Mode" value={bill.payment_mode || "-"} />
-        <InfoCard label="Total Vehicles" value={String(bill.total_vehicles || 0)} />
-        <InfoCard label="Grand Total" value={`Rs. ${Number(bill.grand_total_amount || 0).toFixed(2)}`} />
-        <InfoCard label="Note" value={bill.overall_note || "-"} />
-      </div>
+      {(() => {
+        const paidAmt = Number(bill.paid_amount || 0);
+        const pendingAmt = Number(bill.pending_amount || 0);
+        const status = bill.payment_status || "unpaid";
+        const statusLabel = status === "paid" ? "Fully Paid" : status === "partially_paid" ? "Partially Paid" : "Unpaid";
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <InfoCard label="Bill Date" value={formatDateDDMMYYYY(bill.bill_date)} />
+
+            <InfoCard label="Total Vehicles" value={String(bill.total_vehicles || 0)} />
+            <InfoCard label="Grand Total" value={`Rs. ${Number(bill.grand_total_amount || 0).toFixed(2)}`} />
+            <InfoCard label="Paid Amount" value={`Rs. ${paidAmt.toFixed(2)}`} valueColor="text-emerald-700" />
+            <InfoCard label="Pending Amount" value={pendingAmt > 0 ? `Rs. ${pendingAmt.toFixed(2)}` : "-"} valueColor={pendingAmt > 0 ? "text-rose-600" : undefined} />
+            <InfoCard label="Payment Status" value={statusLabel} valueColor={status === "paid" ? "text-emerald-700" : status === "partially_paid" ? "text-amber-700" : "text-slate-600"} />
+            <InfoCard label="Note" value={bill.overall_note || "-"} />
+          </div>
+        );
+      })()}
 
       <div className="glass-card rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-slate-100">
@@ -102,11 +112,11 @@ export default function OilBillDetails() {
   );
 }
 
-function InfoCard({ label, value }) {
+function InfoCard({ label, value, valueColor }) {
   return (
     <div className="glass-card p-6 rounded-2xl border border-slate-100">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{label}</p>
-      <p className="text-lg font-black text-slate-700 break-words">{value}</p>
+      <p className={`text-lg font-black break-words ${valueColor || "text-slate-700"}`}>{value}</p>
     </div>
   );
 }
