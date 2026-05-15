@@ -190,7 +190,14 @@ export default function OilBillForm() {
       }
       navigate("/oil");
     } catch (err) {
-      alert(err?.response?.data?.detail || "Failed to save oil bill");
+      const detail = err?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        alert(detail.map((d) => d.msg || d.message || JSON.stringify(d)).join("\n"));
+      } else if (typeof detail === "string") {
+        alert(detail);
+      } else {
+        alert("Failed to save oil bill");
+      }
     } finally {
       setSubmitting(false);
     }

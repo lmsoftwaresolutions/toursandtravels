@@ -32,7 +32,7 @@ class OilBillCreate(BaseModel):
     vendor_id: int
     bill_number: str
     bill_date: date
-    payment_status: str
+    payment_status: Optional[str] = "unpaid"
     payment_mode: Optional[str] = None
     quantity_total_oil: Optional[float] = 0
     rate_per_liter: Optional[float] = 0
