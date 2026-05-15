@@ -32,8 +32,10 @@ class OilBillCreate(BaseModel):
     vendor_id: int
     bill_number: str
     bill_date: date
-    payment_status: str
+    payment_status: Optional[str] = "unpaid"
     payment_mode: Optional[str] = None
+    quantity_total_oil: Optional[float] = 0
+    rate_per_liter: Optional[float] = 0
     overall_note: Optional[str] = None
     entries: list[OilBillEntryCreate]
 
@@ -65,9 +67,13 @@ class OilBillResponse(BaseModel):
     bill_date: date
     payment_status: str
     payment_mode: Optional[str] = None
+    quantity_total_oil: Optional[float] = 0
+    rate_per_liter: Optional[float] = 0
     overall_note: Optional[str] = None
     grand_total_amount: float
     total_vehicles: int
+    paid_amount: float = 0.0
+    pending_amount: float = 0.0
     entries: list[OilBillEntryResponse]
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -80,6 +86,10 @@ class OilBillListResponse(BaseModel):
     bill_number: str
     bill_date: date
     payment_status: str
+    quantity_total_oil: Optional[float] = 0
+    rate_per_liter: Optional[float] = 0
     grand_total_amount: float
     total_vehicles: int
+    paid_amount: float = 0.0
+    pending_amount: float = 0.0
     entries: list[OilBillEntryResponse] = []

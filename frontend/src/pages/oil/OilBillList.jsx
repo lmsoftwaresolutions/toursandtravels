@@ -74,58 +74,73 @@ export default function OilBillList() {
                 <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Bill Date</th>
                 <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Vehicles</th>
                 <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Grand Total</th>
-                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Payment Status</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Paid</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Pending</th>
+                <th className="border-b border-slate-100 p-6 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                 <th className="border-b border-slate-100 p-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {bills.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                  <td colSpan="9" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                     No oil bills found
                   </td>
                 </tr>
               ) : (
-                paginatedBills.map((bill) => (
-                  <tr key={bill.id} className="group hover:bg-slate-50/40 transition-colors">
-                    <td className="p-6 text-sm font-black text-slate-700">{bill.bill_number}</td>
-                    <td className="p-6 text-sm font-bold text-slate-600">{bill.vendor_name}</td>
-                    <td className="p-6 text-sm font-bold text-slate-600">{formatDateDDMMYYYY(bill.bill_date)}</td>
-                    <td className="p-6 text-sm font-bold text-slate-600">{bill.total_vehicles || 0}</td>
-                    <td className="p-6 text-sm font-black text-slate-800">Rs. {Number(bill.grand_total_amount || 0).toFixed(2)}</td>
-                    <td className="p-6">
-                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200">
-                        {bill.payment_status || "unpaid"}
-                      </span>
-                    </td>
-                    <td className="p-6">
-                      <div className="flex justify-end gap-3">
-                        <button
-                          onClick={() => navigate(`/oil/${bill.id}`)}
-                          className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
-                        >
-                          View
-                        </button>
-                        {canWrite ? (
-                          <>
-                            <button
-                              onClick={() => navigate(`/oil/edit/${bill.id}`)}
-                              className="px-4 py-2 bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-100 transition-all"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(bill.id)}
-                              className="px-4 py-2 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                paginatedBills.map((bill) => {
+                  const paidAmt = Number(bill.paid_amount || 0);
+                  const pendingAmt = Number(bill.pending_amount || 0);
+                  const status = bill.payment_status || "unpaid";
+                  const statusConfig = status === "paid"
+                    ? { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", label: "Fully Paid" }
+                    : status === "partially_paid"
+                    ? { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", label: "Partially Paid" }
+                    : { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200", label: "Unpaid" };
+
+                  return (
+                    <tr key={bill.id} className="group hover:bg-slate-50/40 transition-colors">
+                      <td className="p-6 text-sm font-black text-slate-700">{bill.bill_number}</td>
+                      <td className="p-6 text-sm font-bold text-slate-600">{bill.vendor_name}</td>
+                      <td className="p-6 text-sm font-bold text-slate-600">{formatDateDDMMYYYY(bill.bill_date)}</td>
+                      <td className="p-6 text-sm font-bold text-slate-600">{bill.total_vehicles || 0}</td>
+                      <td className="p-6 text-sm font-black text-slate-800">Rs. {Number(bill.grand_total_amount || 0).toFixed(2)}</td>
+                      <td className="p-6 text-sm font-bold text-emerald-700">Rs. {paidAmt.toFixed(2)}</td>
+                      <td className="p-6 text-sm font-bold text-rose-600">{pendingAmt > 0 ? `Rs. ${pendingAmt.toFixed(2)}` : "-"}</td>
+                      <td className="p-6">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => navigate(`/oil/${bill.id}`)}
+                            className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all"
+                          >
+                            View
+                          </button>
+                          {canWrite ? (
+                            <>
+                              <button
+                                onClick={() => navigate(`/oil/edit/${bill.id}`)}
+                                className="px-4 py-2 bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-100 transition-all"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(bill.id)}
+                                className="px-4 py-2 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
