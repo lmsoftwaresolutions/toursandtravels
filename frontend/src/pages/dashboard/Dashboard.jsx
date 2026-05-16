@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
 import Modal from "../../components/common/Modal";
+import { useToast } from "../../components/common/ToastContext";
 
 const formatDateWithDay = (dateStr) => {
   if (!dateStr) return "";
@@ -219,6 +220,7 @@ function TripScheduleChart({
   canModifyNotes
 }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [trips, setTrips] = useState([]);
   const [notesByCell, setNotesByCell] = useState({});
 
@@ -283,7 +285,7 @@ function TripScheduleChart({
         setNotesByCell(grouped);
       })
       .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to load notes");
+        toast.error(err?.response?.data?.detail || "Failed to load notes");
       });
   };
 
@@ -406,7 +408,7 @@ function TripScheduleChart({
     if (editingNoteId && !canModifyNotes) return;
     if (!editingNoteId && !canCreateNotes) return;
     if (!noteDate || !noteVehicleId || !noteText.trim()) {
-      alert("Please select date, vehicle, and enter a note.");
+      toast.warning("Please select date, vehicle, and enter a note.");
       return;
     }
     try {
@@ -424,7 +426,7 @@ function TripScheduleChart({
       setEditingNoteId(null);
       loadNotes();
     } catch (err) {
-      alert(err?.response?.data?.detail || "Failed to save note");
+      toast.error(err?.response?.data?.detail || "Failed to save note");
     }
   };
 
@@ -434,7 +436,7 @@ function TripScheduleChart({
       await api.delete(`/vehicle-notes/${noteId}`);
       loadNotes();
     } catch (err) {
-      alert(err?.response?.data?.detail || "Failed to delete note");
+      toast.error(err?.response?.data?.detail || "Failed to delete note");
     }
   };
 

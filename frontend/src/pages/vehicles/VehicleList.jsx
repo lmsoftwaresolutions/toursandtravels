@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function VehicleList() {
   const [vehicles, setVehicles] = useState([]);
@@ -11,6 +12,7 @@ export default function VehicleList() {
   const pageSize = 10;
   const navigate = useNavigate();
   const canWrite = !authService.hasLimitedAccess();
+  const confirm = useConfirm();
 
   /* ---------- LOAD VEHICLES ---------- */
   const loadVehicles = () => {
@@ -23,7 +25,8 @@ export default function VehicleList() {
 
   /* ---------- SOFT DELETE ---------- */
   const deleteVehicle = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this vehicle?")) return;
+    const confirmed = await confirm({ title: "Delete Vehicle", message: "Are you sure you want to delete this vehicle?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     await api.delete(`/vehicles/${id}`);
     loadVehicles();
   };

@@ -4,9 +4,11 @@ import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function PaymentHistory() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [trips, setTrips] = useState([]);
   const [payments, setPayments] = useState([]);
   const [filterCustomer, setFilterCustomer] = useState("");
@@ -54,13 +56,13 @@ export default function PaymentHistory() {
     e.preventDefault();
 
     if (!selectedTrip) {
-      alert("Please select a trip");
+      toast.warning("Please select a trip");
       return;
     }
 
     const selectedTripPending = getTripFinancials(selectedTrip).totalPending;
     if (Number(form.amount) > selectedTripPending) {
-      alert(`Amount cannot exceed pending amount (₹${selectedTripPending.toFixed(2)})`);
+      toast.warning(`Amount cannot exceed pending amount (₹${selectedTripPending.toFixed(2)})`);
       return;
     }
 
@@ -72,7 +74,7 @@ export default function PaymentHistory() {
         amount: Number(form.amount),
         notes: form.notes || null
       });
-      alert("Payment recorded successfully");
+      toast.success("Payment recorded successfully");
       setShowAddModal(false);
       setForm({
         trip_id: "",
@@ -84,7 +86,7 @@ export default function PaymentHistory() {
       setSelectedTrip(null);
       loadData();
     } catch (error) {
-      alert("Error recording payment: " + (error.response?.data?.detail || error.message));
+      toast.error("Error recording payment: " + (error.response?.data?.detail || error.message));
     }
   };
   const formatDate = (dateStr) => formatDateDDMMYYYY(dateStr);

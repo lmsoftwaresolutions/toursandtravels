@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function Notes() {
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -11,6 +12,7 @@ export default function Notes() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
 
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
@@ -32,7 +34,7 @@ export default function Notes() {
         setNotes(res.data || []);
       })
       .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to load notes");
+        toast.error(err?.response?.data?.detail || "Failed to load notes");
       });
   };
 
@@ -85,7 +87,7 @@ export default function Notes() {
         }
       })
       .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to save note");
+        toast.error(err?.response?.data?.detail || "Failed to save note");
       });
   };
 
@@ -96,7 +98,7 @@ export default function Notes() {
         loadNotes();
       })
       .catch(err => {
-        alert(err?.response?.data?.detail || "Failed to delete note");
+        toast.error(err?.response?.data?.detail || "Failed to delete note");
       });
   };
 

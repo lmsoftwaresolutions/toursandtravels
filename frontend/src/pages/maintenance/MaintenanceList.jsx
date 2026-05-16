@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
 
 const TYPE_TABS = [
   { key: "all", label: "All" },
@@ -32,6 +33,7 @@ export default function MaintenanceList() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
 
   useEffect(() => {
     if (activeType !== "all") setAddType(activeType);
@@ -202,7 +204,7 @@ export default function MaintenanceList() {
     if (amountInput === null) return;
     const nextAmount = Number(amountInput);
     if (Number.isNaN(nextAmount) || nextAmount < 0) {
-      window.alert("Please enter a valid non-negative amount.");
+      toast.warning("Please enter a valid non-negative amount.");
       return;
     }
 

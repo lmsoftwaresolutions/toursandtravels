@@ -5,6 +5,8 @@ import api from "../../services/api";
 import Pagination from "../../components/common/Pagination";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function OilBillList() {
   const navigate = useNavigate();
@@ -13,6 +15,8 @@ export default function OilBillList() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const loadBills = useCallback(async () => {
     try {
@@ -20,7 +24,7 @@ export default function OilBillList() {
       const res = await api.get("/oil-bills");
       setBills(res.data || []);
     } catch {
-      alert("Failed to load oil bills");
+      toast.error("Failed to load oil bills");
     } finally {
       setLoading(false);
     }
@@ -37,12 +41,13 @@ export default function OilBillList() {
 
   const handleDelete = async (id) => {
     if (!canWrite) return;
-    if (!window.confirm("Delete this oil bill?")) return;
+    const confirmed = await confirm({ title: "Delete Oil Bill", message: "Delete this oil bill?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/oil-bills/${id}`);
       await loadBills();
     } catch (err) {
-      alert(err?.response?.data?.detail || "Failed to delete oil bill");
+      toast.error(err?.response?.data?.detail || "Failed to delete oil bill");
     }
   };
 

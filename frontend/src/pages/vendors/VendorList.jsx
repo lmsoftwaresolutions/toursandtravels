@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 const CATEGORY_OPTIONS = [
   { value: "fuel", label: "Fuel" },
@@ -26,6 +28,8 @@ export default function VendorList() {
   const user = authService.getUser();
   const isAdmin = user?.role === "admin";
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
+  const confirmDialog = useConfirm();
   const [allVendors, setAllVendors] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,7 +116,7 @@ export default function VendorList() {
 
     const normalizedPhone = normalizeIndianPhone(form.phone);
     if (form.phone && !isValidIndianPhone(form.phone)) {
-      alert("Phone number must be a valid 10-digit Indian mobile number.");
+      toast.warning("Phone number must be a valid 10-digit Indian mobile number.");
       return;
     }
 
@@ -126,17 +130,18 @@ export default function VendorList() {
       setForm({ name: "", phone: "", category: activeFormCategory || "fuel" });
       loadVendors();
     } catch (err) {
-      alert("Error creating vendor: " + (err.response?.data?.detail || err.message));
+      toast.error("Error creating vendor: " + (err.response?.data?.detail || err.message));
     }
   };
 
   const deleteVendor = async (id) => {
-    if (!window.confirm("Delete this vendor?")) return;
+    const confirmed = await confirmDialog({ title: "Delete Vendor", message: "Delete this vendor?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/vendors/${id}`);
       loadVendors();
     } catch (err) {
-      alert("Error deleting vendor: " + (err.response?.data?.detail || err.message));
+      toast.error("Error deleting vendor: " + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -167,7 +172,7 @@ export default function VendorList() {
 
     const normalizedPhone = normalizeIndianPhone(editForm.phone);
     if (editForm.phone && !isValidIndianPhone(editForm.phone)) {
-      alert("Phone number must be a valid 10-digit Indian mobile number.");
+      toast.warning("Phone number must be a valid 10-digit Indian mobile number.");
       return;
     }
 
@@ -183,7 +188,7 @@ export default function VendorList() {
       await loadVendors();
       closeEditModal();
     } catch (err) {
-      alert("Error updating vendor: " + (err.response?.data?.detail || err.message));
+      toast.error("Error updating vendor: " + (err.response?.data?.detail || err.message));
     } finally {
       setSavingEdit(false);
     }

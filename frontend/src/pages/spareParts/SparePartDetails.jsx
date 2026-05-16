@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function SparePartDetails() {
   const { id } = useParams();
@@ -14,6 +16,8 @@ export default function SparePartDetails() {
   const [vendors, setVendors] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [newEntry, setNewEntry] = useState({
     vehicle_number: "",
     part_name: "",
@@ -53,7 +57,7 @@ export default function SparePartDetails() {
 
     try {
       await api.post("/spare-parts", payload);
-      alert("New entry added successfully");
+      toast.success("New entry added successfully");
       setShowAddForm(false);
       setNewEntry({
         vehicle_number: "",
@@ -65,18 +69,19 @@ export default function SparePartDetails() {
       });
       loadSparePartData();
     } catch (error) {
-      alert("Error adding entry: " + (error.response?.data?.detail || error.message));
+      toast.error("Error adding entry: " + (error.response?.data?.detail || error.message));
     }
   };
 
   const handleDeleteEntry = async (entryId) => {
-    if (!window.confirm("Delete this entry?")) return;
+    const confirmed = await confirm({ title: "Delete Entry", message: "Are you sure you want to delete this entry?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/spare-parts/${entryId}`);
-      alert("Entry deleted successfully");
+      toast.success("Entry deleted successfully");
       loadSparePartData();
     } catch (error) {
-      alert("Error deleting entry");
+      toast.error("Error deleting entry");
     }
   };
 

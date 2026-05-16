@@ -4,6 +4,8 @@ import { quotationService } from "../../services/quotationService";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function QuotationList() {
   const navigate = useNavigate();
@@ -13,6 +15,8 @@ export default function QuotationList() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     loadQuotations();
@@ -31,14 +35,14 @@ export default function QuotationList() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this quotation?")) {
-      try {
-        await quotationService.delete(id);
-        loadQuotations();
-      } catch (error) {
-        console.error("Error deleting quotation:", error);
-        alert("Failed to delete quotation");
-      }
+    const confirmed = await confirm({ title: "Delete Quotation", message: "Are you sure you want to delete this quotation?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
+    try {
+      await quotationService.delete(id);
+      loadQuotations();
+    } catch (error) {
+      console.error("Error deleting quotation:", error);
+      toast.error("Failed to delete quotation");
     }
   };
 

@@ -11,6 +11,8 @@ import NathkrupaLogo from "../../assets/nathkrupa-logo.svg";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
 import { vendorEntryConfig } from "../../config/vendorEntryConfig";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 const normalizeVendorCategory = (category) => {
   const value = String(category || "").trim().toLowerCase();
@@ -63,6 +65,8 @@ export default function VendorDetails() {
   const [editingSpareId, setEditingSpareId] = useState(null);
   const todayISODate = useMemo(() => getTodayISODate(), []);
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
+  const confirmDialog = useConfirm();
 
   // ---- Bill state for spare parts ----
   const [billData, setBillData] = useState({ bill_number: "", bill_date: new Date().toISOString().split("T")[0], vehicle_number: "" });
@@ -156,7 +160,8 @@ export default function VendorDetails() {
 
   const handleDeleteSpareEntry = async (e, s) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this entire bill and all its items?")) return;
+    const confirmed = await confirmDialog({ title: "Delete Bill", message: "Delete this entire bill and all its items?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       const itemsToDelete = s.items || [s];
       for (const item of itemsToDelete) {
@@ -167,7 +172,7 @@ export default function VendorDetails() {
       await loadVendorData();
     } catch (err) {
       console.error("Delete spare error:", err);
-      alert("Error deleting entry: " + (err.response?.data?.detail || err.message));
+      toast.error("Error deleting entry: " + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -198,20 +203,21 @@ export default function VendorDetails() {
       await loadVendorData();
     } catch (err) {
       console.error("Save notes error:", err);
-      alert("Error saving notes: " + (err.response?.data?.detail || err.message));
+      toast.error("Error saving notes: " + (err.response?.data?.detail || err.message));
     } finally {
       setMechNotesSaving(false);
     }
   };
 
   const handleDeleteMechEntry = async (m) => {
-    if (!window.confirm("Delete this mechanic entry?")) return;
+    const confirmed = await confirmDialog({ title: "Delete Entry", message: "Delete this mechanic entry?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/mechanic/${m.id}`);
       await loadVendorData();
     } catch (err) {
       console.error("Delete mechanic error:", err);
-      alert("Error deleting entry: " + (err.response?.data?.detail || err.message));
+      toast.error("Error deleting entry: " + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -599,15 +605,15 @@ export default function VendorDetails() {
     if (!payForm.amount || !payForm.paid_on) return;
     const amount = Number(payForm.amount || 0);
     if (amount <= 0) {
-      alert("Payment amount must be greater than zero.");
+      toast.warning("Payment amount must be greater than zero.");
       return;
     }
     if (amount > Number(pendingAmount || 0)) {
-      alert(`Payment cannot exceed pending amount (Rs. ${Number(pendingAmount || 0).toFixed(2)}).`);
+      toast.warning(`Payment cannot exceed pending amount (Rs. ${Number(pendingAmount || 0).toFixed(2)}).`);
       return;
     }
     if (selectedBillForPayment && amount > Number(selectedBillForPayment.pending_amount || 0)) {
-      alert(`Payment cannot exceed bill pending amount (Rs. ${Number(selectedBillForPayment.pending_amount || 0).toFixed(2)}).`);
+      toast.warning(`Payment cannot exceed bill pending amount (Rs. ${Number(selectedBillForPayment.pending_amount || 0).toFixed(2)}).`);
       return;
     }
     const payload = {
@@ -621,12 +627,12 @@ export default function VendorDetails() {
       paymentSubmitLockRef.current = true;
       setPaymentSubmitting(true);
       await api.post("/vendor-payments", payload);
-      alert("Payment recorded successfully");
+      toast.success("Payment recorded successfully");
       await loadVendorData();
       setPayForm({ amount: "", paid_on: "", notes: "", oil_bill_id: "" });
     } catch (err) {
       console.error("Payment submit error:", err);
-      alert("Error recording payment: " + (err.response?.data?.detail || err.message));
+      toast.error("Error recording payment: " + (err.response?.data?.detail || err.message));
     } finally {
       setPaymentSubmitting(false);
       paymentSubmitLockRef.current = false;
@@ -634,25 +640,27 @@ export default function VendorDetails() {
   };
 
   const deletePayment = async (paymentId) => {
-    if (!window.confirm("Delete this payment?")) return;
+    const confirmed = await confirmDialog({ title: "Delete Payment", message: "Delete this payment?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/vendor-payments/${paymentId}`);
       await loadVendorData();
     } catch (err) {
       console.error("Delete payment error:", err);
-      alert("Error deleting payment: " + (err.response?.data?.detail || err.message));
+      toast.error("Error deleting payment: " + (err.response?.data?.detail || err.message));
     }
   };
 
   const deleteOilBill = async (billId) => {
     if (!canWrite) return;
-    if (!window.confirm("Delete this oil bill?")) return;
+    const confirmed = await confirmDialog({ title: "Delete Oil Bill", message: "Delete this oil bill?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/oil-bills/${billId}`);
       await loadVendorData();
     } catch (err) {
       console.error("Delete oil bill error:", err);
-      alert("Error deleting oil bill: " + (err.response?.data?.detail || err.message));
+      toast.error("Error deleting oil bill: " + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -901,18 +909,18 @@ export default function VendorDetails() {
         !isReasonablePastOrTodayDate(payload[field.name])
     );
     if (invalidDateField) {
-      alert(`${invalidDateField.label} must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`);
+      toast.warning(`${invalidDateField.label} must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`);
       return;
     }
 
     try {
       setEntrySubmitting(true);
       await api.post(activeCategoryConfig.endpoint, payload);
-      alert("Entry added successfully");
+      toast.success("Entry added successfully");
       handleCloseModal();
       loadVendorData();
     } catch (error) {
-      alert("Error adding entry: " + (error.response?.data?.detail || error.message));
+      toast.error("Error adding entry: " + (error.response?.data?.detail || error.message));
     } finally {
       setEntrySubmitting(false);
     }
@@ -920,12 +928,13 @@ export default function VendorDetails() {
 
   const handleDeleteVendor = async () => {
     if (!vendor) return;
-    if (!window.confirm(`Delete vendor "${vendor.name}"? This cannot be undone.`)) return;
+    const confirmed = await confirmDialog({ title: "Delete Vendor", message: `Delete vendor "${vendor.name}"? This cannot be undone.`, type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     try {
       await api.delete(`/vendors/${vendor.id}`);
       navigate("/vendors");
     } catch (error) {
-      alert("Error deleting vendor: " + (error.response?.data?.detail || error.message));
+      toast.error("Error deleting vendor: " + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -981,7 +990,7 @@ export default function VendorDetails() {
           <button
             onClick={() => {
               if (availableCategories.length === 0) {
-                alert("No entry form configured for this vendor category.");
+                toast.info("No entry form configured for this vendor category.");
                 return;
               }
               if (availableCategories.length <= 1) {
@@ -1048,7 +1057,7 @@ export default function VendorDetails() {
             <form onSubmit={selectedCategory === "spare_parts" ? async (e) => {
               e.preventDefault();
               if (entrySubmitting) return;
-              if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { alert("Please fill vehicle and at least one item"); return; }
+              if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { toast.warning("Please fill vehicle and at least one item"); return; }
               try {
                 setEntrySubmitting(true);
                 if (editingSpareId) {
@@ -1067,16 +1076,16 @@ export default function VendorDetails() {
                     await api.post("/spare-parts", { vehicle_number: billData.vehicle_number, bill_number: billData.bill_number, part_name: item.particulars, cost: Number(item.rate || 0), quantity: Number(item.qty || 1), vendor: vendor?.name, replaced_date: billData.bill_date });
                   }
                 }
-                alert(editingSpareId ? "Entry updated successfully" : "Entry added successfully");
+                toast.success(editingSpareId ? "Entry updated successfully" : "Entry added successfully");
                 handleCloseModal();
                 loadVendorData();
-              } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+              } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
               finally { setEntrySubmitting(false); }
             } : selectedCategory === "mechanic" ? async (e) => {
               e.preventDefault();
               if (entrySubmitting) return;
-              if (!mechData.vehicle_number || mechWorkItems.every(it => !it.work_description)) { alert("Please select a vehicle and add at least one work item"); return; }
-              if (!mechData.service_date || !isReasonablePastOrTodayDate(mechData.service_date)) { alert(`Date must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`); return; }
+              if (!mechData.vehicle_number || mechWorkItems.every(it => !it.work_description)) { toast.warning("Please select a vehicle and add at least one work item"); return; }
+              if (!mechData.service_date || !isReasonablePastOrTodayDate(mechData.service_date)) { toast.warning(`Date must be between ${MIN_REASONABLE_DATE} and ${todayISODate}`); return; }
               try {
                 setEntrySubmitting(true);
                 for (const item of mechWorkItems.filter(it => it.work_description)) {
@@ -1089,10 +1098,10 @@ export default function VendorDetails() {
                     vendor_id: Number(id),
                   });
                 }
-                alert("Entry added successfully");
+                toast.success("Entry added successfully");
                 handleCloseModal();
                 loadVendorData();
-              } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+              } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
               finally { setEntrySubmitting(false); }
             } : handleEntrySubmit} className="space-y-6">
               {/* Config fields for non-spare_parts, non-mechanic categories */}
@@ -1230,7 +1239,7 @@ export default function VendorDetails() {
                   <button type="button" disabled={entrySubmitting} onClick={async (e) => {
                     e.preventDefault();
                     if (entrySubmitting) return;
-                    if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { alert("Please fill vehicle and at least one item"); return; }
+                    if (!billData.vehicle_number || billItems.every(it => !it.particulars)) { toast.warning("Please fill vehicle and at least one item"); return; }
                     try {
                       setEntrySubmitting(true);
                       if (editingSpareId) {
@@ -1252,7 +1261,7 @@ export default function VendorDetails() {
                       printBill();
                       handleCloseModal();
                       loadVendorData();
-                    } catch (error) { alert("Error: " + (error.response?.data?.detail || error.message)); }
+                    } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
                     finally { setEntrySubmitting(false); }
                   }} className="flex-[2] h-14 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-900/20 disabled:opacity-60 flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>

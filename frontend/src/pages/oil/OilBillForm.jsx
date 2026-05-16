@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import api from "../../services/api";
+import { useToast } from "../../components/common/ToastContext";
 
 const getTodayISO = () => new Date().toISOString().split("T")[0];
 
@@ -20,6 +21,7 @@ export default function OilBillForm() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
+  const toast = useToast();
 
   const [vendors, setVendors] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -53,7 +55,7 @@ export default function OilBillForm() {
     };
 
     loadBase().catch(() => {
-      alert("Failed to load form data");
+      toast.error("Failed to load form data");
     });
   }, [isEdit, searchParams]);
 
@@ -85,7 +87,7 @@ export default function OilBillForm() {
             : [makeEmptyRow()],
         });
       } catch {
-        alert("Failed to load oil bill");
+        toast.error("Failed to load oil bill");
       } finally {
         setLoading(false);
       }
@@ -160,7 +162,7 @@ export default function OilBillForm() {
     if (submitting) return;
     const error = validate();
     if (error) {
-      alert(error);
+      toast.warning(error);
       return;
     }
 
@@ -192,11 +194,11 @@ export default function OilBillForm() {
     } catch (err) {
       const detail = err?.response?.data?.detail;
       if (Array.isArray(detail)) {
-        alert(detail.map((d) => d.msg || d.message || JSON.stringify(d)).join("\n"));
+        toast.error(detail.map((d) => d.msg || d.message || JSON.stringify(d)).join("\n"));
       } else if (typeof detail === "string") {
-        alert(detail);
+        toast.error(detail);
       } else {
-        alert("Failed to save oil bill");
+        toast.error("Failed to save oil bill");
       }
     } finally {
       setSubmitting(false);

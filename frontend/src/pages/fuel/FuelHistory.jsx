@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function FuelHistory() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function FuelHistory() {
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [fuelData, setFuelData] = useState([]);
   const canWrite = !authService.hasLimitedAccess();
+  const confirm = useConfirm();
 
   /* ---------- LOAD VEHICLES ---------- */
   useEffect(() => {
@@ -45,7 +47,8 @@ export default function FuelHistory() {
 
   /* ---------- DELETE ---------- */
   const deleteFuel = async (id) => {
-    if (!window.confirm("Delete this fuel entry?")) return;
+    const confirmed = await confirm({ title: "Delete Fuel Entry", message: "Delete this fuel entry?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
 
     await api.delete(`/fuel/${id}`);
     loadAllFuel();

@@ -4,10 +4,12 @@ import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import NathkrupaLogo from "../../assets/nathkrupa-logo.png";
 import { COMPANY_ADDRESS, COMPANY_CONTACT, COMPANY_EMAIL, COMPANY_NAME } from "../../constants/company";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function DriverDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [driver, setDriver] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [trips, setTrips] = useState([]);
@@ -246,7 +248,7 @@ export default function DriverDetails() {
       setSalaries(res.data);
       setSalaryForm({ amount: "", paid_on: "", notes: "" });
     } catch (error) {
-      alert("Error recording salary payment: " + (error.response?.data?.detail || error.message));
+      toast.error("Error recording salary payment: " + (error.response?.data?.detail || error.message));
     }
   };
 

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function FuelEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [vehicles, setVehicles] = useState([]);
   const [form, setForm] = useState({
@@ -46,7 +48,7 @@ export default function FuelEdit() {
       rate_per_litre: Number(form.rate_per_litre)
     });
 
-    alert("Fuel updated successfully");
+    toast.success("Fuel updated successfully");
     navigate("/fuel/history");
   };
 

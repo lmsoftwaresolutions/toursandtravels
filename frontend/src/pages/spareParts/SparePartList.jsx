@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function SparePartList() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ export default function SparePartList() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const canWrite = !authService.hasLimitedAccess();
+  const confirm = useConfirm();
 
   /* ---------------- LOAD VEHICLES ---------------- */
   useEffect(() => {
@@ -48,7 +50,8 @@ export default function SparePartList() {
 
   /* ---------------- DELETE ---------------- */
   const remove = async (id) => {
-    if (!window.confirm("Delete this spare part?")) return;
+    const confirmed = await confirm({ title: "Delete Spare Part", message: "Delete this spare part?", type: "danger", confirmText: "Delete" });
+    if (!confirmed) return;
     await api.delete(`/spare-parts/${id}`);
     loadAll();
   };

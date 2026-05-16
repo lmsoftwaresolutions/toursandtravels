@@ -4,11 +4,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function OilBillDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +21,7 @@ export default function OilBillDetails() {
         const res = await api.get(`/oil-bills/${id}`);
         setBill(res.data || null);
       } catch {
-        alert("Failed to load oil bill details");
+        toast.error("Failed to load oil bill details");
       } finally {
         setLoading(false);
       }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function SparePartForm() {
   const navigate = useNavigate();
   const { id } = useParams(); // 👈 detect edit mode
+  const toast = useToast();
 
   const [vehicles, setVehicles] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -64,11 +66,11 @@ export default function SparePartForm() {
     if (id) {
       // ✏️ EDIT
       await api.put(`/spare-parts/${id}`, payload);
-      alert("Spare part updated successfully");
+      toast.success("Spare part updated successfully");
     } else {
       // ➕ ADD
       await api.post("/spare-parts", payload);
-      alert("Spare part added successfully");
+      toast.success("Spare part added successfully");
     }
 
     navigate("/spare-parts");

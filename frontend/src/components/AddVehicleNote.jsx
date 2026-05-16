@@ -1,13 +1,15 @@
 import { useState } from "react";
 import api from "../services/api";
+import { useToast } from "./common/ToastContext";
 
 export default function AddVehicleNote({ vehicleId, onAdded }) {
   const [note, setNote] = useState("");
   const [date, setDate] = useState("");
+  const toast = useToast();
 
   const submit = async () => {
     if (!note || !date) {
-      alert("Please fill all fields");
+      toast.warning("Please fill all fields");
       return;
     }
 

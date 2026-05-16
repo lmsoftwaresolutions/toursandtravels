@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./routes/AppRoutes";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { ToastProvider } from "./components/common/ToastContext";
+import { ConfirmProvider } from "./components/common/ConfirmDialog";
 import { authService } from "./services/auth";
 
 export default function App() {
@@ -12,9 +14,13 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <ErrorBoundary>
-        <AppRoutes />
-      </ErrorBoundary>
+      <ToastProvider>
+        <ConfirmProvider>
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
+        </ConfirmProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

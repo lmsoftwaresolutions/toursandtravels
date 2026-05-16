@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function DriverList() {
   const [drivers, setDrivers] = useState([]);
@@ -10,6 +12,8 @@ export default function DriverList() {
   const pageSize = 10;
   const navigate = useNavigate();
   const isAdmin = authService.isAdmin();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     api.get("/drivers").then((res) => setDrivers(res.data));
@@ -26,14 +30,14 @@ export default function DriverList() {
 
   const handleDeleteDriver = async (driverId, driverName) => {
     if (!isAdmin) return;
-    const confirmed = window.confirm(`Deactivate driver "${driverName}"?`);
+    const confirmed = await confirm({ title: "Deactivate Driver", message: `Deactivate driver "${driverName}"?`, type: "warning", confirmText: "Deactivate" });
     if (!confirmed) return;
 
     try {
       await api.delete(`/drivers/${driverId}`);
       setDrivers((prev) => prev.filter((driver) => driver.id !== driverId));
     } catch (error) {
-      alert(error.response?.data?.detail || "Failed to delete driver");
+      toast.error(error.response?.data?.detail || "Failed to delete driver");
     }
   };
 

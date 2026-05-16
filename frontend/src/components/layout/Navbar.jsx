@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/auth";
+import { useToast } from "../common/ToastContext";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const user = authService.getUser();
+  const toast = useToast();
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetForm, setResetForm] = useState({
     currentPassword: "",
@@ -51,7 +53,7 @@ export default function Navbar() {
       setIsSubmittingReset(true);
       await authService.resetPassword(currentPassword, newPassword);
       closeResetModal();
-      alert("Password reset successful. Please login again.");
+      toast.success("Password reset successful. Please login again.");
       handleLogout();
     } catch (error) {
       setResetError(typeof error === "string" ? error : "Failed to reset password");

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import api from "../../services/api";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function AddTrip() {
+  const toast = useToast();
   const [form, setForm] = useState({
     vehicle_number: "",
     customer_name: "",
@@ -20,19 +22,19 @@ export default function AddTrip() {
   const saveTrip = async () => {
     const normalizedVehicleNumber = normalizeVehicleNumber(form.vehicle_number);
     if (!normalizedVehicleNumber) {
-      alert("Vehicle number is required.");
+      toast.warning("Vehicle number is required.");
       return;
     }
     if (!isValidVehicleNumber(form.vehicle_number)) {
-      alert("Vehicle number must follow format like MH12AB1234.");
+      toast.warning("Vehicle number must follow format like MH12AB1234.");
       return;
     }
     if (!form.customer_name.trim()) {
-      alert("Customer name is required.");
+      toast.warning("Customer name is required.");
       return;
     }
     if (!form.distance_km || Number(form.distance_km) <= 0) {
-      alert("Distance must be greater than 0.");
+      toast.warning("Distance must be greater than 0.");
       return;
     }
 
@@ -41,7 +43,7 @@ export default function AddTrip() {
       customer_name: form.customer_name.trim(),
       distance_km: Number(form.distance_km),
     });
-    alert("Trip added successfully");
+    toast.success("Trip added successfully");
   };
 
   return (

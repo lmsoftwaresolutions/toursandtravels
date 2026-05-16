@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { quotationService } from "../../services/quotationService";
 import { numberToWords } from "../../utils/numberToWords";
+import { useToast } from "../../components/common/ToastContext";
 
 export default function QuotationForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+  const toast = useToast();
 
   const [form, setForm] = useState({
     quotation_no: "",
@@ -41,7 +43,7 @@ export default function QuotationForm() {
       setForm(data);
     } catch (error) {
       console.error("Error loading quotation:", error);
-      alert("Failed to load quotation");
+      toast.error("Failed to load quotation");
     }
   };
 
@@ -73,15 +75,15 @@ export default function QuotationForm() {
     try {
       if (isEdit) {
         await quotationService.update(id, form);
-        alert("Quotation updated successfully");
+        toast.success("Quotation updated successfully");
       } else {
         await quotationService.create(form);
-        alert("Quotation created successfully");
+        toast.success("Quotation created successfully");
       }
       navigate("/quotations");
     } catch (error) {
       console.error("Error saving quotation:", error);
-      alert("Error saving quotation");
+      toast.error("Error saving quotation");
     } finally {
       setLoading(false);
     }

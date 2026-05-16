@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { formatDateDDMMYYYY } from "../../utils/date";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { authService } from "../../services/auth";
+import { useToast } from "../../components/common/ToastContext";
 
 const normalizeVehicleNumber = (value) => String(value || "").trim().toLowerCase();
 
@@ -21,6 +22,7 @@ export default function VehicleDetails() {
   const { vehicle_number } = useParams();
   const navigate = useNavigate();
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
 
   const [summary, setSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
@@ -69,7 +71,7 @@ export default function VehicleDetails() {
         )
       );
     } catch {
-      alert("Failed to load vehicle summary");
+      toast.error("Failed to load vehicle summary");
     }
   }, [vehicle_number]);
 

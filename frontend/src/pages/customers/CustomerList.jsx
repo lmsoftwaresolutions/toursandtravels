@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { authService } from "../../services/auth";
 import Pagination from "../../components/common/Pagination";
+import { useToast } from "../../components/common/ToastContext";
+import { useConfirm } from "../../components/common/ConfirmDialog";
 
 export default function CustomerList() {
   const [customers, setCustomers] = useState([]);
@@ -15,6 +17,8 @@ export default function CustomerList() {
   const navigate = useNavigate();
   const isAdmin = authService.isAdmin();
   const canWrite = !authService.hasLimitedAccess();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     Promise.all([api.get("/customers"), api.get("/trips")])
@@ -61,14 +65,14 @@ export default function CustomerList() {
 
   const handleDeleteCustomer = async (customerId, customerName) => {
     if (!isAdmin) return;
-    const confirmed = window.confirm(`Delete customer "${customerName}"?`);
+    const confirmed = await confirm({ title: "Delete Customer", message: `Delete customer "${customerName}"?`, type: "danger", confirmText: "Delete" });
     if (!confirmed) return;
 
     try {
       await api.delete(`/customers/${customerId}`);
       setCustomers((prev) => prev.filter((customer) => customer.id !== customerId));
     } catch (error) {
-      alert(error.response?.data?.detail || "Failed to delete customer");
+      toast.error(error.response?.data?.detail || "Failed to delete customer");
     }
   };
 
